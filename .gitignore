@@ -1,0 +1,5 @@
+node_modules
+dist
+.vscode
+.claude
+.embedding_cache
