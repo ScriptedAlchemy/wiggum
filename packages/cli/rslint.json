@@ -1,0 +1,12 @@
+[
+  {
+    "ignores": [],
+    "languageOptions": {
+      "parserOptions": {
+        "project": ["./tsconfig.json"]
+      }
+    },
+    "rules": {},
+    "plugins": []
+  }
+]

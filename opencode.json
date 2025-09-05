@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "wiggum-doc-explorer": {
+      "type": "local",
+      "command": ["bun", "packages/mcp/build/index.js"],
+      "enabled": true
+    },
+    "wiggum-minimal-doc-explorer": {
+      "type": "local",
+      "command": ["bun", "packages/mcp/build/minimal-index.js"],
+      "enabled": false
+    }
+  }
+}

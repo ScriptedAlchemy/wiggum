@@ -1,0 +1,30 @@
+{
+  "name": "wiggum-monorepo",
+  "version": "1.0.0",
+  "description": "A monorepo containing the wiggum CLI tool and related packages",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "dev": "pnpm -r dev",
+    "clean": "pnpm -r clean"
+  },
+  "keywords": [
+    "monorepo",
+    "cli",
+    "yargs",
+    "command-line"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "dependencies": {
+  }
+}
