@@ -192,6 +192,7 @@ Commands:
   test       Test with Rstest
   doc        Documentation with Rspress
   doctor     Analyze with Rsdoctor
+  agent      OpenCode AI agent integration
 
 This is a passthrough CLI - all flags and options are forwarded to the underlying tools.
 Use "wiggum <command> --help" to see help for a specific command.
@@ -210,6 +211,60 @@ Use "wiggum <command> --help" to see help for a specific command.
     console.log('Usage: wiggum <command> [options]');
     console.log('Run "wiggum --help" for available commands.');
     process.exit(1);
+  }
+
+  // Handle agent command - directly spawn OpenCode interactive TUI
+  if (command === 'agent') {
+    // If there are subcommands, forward to agent CLI handler
+    if (commandArgs.length > 0) {
+      const { spawn } = await import('child_process');
+      const agentCliPath = path.join(__dirname, 'cli-agent.js');
+      
+      const child = spawn('node', [agentCliPath, ...commandArgs], {
+        stdio: 'inherit',
+        cwd: process.cwd()
+      });
+      
+      child.on('exit', (code) => {
+        process.exit(code || 0);
+      });
+    } else {
+      // No subcommands - directly launch OpenCode interactive TUI
+      const { spawn } = await import('child_process');
+      
+      // Check if opencode is installed
+      try {
+        await import('which').then(m => m.default('opencode'));
+        
+        console.log(chalk.cyan('Starting OpenCode interactive terminal UI...'));
+        console.log(chalk.gray('Press Ctrl+C to exit\n'));
+        
+        const child = spawn('opencode', [], {
+          stdio: 'inherit',
+          cwd: process.cwd()
+        });
+        
+        child.on('error', (error: any) => {
+          if (error.code === 'ENOENT') {
+            console.error(chalk.red('OpenCode is not installed'));
+            console.log(chalk.yellow('Run "wiggum agent install" to install OpenCode'));
+          } else {
+            console.error(chalk.red('Error starting OpenCode:'), error);
+          }
+          process.exit(1);
+        });
+        
+        child.on('exit', (code) => {
+          process.exit(code || 0);
+        });
+      } catch {
+        console.error(chalk.red('OpenCode is not installed'));
+        console.log(chalk.yellow('Run "wiggum agent install" to install OpenCode'));
+        process.exit(1);
+      }
+    }
+    
+    return;
   }
 
   // Handle unified commands

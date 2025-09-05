@@ -4,12 +4,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "rsbuild build",
-    "dev": "rsbuild dev --open",
-    "preview": "rsbuild preview"
+    "build": "wiggum build build",
+    "dev": "wiggum build dev --open",
+    "preview": "wiggum build preview",
+    "test": "wiggum test",
+    "test:watch": "wiggum test --watch",
+    "lint": "wiggum lint .",
+    "lint:fix": "wiggum lint --fix ."
   },
   "devDependencies": {
+    "@wiggum/cli": "workspace:*",
     "@rsbuild/core": "^1.5.0",
+    "@rstest/core": "latest",
+    "@rslint/core": "latest", 
     "typescript": "^5.9.2"
   }
 }
