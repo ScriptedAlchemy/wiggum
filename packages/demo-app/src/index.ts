@@ -1,5 +1,6 @@
 import './index.css';
-
+import {x} from './broken.ts'
+console.log(x)
 // Rstack ecosystem tools data
 const rstackTools = [
   {

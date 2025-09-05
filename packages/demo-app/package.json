@@ -4,19 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "wiggum build build",
+    "build": "wiggum build build --autofix",
     "dev": "wiggum build dev --open",
     "preview": "wiggum build preview",
     "test": "wiggum test",
     "test:watch": "wiggum test --watch",
-    "lint": "wiggum lint .",
+    "lint": "wiggum lint . --autofix",
     "lint:fix": "wiggum lint --fix ."
   },
   "devDependencies": {
-    "@wiggum/cli": "workspace:*",
     "@rsbuild/core": "^1.5.0",
+    "@rsbuild/plugin-type-check": "^1.2.4",
+    "@rslint/core": "^0.1.13",
     "@rstest/core": "latest",
-    "@rslint/core": "latest", 
+    "@wiggum/cli": "workspace:*",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@rsbuild/plugin-react": "^1.4.0"
   }
 }

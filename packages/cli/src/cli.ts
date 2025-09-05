@@ -41,6 +41,55 @@ function isPackageInstalled(packageName: string): boolean {
   }
 }
 
+// Handle autofix error by passing to OpenCode
+async function handleAutofixError(
+  toolName: string, 
+  args: string[], 
+  stdout: string, 
+  stderr: string, 
+  exitCode: number | null
+): Promise<void> {
+  console.log(chalk.yellow(`\n${toolName} command failed with exit code ${exitCode}`));
+  console.log(chalk.cyan('Starting OpenCode with error context...\n'));
+  
+  // Build the error message to pass as prompt
+  const errorContext = [
+    `Command failed: wiggum ${toolName} ${args.join(' ')}`,
+    `Exit code: ${exitCode}`,
+    '',
+    'Output:',
+    stdout || '(no stdout)',
+    '',
+    'Errors:',
+    stderr || '(no stderr)',
+    '',
+    'Please help me fix this error.'
+  ].join('\n');
+  
+  // Check if opencode is available
+  try {
+    await which('opencode');
+  } catch {
+    console.error(chalk.red('OpenCode is not installed'));
+    console.log(chalk.yellow('Run "wiggum agent install" to install OpenCode'));
+    process.exit(1);
+  }
+  
+  // Spawn OpenCode with the error context as initial prompt
+  const { spawn } = await import('child_process');
+  const child = spawn('opencode', ['--prompt', errorContext], {
+    stdio: 'inherit',
+    cwd: process.cwd()
+  });
+  
+  // Wait for OpenCode to exit
+  await new Promise<void>((resolve) => {
+    child.on('exit', () => {
+      resolve();
+    });
+  });
+}
+
 // Get package manager (with caching to avoid duplicate detection)
 let cachedPackageManager: string | null = null;
 async function getPackageManager(silent: boolean = false): Promise<string> {
@@ -85,17 +134,37 @@ async function installPackage(packageName: string, packageManager: string): Prom
 }
 
 // Forward command to the appropriate tool
-async function forwardCommand(toolName: string, originalArgs: string[], packageInfo: PackageInfo): Promise<void> {
+async function forwardCommand(toolName: string, originalArgs: string[], packageInfo: PackageInfo, autofix: boolean = false): Promise<void> {
   try {
     // First try to find the tool in PATH
     const toolPath = await which(toolName).catch(() => null);
     
     if (toolPath) {
       // Tool is globally available, use it directly
-      await execa(toolName, originalArgs, { 
-        stdio: 'inherit',
-        cwd: process.cwd()
-      });
+      // If autofix is enabled, capture output for error handling
+      if (autofix) {
+        try {
+          const result = await execa(toolName, originalArgs, { 
+            cwd: process.cwd(),
+            reject: false
+          });
+          
+          if (result.exitCode !== 0) {
+            await handleAutofixError(toolName, originalArgs, result.stdout, result.stderr, result.exitCode);
+          } else {
+            // Success - print output normally
+            if (result.stdout) console.log(result.stdout);
+            if (result.stderr) console.error(result.stderr);
+          }
+        } catch (error: any) {
+          await handleAutofixError(toolName, originalArgs, '', error.message, 1);
+        }
+      } else {
+        await execa(toolName, originalArgs, { 
+          stdio: 'inherit',
+          cwd: process.cwd()
+        });
+      }
     } else {
       // Tool not in PATH, check if packages are installed and install if needed
       // Silent mode for version/help commands
@@ -134,10 +203,30 @@ async function forwardCommand(toolName: string, originalArgs: string[], packageI
         console.log(chalk.blue(`Executing: ${execCommand.command} ${execCommand.args.join(' ')}`));
       }
       
-      await execa(execCommand.command, execCommand.args, { 
-        stdio: 'inherit',
-        cwd: process.cwd()
-      });
+      // If autofix is enabled, capture output for error handling
+      if (autofix) {
+        try {
+          const result = await execa(execCommand.command, execCommand.args, { 
+            cwd: process.cwd(),
+            reject: false
+          });
+          
+          if (result.exitCode !== 0) {
+            await handleAutofixError(toolName, originalArgs, result.stdout, result.stderr, result.exitCode);
+          } else {
+            // Success - print output normally
+            if (result.stdout) console.log(result.stdout);
+            if (result.stderr) console.error(result.stderr);
+          }
+        } catch (error: any) {
+          await handleAutofixError(toolName, originalArgs, '', error.message, 1);
+        }
+      } else {
+        await execa(execCommand.command, execCommand.args, { 
+          stdio: 'inherit',
+          cwd: process.cwd()
+        });
+      }
     }
   } catch (error: any) {
     console.error(chalk.red(`Error executing ${toolName}:`), error.message);
@@ -146,7 +235,7 @@ async function forwardCommand(toolName: string, originalArgs: string[], packageI
 }
 
 // Handle unified commands - SIMPLIFIED PASSTHROUGH
-async function handleUnifiedCommand(command: string, args: string[]): Promise<void> {
+async function handleUnifiedCommand(command: string, args: string[], autofix: boolean = false): Promise<void> {
   const mapping = COMMAND_MAPPING[command];
   
   if (!mapping) {
@@ -158,7 +247,7 @@ async function handleUnifiedCommand(command: string, args: string[]): Promise<vo
   
   // SIMPLE PASSTHROUGH: wiggum <command> [args] → <tool> [args]
   // Just pass all arguments directly to the tool
-  await forwardCommand(tool, args, mapping);
+  await forwardCommand(tool, args, mapping, autofix);
 }
 
 // Get package version
@@ -176,8 +265,19 @@ function getPackageVersion(): string {
 async function main() {
   // Simple CLI argument parsing
   const args = process.argv.slice(2);
-  const command = args[0];
-  const commandArgs = args.slice(1);
+  
+  // Check for --autofix flag
+  let autofix = false;
+  let filteredArgs = args;
+  
+  const autofixIndex = args.findIndex(arg => arg === '--autofix');
+  if (autofixIndex !== -1) {
+    autofix = true;
+    filteredArgs = args.filter((_, index) => index !== autofixIndex);
+  }
+  
+  const command = filteredArgs[0];
+  const commandArgs = filteredArgs.slice(1);
 
   // Show help with --help flag (standard convention)
   if (command === '--help' || command === '-h') {
@@ -270,7 +370,7 @@ Use "wiggum <command> --help" to see help for a specific command.
   // Handle unified commands
   if (COMMAND_MAPPING[command]) {
     try {
-      await handleUnifiedCommand(command, commandArgs);
+      await handleUnifiedCommand(command, commandArgs, autofix);
     } catch (error: any) {
       console.error(chalk.red('Error:'), error.message);
       process.exit(1);
