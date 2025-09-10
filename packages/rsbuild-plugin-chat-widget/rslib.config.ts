@@ -53,8 +53,10 @@ export default defineConfig({
         distPath: {
           root: './dist',
         },
+        injectStyles: true,
       },
       plugins: [pluginReact()], // React plugin only for widget components
+      autoExternal: false,
       dts: false,
     },
     {
@@ -70,8 +72,10 @@ export default defineConfig({
         distPath: {
           root: './dist',
         },
+        injectStyles: true,
       },
       plugins: [pluginReact()], // React plugin only for widget components
+      autoExternal: false,
       dts: false,
     },
   ],

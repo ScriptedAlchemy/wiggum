@@ -1,6 +1,7 @@
 import type { RsbuildPlugin } from '@rsbuild/core';
 import path from 'path';
 import { createOpencodeServer } from '@opencode-ai/sdk';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 
 export interface ChatWidgetOptions {
   // Widget configuration
@@ -45,7 +46,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     const widgetEntryPath = path.join(__dirname, 'widget-loader.mjs');
     
     // Start opencode server just before dev server starts (async-friendly)
-    api.onBeforeStartDevServer(async () => {
+    api.onBeforeStartDevServer(async ({ server }) => {
       try {
         const server = await createOpencodeServer({ hostname: '127.0.0.1', port: 0 });
         opencodeUrl = server.url;
@@ -53,6 +54,22 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[chat-widget] Failed to start opencode server:', (e as any)?.message ?? e);
+        return;
+      }
+
+      // Install proxy middleware to avoid CORS; map /__opencode__ -> opencodeUrl
+      if (opencodeUrl && (server as any)?.middlewares) {
+        const target = opencodeUrl;
+        (server as any).middlewares.use(
+          '/__opencode__',
+          createProxyMiddleware({
+            target,
+            changeOrigin: true,
+            ws: true,
+            pathRewrite: { '^/__opencode__': '' },
+            logLevel: 'warn',
+          }),
+        );
       }
     });
 
@@ -70,8 +87,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
       const newTags = {
         headTags: [
           ...tags.headTags,
-          // Provide connection info via meta tags
-          ...(opencodeUrl ? [{ tag: 'meta', attrs: { name: 'wiggum-opencode-url', content: opencodeUrl } }] : []),
+          // Provide project directory via meta tag (server URL proxied via /__opencode__)
           { tag: 'meta', attrs: { name: 'wiggum-opencode-dir', content: api.context.rootPath } },
           // Inject custom CSS if provided
           ...(customCSS ? [{
@@ -96,11 +112,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
         try { opencodeClose(); } catch { /* ignore */ }
       }
     });
-    api.onCloseBuild(async () => {
-      if (opencodeClose) {
-        try { opencodeClose(); } catch { /* ignore */ }
-      }
-    });
+    // Do NOT close on build-end; keep server alive during dev
   },
 });
 

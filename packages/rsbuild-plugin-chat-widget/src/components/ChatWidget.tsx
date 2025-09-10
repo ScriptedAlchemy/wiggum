@@ -76,38 +76,23 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       await onSendMessage(userMessage.text);
     }
 
-    // Get response if handler is provided
+    // Only add a response when handler provided and succeeds
     if (onMessageResponse) {
       try {
         const response = await onMessageResponse(userMessage.text);
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: response,
-          sender: 'bot',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, botMessage]);
+        if (response && response.trim()) {
+          const botMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            text: response,
+            sender: 'bot',
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, botMessage]);
+        }
       } catch (error) {
         console.error('Error getting message response:', error);
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: 'Sorry, I encountered an error. Please try again.',
-          sender: 'bot',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, errorMessage]);
+        // No fallback message
       }
-    } else {
-      // Default response if no handler provided
-      setTimeout(() => {
-        const botMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          text: 'Thank you for your message! This is a demo response.',
-          sender: 'bot',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, botMessage]);
-      }, 1000);
     }
 
     setIsLoading(false);
