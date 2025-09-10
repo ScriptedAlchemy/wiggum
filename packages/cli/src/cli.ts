@@ -8,6 +8,7 @@ import { detect } from 'package-manager-detector';
 import { resolveCommand } from 'package-manager-detector/commands';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createWiggumOpencodeTui, checkOpenCodeBinary, installOpenCode, runOpenCodeServer, runOpenCodeCommand, createOpenCodeConfig, showAgentHelp } from './agent.js';
 
 // Types
 interface PackageInfo {
@@ -50,10 +51,9 @@ async function handleAutofixError(
   exitCode: number | null
 ): Promise<void> {
   console.log(chalk.yellow(`\n${toolName} command failed with exit code ${exitCode}`));
-  console.log(chalk.cyan('Starting OpenCode with error context...\n'));
-  
-  // Build the error message to pass as prompt
-  const errorContext = [
+  console.log(chalk.cyan('Opening OpenCode TUI with error context...\n'));
+
+  const prompt = [
     `Command failed: wiggum ${toolName} ${args.join(' ')}`,
     `Exit code: ${exitCode}`,
     '',
@@ -65,8 +65,8 @@ async function handleAutofixError(
     '',
     'Please help me fix this error.'
   ].join('\n');
-  
-  // Check if opencode is available
+
+  // Verify opencode exists
   try {
     await which('opencode');
   } catch {
@@ -74,20 +74,18 @@ async function handleAutofixError(
     console.log(chalk.yellow('Run "wiggum agent install" to install OpenCode'));
     process.exit(1);
   }
-  
-  // Spawn OpenCode with the error context as initial prompt
-  const { spawn } = await import('child_process');
-  const child = spawn('opencode', ['--prompt', errorContext], {
-    stdio: 'inherit',
-    cwd: process.cwd()
+
+  // Launch TUI with inline config and prompt
+  const tui = await createWiggumOpencodeTui({ prompt });
+
+  // Keep session alive until interrupted
+  process.on('SIGINT', () => {
+    console.log(chalk.yellow('\nShutting down...'));
+    tui.close();
+    process.exit(0);
   });
-  
-  // Wait for OpenCode to exit
-  await new Promise<void>((resolve) => {
-    child.on('exit', () => {
-      resolve();
-    });
-  });
+
+  await new Promise(() => {});
 }
 
 // Get package manager (with caching to avoid duplicate detection)
@@ -313,57 +311,102 @@ Use "wiggum <command> --help" to see help for a specific command.
     process.exit(1);
   }
 
-  // Handle agent command - directly spawn OpenCode interactive TUI
+  // Handle agent command - integrate agent subcommands directly
   if (command === 'agent') {
-    // If there are subcommands, forward to agent CLI handler
-    if (commandArgs.length > 0) {
-      const { spawn } = await import('child_process');
-      const agentCliPath = path.join(__dirname, 'cli-agent.js');
-      
-      const child = spawn('node', [agentCliPath, ...commandArgs], {
-        stdio: 'inherit',
-        cwd: process.cwd()
-      });
-      
-      child.on('exit', (code) => {
-        process.exit(code || 0);
-      });
-    } else {
-      // No subcommands - directly launch OpenCode interactive TUI
-      const { spawn } = await import('child_process');
-      
-      // Check if opencode is installed
-      try {
-        await import('which').then(m => m.default('opencode'));
-        
-        console.log(chalk.cyan('Starting OpenCode interactive terminal UI...'));
-        console.log(chalk.gray('Press Ctrl+C to exit\n'));
-        
-        const child = spawn('opencode', [], {
-          stdio: 'inherit',
-          cwd: process.cwd()
-        });
-        
-        child.on('error', (error: any) => {
-          if (error.code === 'ENOENT') {
-            console.error(chalk.red('OpenCode is not installed'));
-            console.log(chalk.yellow('Run "wiggum agent install" to install OpenCode'));
+    const sub = commandArgs[0];
+
+    // If help requested, show help; otherwise default to TUI when no subcommand
+    if (sub === '--help' || sub === '-h' || sub === 'help') {
+      showAgentHelp();
+      process.exit(0);
+    }
+
+    // Simple flag parser for agent subcommands
+    const parseFlags = (argsArr: string[]): Record<string, string | boolean> => {
+      const flags: Record<string, string | boolean> = {};
+      for (let i = 0; i < argsArr.length; i++) {
+        const a = argsArr[i];
+        if (a.startsWith('--')) {
+          const key = a.slice(2);
+          const next = argsArr[i + 1];
+          if (next && !next.startsWith('-')) {
+            flags[key] = next;
+            i++;
           } else {
-            console.error(chalk.red('Error starting OpenCode:'), error);
+            flags[key] = true;
           }
-          process.exit(1);
-        });
-        
-        child.on('exit', (code) => {
-          process.exit(code || 0);
-        });
-      } catch {
+        } else if (a.startsWith('-')) {
+          flags[a.slice(1)] = true;
+        }
+      }
+      return flags;
+    };
+
+    // If no subcommand, default to launching TUI
+    const effectiveSub = sub || 'chat';
+
+    // All subcommands except install require opencode installed
+    if (effectiveSub !== 'install') {
+      const binaryPath = await checkOpenCodeBinary();
+      if (!binaryPath) {
         console.error(chalk.red('OpenCode is not installed'));
         console.log(chalk.yellow('Run "wiggum agent install" to install OpenCode'));
         process.exit(1);
       }
     }
-    
+
+    try {
+      switch (effectiveSub) {
+        case 'install': {
+          const ok = await installOpenCode();
+          if (!ok) process.exit(1);
+          break;
+        }
+        case 'init': {
+          await createOpenCodeConfig();
+          break;
+        }
+        case 'serve':
+        case 'server': {
+          const flags = parseFlags(commandArgs.slice(1));
+          const port = flags.port ? parseInt(flags.port as string) : undefined;
+          const hostname = (flags.hostname as string) || undefined;
+          await runOpenCodeServer(port, hostname);
+          break;
+        }
+        case 'chat':
+        case 'tui': {
+          console.log(chalk.cyan('Starting OpenCode interactive terminal UI...'));
+          console.log(chalk.gray('Press Ctrl+C to exit'));
+          const tui = await createWiggumOpencodeTui();
+          process.on('SIGINT', () => {
+            console.log(chalk.yellow('\nShutting down...'));
+            tui.close();
+            process.exit(0);
+          });
+          await new Promise(() => {});
+          break;
+        }
+        case 'run': {
+          if (commandArgs.length < 2) {
+            console.error(chalk.red('No command specified for "run"'));
+            console.log(chalk.yellow('Example: wiggum agent run session list'));
+            process.exit(1);
+          }
+          await runOpenCodeCommand(commandArgs[1], commandArgs.slice(2));
+          break;
+        }
+        default: {
+          // Pass-through: wiggum agent <opencode-subcommand> [...args]
+          await runOpenCodeCommand(effectiveSub, commandArgs.slice(1));
+          break;
+        }
+      }
+    } catch (error: any) {
+      console.error(chalk.red('Error:'), error.message || error);
+      process.exit(1);
+    }
+
     return;
   }
 
