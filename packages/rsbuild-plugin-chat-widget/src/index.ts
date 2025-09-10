@@ -32,7 +32,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
   
   setup(api) {
     let opencodeUrl: string | undefined;
-    let opencodeClose: (() => Promise<void>) | undefined;
+    let opencodeClose: (() => void) | undefined;
 
     const {
       customCSS = '',
@@ -92,12 +92,12 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     // Ensure we tear down opencode server when dev/preview server stops
     api.onCloseDevServer(async () => {
       if (opencodeClose) {
-        try { await opencodeClose(); } catch { /* ignore */ }
+        try { opencodeClose(); } catch { /* ignore */ }
       }
     });
     api.onCloseBuild(async () => {
       if (opencodeClose) {
-        try { await opencodeClose(); } catch { /* ignore */ }
+        try { opencodeClose(); } catch { /* ignore */ }
       }
     });
   },
