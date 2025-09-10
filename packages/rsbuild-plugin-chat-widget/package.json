@@ -1,0 +1,63 @@
+{
+  "name": "@wiggum/rsbuild-plugin-chat-widget",
+  "version": "0.1.0",
+  "description": "Rsbuild plugin for adding a floating chat widget to web applications",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./src/widget-entry": "./src/widget-entry.tsx"
+  },
+  "scripts": {
+    "build": "rslib build",
+    "build:watch": "rslib build --watch",
+    "dev": "rslib build --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "rsbuild",
+    "plugin",
+    "chat",
+    "widget",
+    "react",
+    "floating"
+  ],
+  "author": "Wiggum Team",
+  "license": "MIT",
+  "peerDependencies": {
+    "@rsbuild/core": ">=1.0.0",
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^1.5.3",
+    "@rsbuild/plugin-react": "^1.4.0",
+    "@rslib/core": "^0.12.4",
+    "@types/node": "^22.18.1",
+    "@types/react": "^18.3.24",
+    "@types/react-dom": "^18.3.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.9.2",
+    "vitest": "^1.6.1"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wiggum/wiggum.git",
+    "directory": "packages/rsbuild-plugin-chat-widget"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

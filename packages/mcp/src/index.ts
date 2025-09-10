@@ -11,6 +11,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { marked } from 'marked';
 
 // Configure transformers.js for Node.js
 env.allowLocalModels = false;
@@ -18,54 +19,54 @@ env.useBrowserCache = false;
 
 // AI-optimized MCP server for Rstack ecosystem documentation
 
-const RSTACK_SITES = {
+export const RSTACK_SITES = {
   rspack: {
     name: 'Rspack',
     description: 'Fast Rust-based web bundler',
     url: 'https://rspack.rs',
-    docsUrl: 'https://rspack.rs/guide',
+    docsUrl: '/guide',
     type: 'bundler',
   },
   rsbuild: {
     name: 'Rsbuild',
     description: 'Rspack-based build tool',
     url: 'https://rsbuild.rs',
-    docsUrl: 'https://rsbuild.rs/guide',
+    docsUrl: '/guide',
     type: 'build-tool',
   },
   rspress: {
     name: 'Rspress',
     description: 'Static site generator',
     url: 'https://rspress.rs',
-    docsUrl: 'https://rspress.rs/guide',
+    docsUrl: '/guide',
     type: 'static-site-generator',
   },
   rslib: {
     name: 'Rslib',
     description: 'Library development tool',
     url: 'https://rslib.rs',
-    docsUrl: 'https://rslib.rs/guide',
+    docsUrl: '/guide',
     type: 'library-tool',
   },
   rsdoctor: {
     name: 'Rsdoctor',
     description: 'Build analyzer',
     url: 'https://rsdoctor.rs',
-    docsUrl: 'https://rsdoctor.rs/guide',
+    docsUrl: '/guide',
     type: 'analyzer',
   },
   rstest: {
     name: 'Rstest',
     description: 'Testing framework',
     url: 'https://rstest.rs',
-    docsUrl: 'https://rstest.rs/guide',
+    docsUrl: '/guide',
     type: 'testing-framework',
   },
   rslint: {
     name: 'Rslint',
     description: 'JavaScript and TypeScript linter',
     url: 'https://rslint.rs',
-    docsUrl: 'https://rslint.rs/guide',
+    docsUrl: '/guide',
     type: 'linter',
   },
 };
@@ -85,16 +86,16 @@ interface DocumentIndex {
 }
 
 
-class WiggumMCPServer {
+export class WiggumMCPServer {
   private server: McpServer;
   private documentCache: Map<string, { content: string; timestamp: number }>;
-  private searchIndex: Map<string, DocumentIndex>; // site -> index
-  private cacheTimeout = 10 * 60 * 1000; // 10 minutes cache
+  private searchIndex: Map<string, DocumentIndex>;
+  private cacheTimeout = 10 * 60 * 1000; // 10 minutes for document cache
   private indexTimeout = 30 * 60 * 1000; // 30 minutes for search index
-  private embeddingPipeline: any = null;
-  private embeddingModel = 'Xenova/all-MiniLM-L6-v2'; // Fast, lightweight model
-  private modelInitPromise: Promise<void> | null = null;
   private cacheDir: string;
+  private embeddingModel = 'Xenova/all-MiniLM-L6-v2'; // Fast, lightweight model
+  private embeddingPipeline: any = null;
+  private modelInitPromise: Promise<void> | null;
 
   constructor() {
     this.server = new McpServer(
@@ -165,6 +166,82 @@ class WiggumMCPServer {
     }
   }
 
+  private parseMarkdownLinks(content: string): Array<{title: string, path: string}> {
+    const links: Array<{title: string, path: string}> = [];
+    
+    try {
+      // Parse the markdown content
+      const tokens = marked.lexer(content);
+      
+      // Walk through all tokens to find links
+      const walkTokens = (tokens: any[]): void => {
+        for (const token of tokens) {
+          if (token.type === 'link' && token.href && token.href.endsWith('.md')) {
+            links.push({
+              title: token.text || token.href,
+              path: token.href
+            });
+          }
+          
+          // Recursively walk nested tokens
+          if (token.tokens) {
+            walkTokens(token.tokens);
+          }
+          if (token.items) {
+            walkTokens(token.items);
+          }
+        }
+      };
+      
+      walkTokens(tokens);
+    } catch (error) {
+      process.stderr.write(`[WARNING] Failed to parse markdown with marked: ${error}\n`);
+      // Fallback to regex parsing
+      const markdownLinkMatches = content.matchAll(/\[([^\]]+)\]\(([^)]+\.md)\)/g);
+      for (const match of markdownLinkMatches) {
+        links.push({
+          title: match[1].trim(),
+          path: match[2].trim()
+        });
+      }
+    }
+    
+    return links;
+  }
+
+  private extractMarkdownHeadings(content: string): Array<{level: number, text: string}> {
+    const headings: Array<{level: number, text: string}> = [];
+    
+    try {
+      // Use marked.lexer to parse markdown content
+      const tokens = marked.lexer(content);
+      
+      for (const token of tokens) {
+        if (token.type === 'heading' && token.depth <= 3) {
+          headings.push({
+            level: token.depth,
+            text: token.text
+          });
+        }
+      }
+    } catch (error) {
+      process.stderr.write(`[WARNING] Failed to parse markdown headings with marked: ${error}\n`);
+      
+      // Fallback to regex parsing
+      const lines = content.split('\n');
+      for (const line of lines) {
+        const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+        if (headingMatch) {
+          const level = headingMatch[1].length;
+          const text = headingMatch[2].trim();
+          headings.push({ level, text });
+        }
+      }
+    }
+    
+    return headings;
+  }
+
   private setupTools() {
     // AI-optimized tools for documentation exploration
 
@@ -214,16 +291,15 @@ class WiggumMCPServer {
           throw new Error(`Site '${site}' not found`);
         }
         
+        const documentationUrl = `${siteInfo.url}/llms.txt`;
+        
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
-              id: site,
-              name: siteInfo.name,
-              description: siteInfo.description,
-              url: siteInfo.url,
-              docsUrl: siteInfo.docsUrl,
-              type: siteInfo.type
+              site,
+              info: siteInfo,
+              documentationUrl
             }, null, 2),
           }],
         };
@@ -231,20 +307,22 @@ class WiggumMCPServer {
     );
 
     // Register search_docs tool - returns pages that match the query
+    // Register search tool with comprehensive search capabilities
     this.server.registerTool(
-      'search_docs',
+      'search',
       {
-        description: 'Search for documentation pages. Returns matching pages with previews. Use get_page to fetch full page content.',
+        description: 'Search for documentation pages with advanced filtering and semantic search capabilities. Returns matching pages with previews and context.',
         inputSchema: {
           query: z.string().describe('Search query to find relevant documentation pages'),
           site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint', 'all']).optional().default('all').describe('Specific site to search, or "all" to search across all sites'),
-          maxResults: z.number().optional().default(10).describe('Maximum number of pages to return')
+          maxResults: z.number().optional().default(20).describe('Maximum number of pages to return'),
+          includeContext: z.boolean().optional().default(true).describe('Include surrounding context in results'),
+          semanticWeight: z.number().optional().default(0.5).describe('Weight for semantic search (0-1) when using hybrid mode')
         },
       },
-      async ({ query, site = 'all', maxResults = 10 }) => {
+      async ({ query, site = 'all', maxResults = 10, includeContext = true, semanticWeight = 0.5 }) => {
         try {
-          // Use hybrid search with optimized settings
-          const searchResults = await this.hybridSearchDocumentation(query, site, maxResults);
+          const searchResults = await this.advancedSearch(query, site, maxResults, includeContext, semanticWeight);
           return {
             content: [{ type: 'text', text: searchResults }],
           };
@@ -263,55 +341,18 @@ class WiggumMCPServer {
       }
     );
 
-    // Register advanced_search tool for more sophisticated searches
-    this.server.registerTool(
-      'advanced_search',
-      {
-        description: 'Advanced search with options for deep markdown crawling and filtering',
-        inputSchema: {
-          query: z.string().describe('Search query for documentation'),
-          site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint', 'all']).optional().default('all').describe('Specific site to search'),
-          searchMode: z.enum(['quick', 'deep', 'index_only', 'semantic', 'hybrid']).optional().default('hybrid').describe('Search mode: quick (llms.txt only), deep (TF-IDF), semantic (embeddings), hybrid (TF-IDF + semantic)'),
-          maxResults: z.number().optional().default(20).describe('Maximum number of results per site'),
-          includeContext: z.boolean().optional().default(true).describe('Include surrounding context in results'),
-          semanticWeight: z.number().optional().default(0.5).describe('Weight for semantic search (0-1) when using hybrid mode')
-        },
-      },
-      async ({ query, site = 'all', searchMode = 'hybrid', maxResults = 20, includeContext = true, semanticWeight = 0.5 }) => {
-        try {
-          const searchResults = await this.advancedSearch(query, site, searchMode, maxResults, includeContext, semanticWeight);
-          return {
-            content: [{ type: 'text', text: searchResults }],
-          };
-        } catch (error) {
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                error: `Advanced search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                query,
-                site,
-                searchMode
-              }, null, 2),
-            }],
-          };
-        }
-      }
-    );
-
     // Register get_docs tool
     this.server.registerTool(
       'get_docs',
       {
         description: 'Fetch documentation content from a specific Rstack site',
         inputSchema: {
-          site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to fetch documentation from'),
-          format: z.enum(['llms', 'guide', 'api']).optional().default('llms').describe('Format of documentation to fetch (llms.txt, guide, or api)')
+          site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to fetch documentation from')
         },
       },
-      async ({ site, format = 'llms' }) => {
+      async ({ site }) => {
         try {
-          const docContent = await this.fetchDocumentation(site, format);
+          const docContent = await this.fetchDocumentation(site);
           return {
             content: [{ type: 'text', text: docContent }],
           };
@@ -322,7 +363,7 @@ class WiggumMCPServer {
               text: JSON.stringify({
                 error: `Failed to fetch documentation: ${error instanceof Error ? error.message : 'Unknown error'}`,
                 site,
-                format
+                format: 'llms'
               }, null, 2),
             }],
           };
@@ -346,7 +387,7 @@ class WiggumMCPServer {
           if (!siteInfo) throw new Error(`Unknown site: ${site}`);
           
           // First, get the llms.txt to find the actual markdown file
-          const llmsContent = await this.fetchDocumentation(site, 'llms');
+          const llmsContent = await this.fetchDocumentation(site);
           const markdownPath = this.findMarkdownPath(llmsContent, path);
           
           if (!markdownPath) {
@@ -390,28 +431,74 @@ class WiggumMCPServer {
       }
     );
 
-    // Register list_pages tool - list all available pages from llms.txt
+    // Register list_pages tool - list all available pages from llms.txt with headings
     this.server.registerTool(
       'list_pages',
       {
-        description: 'List all available documentation pages for a specific Rstack site',
+        description: 'List all available documentation pages for a specific Rstack site, including page titles and h1-h3 headings',
         inputSchema: {
           site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to list pages from')
         },
       },
       async ({ site }) => {
         try {
-          const llmsContent = await this.fetchDocumentation(site, 'llms');
+          const siteInfo = RSTACK_SITES[site as keyof typeof RSTACK_SITES];
+          const llmsContent = await this.fetchDocumentation(site);
           const pages = this.parseAvailablePages(llmsContent);
+          
+          // Enhance pages with headings by fetching content
+          const enhancedPages = await Promise.all(
+            pages.map(async (page) => {
+              try {
+                const markdownContent = await this.fetchMarkdownContent(siteInfo.url, page.path);
+                const headings = this.extractMarkdownHeadings(markdownContent);
+                
+                return {
+                  ...page,
+                  headings: headings.map(h => ({
+                    level: h.level,
+                    text: h.text
+                  }))
+                };
+              } catch (error) {
+                // If we can't fetch the page content, return the page without headings
+                process.stderr.write(`[WARNING] Failed to fetch headings for ${page.path}: ${error}\n`);
+                return {
+                  ...page,
+                  headings: []
+                };
+              }
+            })
+          );
+          
+          // Format as markdown for better LLM consumption
+          let markdown = `# ${site.toUpperCase()} Documentation Pages\n\n`;
+          markdown += `**Total Pages:** ${enhancedPages.length}\n\n`;
+          
+          enhancedPages.forEach((page, index) => {
+            markdown += `## ${index + 1}. ${page.title}\n\n`;
+            markdown += `**Path:** \`${page.path}\`\n\n`;
+            
+            if (page.section) {
+              markdown += `**Section:** ${page.section}\n\n`;
+            }
+            
+            if (page.headings && page.headings.length > 0) {
+              markdown += `**Page Headings:**\n`;
+              page.headings.forEach(heading => {
+                const indent = '  '.repeat(heading.level - 1);
+                markdown += `${indent}- ${'#'.repeat(heading.level)} ${heading.text}\n`;
+              });
+              markdown += `\n`;
+            }
+            
+            markdown += `---\n\n`;
+          });
           
           return {
             content: [{
               type: 'text',
-              text: JSON.stringify({
-                site,
-                totalPages: pages.length,
-                pages
-              }, null, 2)
+              text: markdown
             }],
           };
         } catch (error) {
@@ -429,26 +516,13 @@ class WiggumMCPServer {
     );
   }
 
-  private async fetchDocumentation(site: string, format: string): Promise<string> {
+  private async fetchDocumentation(site: string): Promise<string> {
     const siteInfo = RSTACK_SITES[site as keyof typeof RSTACK_SITES];
     if (!siteInfo) {
       throw new Error(`Unknown site: ${site}`);
     }
 
-    let url: string;
-    switch (format) {
-      case 'llms':
-        url = `${siteInfo.url}/llms.txt`;
-        break;
-      case 'guide':
-        url = siteInfo.docsUrl;
-        break;
-      case 'api':
-        url = `${siteInfo.url}/api`;
-        break;
-      default:
-        throw new Error(`Unknown format: ${format}`);
-    }
+    const url = `${siteInfo.url}/llms.txt`;
 
     try {
       const response = await fetch(url);
@@ -462,36 +536,19 @@ class WiggumMCPServer {
   }
 
   private findMarkdownPath(llmsContent: string, requestedPath: string): string | null {
-    const lines = llmsContent.split('\n');
+    const links = this.parseMarkdownLinks(llmsContent);
     
-    // Look for markdown links in the format [Title](/path/to/file.md)
-    for (const line of lines) {
-      const markdownLinkMatch = line.match(/\[([^\]]+)\]\(([^)]+\.md)\)/);
-      if (markdownLinkMatch) {
-        const [, title, mdPath] = markdownLinkMatch;
-        
-        // Check if the requested path matches the markdown path or title
-        if (mdPath === requestedPath || 
-            mdPath.includes(requestedPath) || 
-            requestedPath.includes(mdPath.replace('.md', '')) ||
-            title.toLowerCase().includes(requestedPath.toLowerCase().replace(/[\/\-]/g, ' ')) ||
-            requestedPath.toLowerCase().includes(title.toLowerCase().replace(/[\s\-]/g, ''))) {
-          return mdPath;
-        }
+    // First, try exact match
+    for (const link of links) {
+      if (link.path === requestedPath || link.path.endsWith(requestedPath)) {
+        return link.path;
       }
     }
     
-    // If no exact match, try to find a partial match
-    for (const line of lines) {
-      const markdownLinkMatch = line.match(/\[([^\]]+)\]\(([^)]+\.md)\)/);
-      if (markdownLinkMatch) {
-        const [, title, mdPath] = markdownLinkMatch;
-        const pathParts = requestedPath.split('/').filter(p => p);
-        
-        // Check if any part of the requested path matches
-        if (pathParts.some(part => mdPath.includes(part) || title.toLowerCase().includes(part.toLowerCase()))) {
-          return mdPath;
-        }
+    // Then try partial match
+    for (const link of links) {
+      if (link.path.includes(requestedPath) || requestedPath.includes(link.path)) {
+        return link.path;
       }
     }
     
@@ -501,7 +558,6 @@ class WiggumMCPServer {
   private async advancedSearch(
     query: string,
     site: string,
-    searchMode: string,
     maxResults: number,
     includeContext: boolean,
     semanticWeight: number = 0.5
@@ -521,18 +577,11 @@ class WiggumMCPServer {
 
     for (const siteKey of sitesToSearch) {
       try {
-        // Build or retrieve index
-        const index = await this.buildOrGetIndex(siteKey, searchMode === 'semantic' || searchMode === 'hybrid');
+        // Build or retrieve index with embeddings for hybrid search
+        const index = await this.buildOrGetIndex(siteKey, true);
         
-        let searchResults;
-        
-        if (searchMode === 'semantic') {
-          searchResults = await this.searchWithSemantics(index, query, maxResults, includeContext);
-        } else if (searchMode === 'hybrid') {
-          searchResults = await this.hybridSearch(index, query, maxResults, includeContext, semanticWeight);
-        } else {
-          searchResults = await this.searchWithTFIDF(index, query, maxResults, includeContext);
-        }
+        // Always use hybrid search
+        const searchResults = await this.hybridSearch(index, query, maxResults, includeContext, semanticWeight);
         
         if (searchResults.length > 0) {
           results.push({
@@ -560,7 +609,7 @@ class WiggumMCPServer {
 
     return JSON.stringify({
       query,
-      searchMode,
+      searchMode: 'hybrid',
       searchedSites: sitesToSearch,
       totalResults: results.reduce((sum, r) => sum + r.matches.length, 0),
       results
@@ -710,7 +759,7 @@ class WiggumMCPServer {
     };
     
     // Fetch llms.txt
-    const llmsContent = await this.fetchDocumentation(site, 'llms');
+    const llmsContent = await this.fetchDocumentation(site);
     const markdownFiles = this.extractAllMarkdownLinks(llmsContent);
     
     // Index llms.txt
@@ -1169,27 +1218,65 @@ class WiggumMCPServer {
   }
 
   private parseAvailablePages(llmsContent: string): Array<{title: string, path: string, section?: string}> {
-    const lines = llmsContent.split('\n');
     const pages: Array<{title: string, path: string, section?: string}> = [];
     let currentSection = '';
     
-    for (const line of lines) {
-      // Check for section headers (## Section Name)
-      const sectionMatch = line.match(/^##\s+(.+)$/);
-      if (sectionMatch) {
-        currentSection = sectionMatch[1];
-        continue;
-      }
+    try {
+      // Parse the markdown content
+      const tokens = marked.lexer(llmsContent);
       
-      // Look for markdown links
-      const markdownLinkMatch = line.match(/\[([^\]]+)\]\(([^)]+\.md)\)/);
-      if (markdownLinkMatch) {
-        const [, title, path] = markdownLinkMatch;
-        pages.push({
-          title: title.trim(),
-          path: path.trim(),
-          section: currentSection || undefined
-        });
+      // Walk through tokens to find headings and links
+      const walkTokens = (tokens: any[]): void => {
+        for (const token of tokens) {
+          // Check for section headers (## Section Name)
+          if (token.type === 'heading' && token.depth === 2) {
+            currentSection = token.text || '';
+            continue;
+          }
+          
+          // Check for links
+          if (token.type === 'link' && token.href && token.href.endsWith('.md')) {
+            pages.push({
+              title: token.text || token.href,
+              path: token.href,
+              section: currentSection || undefined
+            });
+          }
+          
+          // Recursively walk nested tokens
+          if (token.tokens) {
+            walkTokens(token.tokens);
+          }
+          if (token.items) {
+            walkTokens(token.items);
+          }
+        }
+      };
+      
+      walkTokens(tokens);
+    } catch (error) {
+      process.stderr.write(`[WARNING] Failed to parse markdown with marked: ${error}\n`);
+      // Fallback to regex parsing
+      const lines = llmsContent.split('\n');
+      
+      for (const line of lines) {
+        // Check for section headers (## Section Name)
+        const sectionMatch = line.match(/^##\s+(.+)$/);
+        if (sectionMatch) {
+          currentSection = sectionMatch[1];
+          continue;
+        }
+        
+        // Look for markdown links
+        const markdownLinkMatch = line.match(/\[([^\]]+)\]\(([^)]+\.md)\)/);
+        if (markdownLinkMatch) {
+          const [, title, path] = markdownLinkMatch;
+          pages.push({
+            title: title.trim(),
+            path: path.trim(),
+            section: currentSection || undefined
+          });
+        }
       }
     }
     
@@ -1278,21 +1365,7 @@ class WiggumMCPServer {
 
 
   private extractAllMarkdownLinks(llmsContent: string): Array<{title: string, path: string}> {
-    const lines = llmsContent.split('\n');
-    const links: Array<{title: string, path: string}> = [];
-    
-    for (const line of lines) {
-      // Extract markdown links in the format [Title](path.md)
-      const markdownLinkMatches = line.matchAll(/\[([^\]]+)\]\(([^)]+\.md)\)/g);
-      for (const match of markdownLinkMatches) {
-        links.push({
-          title: match[1].trim(),
-          path: match[2].trim()
-        });
-      }
-    }
-    
-    return links;
+    return this.parseMarkdownLinks(llmsContent);
   }
 
   private async fetchMarkdownContent(baseUrl: string, path: string): Promise<string> {

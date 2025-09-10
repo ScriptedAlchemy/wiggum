@@ -4,20 +4,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "wiggum build build --autofix",
+    "build": "wiggum build build",
     "dev": "wiggum build dev --open",
     "preview": "wiggum build preview",
     "test": "wiggum test",
     "test:watch": "wiggum test --watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "lint": "wiggum lint . --autofix",
     "lint:fix": "wiggum lint --fix ."
   },
   "devDependencies": {
-    "@rsbuild/core": "^1.5.0",
+    "@playwright/test": "^1.55.0",
+    "@rsbuild/core": "^1.5.3",
     "@rsbuild/plugin-type-check": "^1.2.4",
     "@rslint/core": "^0.1.13",
-    "@rstest/core": "latest",
+    "@rstest/core": "^0.3.2",
     "@wiggum/cli": "workspace:*",
+    "@wiggum/rsbuild-plugin-chat-widget": "workspace:*",
+    "playwright": "^1.55.0",
     "typescript": "^5.9.2"
   },
   "dependencies": {

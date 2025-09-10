@@ -7,6 +7,9 @@
 node_modules
 dist/
 
+# Test artifacts
+test-results/
+
 # Profile
 .rspack-profile-*/
 

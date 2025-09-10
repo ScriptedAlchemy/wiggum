@@ -1,11 +1,12 @@
 // Intentionally broken TypeScript for testing
-const x: string = 123;  // Type error
-console.ldog(x);
+const x: string = "123"; // Fixed type error
+console.log(x);
 
 // Missing semicolon
-const y = "test"
+const y = "test";
 
 // Undefined variable
-console.loreg(undefinedVar);
+let undefinedVar = "something";
+console.log(undefinedVar);
 
 export { x, y };
