@@ -41,7 +41,8 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     } = options;
     
     // Get the widget entry path
-    const widgetEntryPath = path.join(__dirname, 'widget-loader.js');
+    // Prefer ESM build for the browser bundle to satisfy package exports
+    const widgetEntryPath = path.join(__dirname, 'widget-loader.mjs');
     
     // Start opencode server just before dev server starts (async-friendly)
     api.onBeforeStartDevServer(async () => {

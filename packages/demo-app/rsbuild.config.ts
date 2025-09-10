@@ -3,6 +3,8 @@ import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginTypeCheck } from '@rsbuild/plugin-type-check';
 import { pluginChatWidget } from '@wiggum/rsbuild-plugin-chat-widget';
 
+const disableTypeCheck = process.env.WIGGUM_DISABLE_TYPECHECK === '1' || process.env.WIGGUM_DISABLE_TYPECHECK === 'true';
+
 export default defineConfig({
   source: {
     entry: {
@@ -12,7 +14,7 @@ export default defineConfig({
   },
   plugins: [
     pluginReact(),
-    pluginTypeCheck(),
+    ...(!disableTypeCheck ? [pluginTypeCheck()] : []),
     pluginChatWidget({
       title: 'Rstack Help & Support',
       position: 'bottom-right',
@@ -20,7 +22,8 @@ export default defineConfig({
       secondaryColor: '#6c757d',
       backgroundColor: '#ffffff',
       textColor: '#333333',
-      apiEndpoint: '/api/chat',
+      // If not provided, the plugin injects an opencode server URL via meta tags
+      // apiEndpoint: '/api/chat',
       autoOpen: false,
       showTypingIndicator: true,
       enableFileUpload: true,

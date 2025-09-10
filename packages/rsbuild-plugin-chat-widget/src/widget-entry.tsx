@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { ChatWidget, ChatWidgetProps } from './components/ChatWidget';
-import { createOpencodeClient } from '@opencode-ai/sdk';
+import { createOpencodeClient } from '@opencode-ai/sdk/client';
 
 // Global interface for widget API (no global config)
 declare global {
