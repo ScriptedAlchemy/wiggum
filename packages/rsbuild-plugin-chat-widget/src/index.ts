@@ -45,17 +45,13 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     
     // Start opencode server just before dev server starts (async-friendly)
     api.onBeforeStartDevServer(async () => {
-      const prev = process.cwd();
       try {
-        process.chdir(api.context.rootPath);
         const server = await createOpencodeServer({ hostname: '127.0.0.1', port: 0 });
         opencodeUrl = server.url;
         opencodeClose = () => server.close();
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[chat-widget] Failed to start opencode server:', (e as any)?.message ?? e);
-      } finally {
-        process.chdir(prev);
       }
     });
 
@@ -68,22 +64,14 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
       });
     });
     
-    // Inject widget configuration and styles into HTML
+    // Inject widget styles and metadata (no window globals)
     api.modifyHTMLTags((tags) => {
-      const injectedProps = {
-        ...widgetProps,
-        // Provide the server URL to the widget so it can connect via SDK
-        apiEndpoint: widgetProps.apiEndpoint || opencodeUrl,
-      } as ChatWidgetProps & { apiEndpoint?: string };
-
       const newTags = {
         headTags: [
           ...tags.headTags,
-          // Inject widget configuration as global variable
-          {
-            tag: 'script',
-            children: `window.__WIGGUM_CHAT_CONFIG__ = ${JSON.stringify(injectedProps)};`,
-          },
+          // Provide connection info via meta tags
+          ...(opencodeUrl ? [{ tag: 'meta', attrs: { name: 'wiggum-opencode-url', content: opencodeUrl } }] : []),
+          { tag: 'meta', attrs: { name: 'wiggum-opencode-dir', content: api.context.rootPath } },
           // Inject custom CSS if provided
           ...(customCSS ? [{
             tag: 'style',

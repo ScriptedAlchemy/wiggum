@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { ChatWidget, ChatWidgetProps } from './components/ChatWidget';
 import { createOpencodeClient } from '@opencode-ai/sdk';
 
-// Global interface for widget configuration
+// Global interface for widget API (no global config)
 declare global {
   interface Window {
     WiggumChatWidget?: {
@@ -13,7 +13,6 @@ declare global {
       close: () => void;
       isOpen: () => boolean;
     };
-    __WIGGUM_CHAT_CONFIG__?: ChatWidgetProps;
   }
 }
 
@@ -30,9 +29,9 @@ class ChatWidgetManager {
       return;
     }
 
-    // Wire up opencode client if endpoint is provided via global config
-    const globalCfg: (ChatWidgetProps & { apiEndpoint?: string }) | undefined = (window as any).__WIGGUM_CHAT_CONFIG__;
-    const apiEndpoint = (globalCfg && globalCfg.apiEndpoint) || (config as any)['apiEndpoint'];
+    // Discover opencode backend via meta tags injected by the plugin
+    const apiEndpoint = document.querySelector('meta[name="wiggum-opencode-url"]')?.getAttribute('content') || (config as any)['apiEndpoint'];
+    const directory = document.querySelector('meta[name="wiggum-opencode-dir"]')?.getAttribute('content') || (config as any)['directory'];
     let sessionId: string | undefined;
     let client: ReturnType<typeof createOpencodeClient> | undefined;
     if (apiEndpoint) {
@@ -74,13 +73,14 @@ class ChatWidgetManager {
             // Lazy-create session on first message
             try {
               if (client && !sessionId) {
-                const created = await client.session.create({ body: { title: 'Wiggum Chat' } });
+                const created = await client.session.create({ body: { title: 'Wiggum Chat' }, ...(directory ? { query: { directory } } : {}) });
                 if (!created.data) throw created.error ?? new Error('Failed to create session');
                 sessionId = created.data.id;
               }
               if (client && sessionId) {
                 const res = await client.session.prompt({
                   path: { id: sessionId },
+                  ...(directory ? { query: { directory } } : {}),
                   body: { parts: [{ type: 'text', text }] as any },
                 });
                 if (!res.data) throw res.error ?? new Error('No response data');
@@ -149,21 +149,13 @@ window.WiggumChatWidget = {
   isOpen: () => chatWidgetManager.isOpen(),
 };
 
-// Auto-initialize if config is provided
-if (window.__WIGGUM_CHAT_CONFIG__) {
-  console.log('Auto-initializing widget with config from window.__WIGGUM_CHAT_CONFIG__');
-  chatWidgetManager.init(window.__WIGGUM_CHAT_CONFIG__);
-} else {
-  console.log('No __WIGGUM_CHAT_CONFIG__ found on window');
-}
-
-// Auto-initialize on DOM ready if no config was provided
+// Auto-initialize on DOM ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    if (!chatWidgetManager.isInitialized && !window.__WIGGUM_CHAT_CONFIG__) {
+    if (!chatWidgetManager.isInitialized) {
       chatWidgetManager.init();
     }
   });
-} else if (!chatWidgetManager.isInitialized && !window.__WIGGUM_CHAT_CONFIG__) {
+} else if (!chatWidgetManager.isInitialized) {
   chatWidgetManager.init();
 }
