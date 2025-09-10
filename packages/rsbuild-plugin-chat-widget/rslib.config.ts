@@ -22,7 +22,7 @@ export default defineConfig({
           __dirname: true, // Enable __dirname shim for ESM output
         },
       },
-      dts: false,
+      dts: true,
     },
     {
       format: 'cjs',
