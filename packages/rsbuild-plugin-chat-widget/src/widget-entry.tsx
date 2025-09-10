@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { ChatWidget, ChatWidgetProps } from './components/ChatWidget';
+import { createOpencodeClient } from '@opencode-ai/sdk';
 
 // Global interface for widget configuration
 declare global {
@@ -29,6 +30,19 @@ class ChatWidgetManager {
       return;
     }
 
+    // Wire up opencode client if endpoint is provided via global config
+    const globalCfg: (ChatWidgetProps & { apiEndpoint?: string }) | undefined = (window as any).__WIGGUM_CHAT_CONFIG__;
+    const apiEndpoint = (globalCfg && globalCfg.apiEndpoint) || (config as any)['apiEndpoint'];
+    let sessionId: string | undefined;
+    let client: ReturnType<typeof createOpencodeClient> | undefined;
+    if (apiEndpoint) {
+      try {
+        client = createOpencodeClient({ baseUrl: apiEndpoint });
+      } catch (e) {
+        console.warn('Failed to initialize Opencode client:', (e as any)?.message ?? e);
+      }
+    }
+
     // Create container
     this.container = document.createElement('div');
     this.container.id = 'wiggum-chat-widget-root';
@@ -53,7 +67,37 @@ class ChatWidgetManager {
     this.root = createRoot(this.container);
     this.root.render(
       <div style={{ pointerEvents: 'auto' }}>
-        <ChatWidget {...config} />
+        <ChatWidget
+          {...config}
+          title={config.title || 'Wiggum Assistant'}
+          onMessageResponse={async (text: string) => {
+            // Lazy-create session on first message
+            try {
+              if (client && !sessionId) {
+                const created = await client.session.create({ body: { title: 'Wiggum Chat' } });
+                if (!created.data) throw created.error ?? new Error('Failed to create session');
+                sessionId = created.data.id;
+              }
+              if (client && sessionId) {
+                const res = await client.session.prompt({
+                  path: { id: sessionId },
+                  body: { parts: [{ type: 'text', text }] as any },
+                });
+                if (!res.data) throw res.error ?? new Error('No response data');
+                const parts = res.data.parts || [];
+                const reply = parts
+                  .map((p: any) => (p.type === 'text' ? p.text : ''))
+                  .filter(Boolean)
+                  .join('\n') || 'OK';
+                return reply;
+              }
+            } catch (err) {
+              console.warn('Opencode request failed:', (err as any)?.message ?? err);
+            }
+            // Fallback response
+            return 'Thanks! I will look into that.';
+          }}
+        />
       </div>
     );
 
