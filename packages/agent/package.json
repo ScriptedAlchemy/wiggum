@@ -16,8 +16,8 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsc -w -p tsconfig.json",
+    "build": "rslib build",
+    "dev": "rslib build --watch",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "npm run -s build && node test/run-tests.cjs"
   },
@@ -27,6 +27,7 @@
     "@opencode-ai/sdk": "^0.6.10"
   },
   "devDependencies": {
+    "@rslib/core": "^0.12.4",
     "typescript": "^5.9.2",
     "@types/node": "^20.19.12"
   }

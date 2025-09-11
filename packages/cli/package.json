@@ -14,8 +14,8 @@
   ],
   "scripts": {
     "start": "node bin/cli.js",
-    "dev": "tsc --watch",
-    "build": "tsc",
+    "dev": "rslib build --watch",
+    "build": "rslib build",
     "prebuild": "npm run clean",
     "test": "npm run build && jest",
     "clean": "rm -rf dist",
@@ -39,6 +39,7 @@
     "yargs": "^17.7.2"
   },
   "devDependencies": {
+    "@rslib/core": "^0.12.4",
     "@types/node": "^20.19.12",
     "@types/which": "^3.0.4",
     "@types/yargs": "^17.0.33",

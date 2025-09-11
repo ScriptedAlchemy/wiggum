@@ -41,8 +41,19 @@ export function deepMerge<T>(base: T, override: Partial<T> | undefined): T {
 
   // Arrays: concatenate when both are arrays
   if (Array.isArray(base) && Array.isArray(override)) {
+    // Deduplicate items: primitives by value, objects by stable structural key
+    const merged = [...base, ...override] as unknown[];
+    const seen = new Set<string>();
+    const out: unknown[] = [];
+    for (const item of merged) {
+      const key = makeStableKey(item);
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(item);
+      }
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return ([...base, ...override] as any) as T;
+    return (out as any) as T;
   }
 
   // Objects: merge per-key
@@ -73,6 +84,29 @@ export function deepMerge<T>(base: T, override: Partial<T> | undefined): T {
   // Primitive or mismatched types: use override when defined
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (override as any) ?? base;
+}
+
+function makeStableKey(value: unknown): string {
+  const t = typeof value;
+  if (value === null) return 'null';
+  if (t === 'undefined') return 'undefined';
+  if (t === 'number' || t === 'bigint' || t === 'boolean' || t === 'string') {
+    return `${t}:${String(value)}`;
+  }
+  if (Array.isArray(value)) {
+    return `arr:[${value.map((v) => makeStableKey(v)).join(',')}]`;
+  }
+  if (t === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    const parts: string[] = [];
+    for (const k of keys) {
+      parts.push(`${JSON.stringify(k)}:${makeStableKey(obj[k])}`);
+    }
+    return `obj:{${parts.join(',')}}`;
+  }
+  // functions, symbols, etc. – fallback to toString identity
+  return `${t}:${Object.prototype.toString.call(value)}`;
 }
 
 async function fetchOpencodeEnv() {

@@ -7,8 +7,8 @@
     "wiggum-mcp": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc && chmod 755 dist/index.js",
-    "dev": "tsc --watch",
+    "build": "rslib build && chmod 755 dist/index.js",
+    "dev": "rslib build --watch",
     "start": "node dist/index.js",
     "test": "rstest",
     "test:watch": "rstest --watch",
@@ -38,6 +38,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@rslib/core": "^0.12.4",
     "@rstest/core": "^0.3.2",
     "@types/node": "^20.19.12",
     "@types/node-fetch": "^2.6.13",

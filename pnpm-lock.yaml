@@ -18,6 +18,9 @@ importers:
         specifier: ^0.6.10
         version: 0.6.10(typescript@5.9.2)
     devDependencies:
+      '@rslib/core':
+        specifier: ^0.12.4
+        version: 0.12.4(typescript@5.9.2)
       '@types/node':
         specifier: ^20.19.12
         version: 20.19.12
@@ -52,6 +55,9 @@ importers:
         specifier: ^17.7.2
         version: 17.7.2
     devDependencies:
+      '@rslib/core':
+        specifier: ^0.12.4
+        version: 0.12.4(typescript@5.9.2)
       '@types/node':
         specifier: ^20.19.12
         version: 20.19.12
@@ -153,6 +159,9 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@rslib/core':
+        specifier: ^0.12.4
+        version: 0.12.4(typescript@5.9.2)
       '@rstest/core':
         specifier: ^0.3.2
         version: 0.3.2

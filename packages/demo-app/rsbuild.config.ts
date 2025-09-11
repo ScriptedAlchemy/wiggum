@@ -3,8 +3,6 @@ import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginTypeCheck } from '@rsbuild/plugin-type-check';
 import { pluginChatWidget } from '@wiggum/rsbuild-plugin-chat-widget';
 
-const disableTypeCheck = process.env.WIGGUM_DISABLE_TYPECHECK === '1' || process.env.WIGGUM_DISABLE_TYPECHECK === 'true';
-
 export default defineConfig({
   source: {
     entry: {
@@ -14,7 +12,8 @@ export default defineConfig({
   },
   plugins: [
     pluginReact(),
-    ...(!disableTypeCheck ? [pluginTypeCheck()] : []),
+    // Always enable type checking
+    pluginTypeCheck(),
     // The chat widget plugin currently consumes only customTheme/customCSS directly at build time.
     // Other options are unused by the injected loader, so we omit them to avoid confusion.
     pluginChatWidget({

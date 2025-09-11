@@ -61,6 +61,20 @@ test('deepMerge: array of objects concatenates', () => {
   assert.deepStrictEqual(out, [{ id: 1 }, { id: 2 }, { id: 3 }]);
 });
 
+test('deepMerge: arrays dedupe primitives', () => {
+  const base = [1, 2, 2];
+  const override = [2, 3, 3];
+  const out = mod.deepMerge(base, override);
+  assert.deepStrictEqual(out, [1, 2, 3]);
+});
+
+test('deepMerge: arrays dedupe objects by deep equality', () => {
+  const base = [{ a: 1, b: 2 }, { a: 2 }];
+  const override = [{ b: 2, a: 1 }, { a: 3 }]; // same as first object but keys in different order
+  const out = mod.deepMerge(base, override);
+  assert.deepStrictEqual(out, [{ a: 1, b: 2 }, { a: 2 }, { a: 3 }]);
+});
+
 // pickPreferredModel tests
 test('pickPreferredModel: prefers claude-sonnet-4-20250514 if available', () => {
   const providers = [
@@ -101,4 +115,3 @@ testAsync('buildMergedConfig: returns base on fetch error', async () => {
 
 // If there were no async tests, end() would fire now
 if (pending === 0) end();
-
