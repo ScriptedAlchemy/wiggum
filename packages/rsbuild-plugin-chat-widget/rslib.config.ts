@@ -56,7 +56,7 @@ export default defineConfig({
         injectStyles: true,
       },
       plugins: [pluginReact()], // React plugin only for widget components
-      autoExternal: false,
+      autoExternal: true,
       dts: false,
     },
     {
@@ -75,7 +75,7 @@ export default defineConfig({
         injectStyles: true,
       },
       plugins: [pluginReact()], // React plugin only for widget components
-      autoExternal: false,
+      autoExternal: true,
       dts: false,
     },
   ],

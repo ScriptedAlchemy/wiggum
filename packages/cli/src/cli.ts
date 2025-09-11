@@ -8,6 +8,8 @@ import { detect } from 'package-manager-detector';
 import { resolveCommand } from 'package-manager-detector/commands';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 import { createWiggumOpencodeTui, checkOpenCodeBinary, installOpenCode, runOpenCodeServer, runOpenCodeCommand, createOpenCodeConfig, showAgentHelp } from './agent.js';
 
 // Types
@@ -35,7 +37,9 @@ const COMMAND_MAPPING: CommandMapping = {
 // Check if a package is installed
 function isPackageInstalled(packageName: string): boolean {
   try {
-    require.resolve(packageName);
+    // In ESM, use createRequire to resolve package paths
+    const req = createRequire(import.meta.url);
+    req.resolve(packageName);
     return true;
   } catch {
     return false;
@@ -251,6 +255,8 @@ async function handleUnifiedCommand(command: string, args: string[], autofix: bo
 // Get package version
 function getPackageVersion(): string {
   try {
+    // __dirname is not available in ESM; reconstruct from import.meta.url
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const packageJsonPath = path.join(__dirname, '..', 'package.json');
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
     return packageJson.version;

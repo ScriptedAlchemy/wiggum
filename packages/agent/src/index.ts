@@ -87,12 +87,17 @@ function pickPreferredModel(providers: Array<{ id: string; models: Record<string
  */
 export async function buildMergedConfig(): Promise<Config> {
   const base = getDefaultWiggumConfig() as Config;
+  let server: { close: () => void | Promise<void> } | undefined;
   try {
     const result = await fetchOpencodeEnv();
+    server = result.server;
+
     const userCfg = result.config as any;
     const providers = result.providers as any[];
 
-    const preferred = pickPreferredModel(providers.map((p) => ({ id: p.id, models: p.models ?? {} })));
+    const preferred = pickPreferredModel(
+      providers.map((p) => ({ id: p.id, models: p.models ?? {} }))
+    );
 
     let merged = deepMerge(base, userCfg);
 
@@ -105,17 +110,16 @@ export async function buildMergedConfig(): Promise<Config> {
       merged.agent['wiggum-assistant'] = (base.agent as any)['wiggum-assistant'];
     }
 
-    if (result.server) {
-      try {
-        await result.server.close();
-      } catch {}
-    }
-
     return merged;
   } catch {
     return base;
+  } finally {
+    if (server) {
+      try {
+        await Promise.resolve(server.close());
+      } catch {}
+    }
   }
 }
 
 export type { Config };
-

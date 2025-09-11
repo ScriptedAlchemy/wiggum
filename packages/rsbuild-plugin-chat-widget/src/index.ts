@@ -15,7 +15,7 @@ export interface ChatWidgetOptions {
   textColor?: string;
   
   // API configuration
-  apiEndpoint?: string;
+  apiEndpoint?: string; // If provided, use this OpenCode server URL and skip spawning/proxying
   
   // Behavior options
   autoOpen?: boolean;
@@ -65,29 +65,35 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     // Start opencode server just before dev server starts (async-friendly)
     api.onBeforeStartDevServer(async ({ server }) => {
       try {
-        const config = await buildMergedConfig();
+        // If apiEndpoint is provided, skip server spawn and proxy
+        if (options.apiEndpoint) {
+          opencodeUrl = options.apiEndpoint;
+        } else {
+          const config = await buildMergedConfig();
 
-        // Overlay build-mode system prompt using packaged prompt file (or a safe fallback)
-        const candidates = [
-          path.join(__dirname, 'prompts', 'build.txt'),
-          path.resolve(__dirname, '../src/prompts/build.txt'),
-          path.resolve(__dirname, '../dist/prompts/build.txt'),
-        ];
-        let buildPrompt: string | undefined;
-        for (const f of candidates) {
-          try { if (fs.existsSync(f)) { buildPrompt = fs.readFileSync(f, 'utf8'); break; } } catch {}
+          // Overlay build-mode system prompt using packaged prompt file (or a safe fallback)
+          const candidates = [
+            path.join(__dirname, 'prompts', 'build.txt'),
+            path.resolve(__dirname, '../prompts/build.txt'),
+            path.resolve(__dirname, '../src/prompts/build.txt'),
+            path.resolve(__dirname, '../dist/prompts/build.txt'),
+          ];
+          let buildPrompt: string | undefined;
+          for (const f of candidates) {
+            try { if (fs.existsSync(f)) { buildPrompt = fs.readFileSync(f, 'utf8'); break; } } catch {}
+          }
+          if (!buildPrompt) {
+            buildPrompt = 'You are the Wiggum Build Assistant. Focus on build pipeline and bundling. Do not execute shell commands; propose minimal patches.';
+          }
+
+          const cfg: any = { ...(config as any) };
+          cfg.mode = cfg.mode || {};
+          cfg.mode.build = { ...(cfg.mode.build || {}), prompt: buildPrompt };
+
+          const serverInstance = await createOpencodeServer({ hostname: '127.0.0.1', port: 0, config: cfg });
+          opencodeUrl = serverInstance.url;
+          opencodeClose = () => serverInstance.close();
         }
-        if (!buildPrompt) {
-          buildPrompt = 'You are the Wiggum Build Assistant. Focus on build pipeline and bundling. Do not execute shell commands; propose minimal patches.';
-        }
-
-        const cfg: any = { ...(config as any) };
-        cfg.mode = cfg.mode || {};
-        cfg.mode.build = { ...(cfg.mode.build || {}), prompt: buildPrompt };
-
-        const serverInstance = await createOpencodeServer({ hostname: '127.0.0.1', port: 0, config: cfg });
-        opencodeUrl = serverInstance.url;
-        opencodeClose = () => serverInstance.close();
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[chat-widget] Failed to start opencode server:', (e as any)?.message ?? e);
@@ -95,7 +101,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
       }
 
       // Install proxy middleware to avoid CORS; map /__opencode__ -> opencodeUrl
-      if (opencodeUrl && (server as any)?.middlewares) {
+      if (!options.apiEndpoint && opencodeUrl && (server as any)?.middlewares) {
         const target = opencodeUrl;
         (server as any).middlewares.use(
           '/__opencode__',
@@ -139,7 +145,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
           // Provide project directory via meta tag (server URL proxied via /__opencode__)
           { tag: 'meta', attrs: { name: 'wiggum-opencode-dir', content: api.context.rootPath } },
           // Inject runtime widget config for the loader to consume
-          { tag: 'script', children: `(function(){try{window.__wiggum_widget_config=${JSON.stringify(runtimeConfig)};}catch(e){}})();` },
+          { tag: 'script', children: `(function(){try{window.__wiggum_widget_config=${JSON.stringify({ ...runtimeConfig, ...(options.apiEndpoint ? { apiEndpoint: options.apiEndpoint } : {}) })};}catch(e){}})();` },
           // Inject custom CSS if provided
           ...(customCSS ? [{
             tag: 'style',

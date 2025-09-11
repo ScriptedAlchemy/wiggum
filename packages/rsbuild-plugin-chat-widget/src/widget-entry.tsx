@@ -45,9 +45,8 @@ class ChatWidgetManager {
       return;
     }
 
-    // Discover opencode backend via meta tags injected by the plugin
-    // Use same-origin passthrough proxy installed by the plugin
-    const apiEndpoint = `${location.origin}/__opencode__`;
+    // Discover opencode backend via injected config or same-origin proxy
+    const apiEndpoint = (mergedConfig as any).apiEndpoint || `${location.origin}/__opencode__`;
     const directory = document.querySelector('meta[name="wiggum-opencode-dir"]')?.getAttribute('content') || (config as any)['directory'];
     let sessionId: string | undefined;
     let client: ReturnType<typeof createOpencodeClient> | undefined;
