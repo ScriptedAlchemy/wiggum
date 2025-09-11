@@ -8,9 +8,9 @@ test.describe('Widget Debug', () => {
     // Wait for the page to load
     await page.waitForLoadState('networkidle');
     
-    // Check if the widget configuration is set
+    // Check if the widget configuration is set (new loader key)
     const hasConfig = await page.evaluate(() => {
-      return typeof (window as any).__WIGGUM_CHAT_CONFIG__ !== 'undefined';
+      return typeof (window as any).__wiggum_widget_config !== 'undefined';
     });
     
     console.log('Has widget config:', hasConfig);
@@ -18,7 +18,7 @@ test.describe('Widget Debug', () => {
     // Get the config if it exists
     if (hasConfig) {
       const config = await page.evaluate(() => {
-        return (window as any).__WIGGUM_CHAT_CONFIG__;
+        return (window as any).__wiggum_widget_config;
       });
       console.log('Widget config:', config);
     }

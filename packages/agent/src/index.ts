@@ -30,23 +30,49 @@ export function getDefaultWiggumConfig() {
   };
 }
 
-function deepMerge<T extends Record<string, any>>(base: T, override: Partial<T>): T {
-  const out: any = Array.isArray(base) ? [...(base as any)] : { ...base };
-  for (const [key, value] of Object.entries(override || {})) {
-    if (
-      value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      typeof (out as any)[key] === 'object' &&
-      (out as any)[key] !== null &&
-      !Array.isArray((out as any)[key])
-    ) {
-      (out as any)[key] = deepMerge((out as any)[key], value as any);
-    } else {
-      (out as any)[key] = value as any;
-    }
+/**
+ * Deep merge that:
+ * - Recursively merges objects
+ * - Concatenates arrays (does not replace)
+ * - Ignores `undefined` values from the override
+ */
+export function deepMerge<T>(base: T, override: Partial<T> | undefined): T {
+  if (override === undefined) return base;
+
+  // Arrays: concatenate when both are arrays
+  if (Array.isArray(base) && Array.isArray(override)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ([...base, ...override] as any) as T;
   }
-  return out as T;
+
+  // Objects: merge per-key
+  if (
+    base !== null &&
+    typeof base === 'object' &&
+    !Array.isArray(base) &&
+    override !== null &&
+    typeof override === 'object' &&
+    !Array.isArray(override)
+  ) {
+    const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
+    const o = override as Record<string, unknown>;
+    const keys = new Set([...Object.keys(out), ...Object.keys(o)]);
+    for (const key of keys) {
+      const bv = (out as any)[key];
+      const ov = (o as any)[key];
+      if (ov === undefined) {
+        // ignore undefined from override
+        (out as any)[key] = bv;
+        continue;
+      }
+      (out as any)[key] = deepMerge(bv, ov);
+    }
+    return (out as unknown) as T;
+  }
+
+  // Primitive or mismatched types: use override when defined
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (override as any) ?? base;
 }
 
 async function fetchOpencodeEnv() {
@@ -67,7 +93,7 @@ async function fetchOpencodeEnv() {
   }
 }
 
-function pickPreferredModel(providers: Array<{ id: string; models: Record<string, unknown> }>): string | undefined {
+export function pickPreferredModel(providers: Array<{ id: string; models: Record<string, unknown> }>): string | undefined {
   const has = (provId: string, modelId: string) => {
     const prov = providers.find((p) => p.id === provId);
     if (!prov || !prov.models) return false;
@@ -85,11 +111,11 @@ function pickPreferredModel(providers: Array<{ id: string; models: Record<string
 /**
  * Build the merged Wiggum+User OpenCode config
  */
-export async function buildMergedConfig(): Promise<Config> {
+export async function buildMergedConfig(options?: { fetchEnv?: () => ReturnType<typeof fetchOpencodeEnv> | Promise<ReturnType<typeof fetchOpencodeEnv>> }): Promise<Config> {
   const base = getDefaultWiggumConfig() as Config;
   let server: { close: () => void | Promise<void> } | undefined;
   try {
-    const result = await fetchOpencodeEnv();
+    const result = await (options?.fetchEnv ? options.fetchEnv() : fetchOpencodeEnv());
     server = result.server;
 
     const userCfg = result.config as any;

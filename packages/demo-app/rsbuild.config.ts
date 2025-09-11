@@ -18,6 +18,7 @@ export default defineConfig({
     // The chat widget plugin currently consumes only customTheme/customCSS directly at build time.
     // Other options are unused by the injected loader, so we omit them to avoid confusion.
     pluginChatWidget({
+      title: 'Rstack Help & Support',
       customTheme: {
         'border-radius': '12px',
         'shadow': '0 4px 20px rgba(0, 0, 0, 0.15)',

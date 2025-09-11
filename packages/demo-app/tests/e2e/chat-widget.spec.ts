@@ -50,7 +50,7 @@ test.describe('Chat Widget', () => {
     const chatWindow = page.locator('.chat-widget__window');
     await expect(chatWindow).toBeVisible();
     
-    const closeButton = page.locator('.chat-widget__close');
+    const closeButton = page.locator('.chat-widget__window').getByLabel('Close chat');
     await closeButton.click();
     
     await expect(chatWindow).not.toBeVisible();
