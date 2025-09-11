@@ -56,7 +56,12 @@ export default defineConfig({
         injectStyles: true,
       },
       plugins: [pluginReact()], // React plugin only for widget components
-      autoExternal: true,
+      autoExternal: {
+        dependencies: false, // bundle runtime deps (e.g., @opencode-ai/sdk client)
+        optionalDependencies: false,
+        peerDependencies: true, // keep react/react-dom external
+        devDependencies: true,
+      },
       dts: false,
     },
     {
@@ -75,7 +80,12 @@ export default defineConfig({
         injectStyles: true,
       },
       plugins: [pluginReact()], // React plugin only for widget components
-      autoExternal: true,
+      autoExternal: {
+        dependencies: false,
+        optionalDependencies: false,
+        peerDependencies: true,
+        devDependencies: true,
+      },
       dts: false,
     },
   ],
