@@ -8,26 +8,16 @@ const disableTypeCheck = process.env.WIGGUM_DISABLE_TYPECHECK === '1' || process
 export default defineConfig({
   source: {
     entry: {
-      index: './src/index.ts',
+      index: './src/index.tsx',
     },
     tsconfigPath: './tsconfig.json',
   },
   plugins: [
     pluginReact(),
     ...(!disableTypeCheck ? [pluginTypeCheck()] : []),
+    // The chat widget plugin currently consumes only customTheme/customCSS directly at build time.
+    // Other options are unused by the injected loader, so we omit them to avoid confusion.
     pluginChatWidget({
-      title: 'Rstack Help & Support',
-      position: 'bottom-right',
-      primaryColor: '#007bff',
-      secondaryColor: '#6c757d',
-      backgroundColor: '#ffffff',
-      textColor: '#333333',
-      // If not provided, the plugin injects an opencode server URL via meta tags
-      // apiEndpoint: '/api/chat',
-      autoOpen: false,
-      showTypingIndicator: true,
-      enableFileUpload: true,
-      maxMessages: 100,
       customTheme: {
         'border-radius': '12px',
         'shadow': '0 4px 20px rgba(0, 0, 0, 0.15)',

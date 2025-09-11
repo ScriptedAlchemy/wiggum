@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@opencode-ai/sdk": "^0.6.10",
+    "@wiggum/agent": "workspace:*",
     "clsx": "^2.1.1",
     "http-proxy-middleware": "^2.0.6"
   },

@@ -9,6 +9,13 @@ export interface Message {
   timestamp: Date;
 }
 
+export type WidgetState = {
+  isOpen: boolean;
+  messages: Message[];
+  inputValue: string;
+  pendingContext: InspectResult | null;
+};
+
 export interface ChatWidgetProps {
   /** Initial messages to display */
   initialMessages?: Message[];
@@ -28,9 +35,422 @@ export interface ChatWidgetProps {
   /** Custom message handler */
   onSendMessage?: (message: string) => void | Promise<void>;
   /** Custom message response handler */
-  onMessageResponse?: (userMessage: string) => Promise<string>;
+  onMessageResponse?: (userMessage: string, context?: InspectResult | null) => Promise<string>;
   /** Whether to show the widget initially */
   initiallyOpen?: boolean;
+  /** Show the element inspector button in the header */
+  showInspectorButton?: boolean;
+  /** Callback fired when inspector selects an element */
+  onInspectElement?: (info: InspectResult) => void;
+  /** Optional: restore previous widget state (for HMR) */
+  restoreState?: Partial<WidgetState>;
+  /** Optional: report state changes (for HMR persistence) */
+  onStateChange?: (state: WidgetState) => void;
+}
+
+export type InspectResult = {
+  element: HTMLElement;
+  tag?: string;
+  componentName?: string;
+  componentPath?: string[];
+  domPath?: string;
+  rect?: { x: number; y: number; width: number; height: number };
+  source?: { fileName?: string; lineNumber?: number; columnNumber?: number }[];
+  id?: string;
+  classes?: string[];
+  attributes?: Record<string, string>;
+  dataset?: Record<string, string>;
+  role?: string | null;
+  selector?: string;
+  accessibleName?: string | null;
+  react?: {
+    key?: string | number | null;
+    props?: Record<string, unknown>;
+    state?: unknown;
+  };
+};
+
+// Attempt to find the React Fiber for a given DOM node. This uses private internals
+// and is best-effort. It may break across React versions. Guarded and optional.
+function getFiberFromNode(node: any): any | null {
+  if (!node) return null;
+  const keys = Object.keys(node);
+  const fiberKey = keys.find((k) => k.startsWith('__reactFiber$'))
+    || keys.find((k) => k.startsWith('__reactInternalInstance$'))
+    || keys.find((k) => k.startsWith('__reactContainer$'));
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - dynamic private key
+  return fiberKey ? node[fiberKey] : null;
+}
+
+function getDisplayNameFromFiber(fiber: any | null | undefined): string | undefined {
+  if (!fiber) return undefined;
+  const t = fiber.type || fiber.elementType;
+  if (!t) return undefined;
+  if (typeof t === 'string') return t; // host component, e.g., 'div'
+  // Function/class/forwardRef/memo components
+  return (
+    t.displayName || t.name || (t.render && (t.render.displayName || t.render.name)) ||
+    (fiber.elementType && (fiber.elementType.displayName || fiber.elementType.name)) || undefined
+  );
+}
+
+function buildComponentPath(fiber: any | null | undefined): string[] | undefined {
+  if (!fiber) return undefined;
+  const names: string[] = [];
+  let f: any | null = fiber;
+  const visited = new Set<any>();
+  while (f && !visited.has(f)) {
+    visited.add(f);
+    const name = getDisplayNameFromFiber(f);
+    if (name && typeof f.type !== 'string') {
+      names.push(name);
+    }
+    f = f.return || f._debugOwner || null;
+  }
+  return names.length ? names.reverse() : undefined;
+}
+
+function buildSourceTrail(fiber: any | null | undefined): InspectResult['source'] | undefined {
+  if (!fiber) return undefined;
+  const out: NonNullable<InspectResult['source']> = [];
+  let f: any | null = fiber;
+  const seen = new Set<any>();
+  while (f && !seen.has(f)) {
+    seen.add(f);
+    if (f._debugSource) {
+      const { fileName, lineNumber, columnNumber } = f._debugSource;
+      out.push({ fileName, lineNumber, columnNumber });
+    }
+    f = f.return || f._debugOwner || null;
+  }
+  return out.length ? out.reverse() : undefined;
+}
+
+function getDomPath(el: HTMLElement | null | undefined): string | undefined {
+  if (!el) return undefined;
+  const parts: string[] = [];
+  let node: HTMLElement | null = el;
+  while (node && node.nodeType === 1 && parts.length < 30) {
+    const name = node.nodeName.toLowerCase();
+    let selector = name;
+    if (node.id) {
+      selector += `#${CSS.escape(node.id)}`;
+      parts.unshift(selector);
+      break;
+    } else {
+      const parent = node.parentElement;
+      if (parent) {
+        const thisNode = node as HTMLElement; // non-null within loop
+        const siblings = Array.from(parent.children).filter((c) => (c as HTMLElement).tagName === thisNode.tagName);
+        const idx = siblings.indexOf(thisNode);
+        if (idx >= 0) selector += `:nth-of-type(${idx + 1})`;
+      }
+    }
+    parts.unshift(selector);
+    node = node.parentElement;
+  }
+  return parts.join(' > ');
+}
+
+function sanitizeValue(value: unknown, depth = 2): unknown {
+  if (value == null) return value;
+  const t = typeof value;
+  if (t === 'string') return (value as string).slice(0, 500);
+  if (t === 'number' || t === 'boolean') return value;
+  if (t === 'function') return undefined;
+  if (Array.isArray(value)) {
+    if (depth <= 0) return '[Array]';
+    return (value as unknown[]).slice(0, 10).map((v) => sanitizeValue(v, depth - 1));
+  }
+  if (t === 'object') {
+    const obj = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    let count = 0;
+    for (const k of Object.keys(obj)) {
+      if (count >= 20) break;
+      const v = obj[k];
+      const sv = sanitizeValue(v, depth - 1);
+      if (sv !== undefined) {
+        out[k] = sv;
+        count++;
+      }
+    }
+    return out;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return String(value);
+  }
+}
+
+function getReactInfo(fiber: any | null | undefined): InspectResult['react'] | undefined {
+  if (!fiber) return undefined;
+  const key = fiber.key ?? null;
+  let props: Record<string, unknown> | undefined;
+  let state: unknown;
+  try {
+    const rawProps = fiber.memoizedProps ?? fiber.pendingProps;
+    if (rawProps && typeof rawProps === 'object') {
+      const filtered: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(rawProps as Record<string, unknown>)) {
+        if (typeof v === 'function') continue;
+        filtered[k] = sanitizeValue(v);
+      }
+      props = filtered;
+    }
+  } catch {}
+  try {
+    if (fiber.memoizedState !== undefined) {
+      state = sanitizeValue(fiber.memoizedState);
+    }
+  } catch {}
+  return { key, props, state };
+}
+
+function getAttributes(el: HTMLElement): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (let i = 0; i < el.attributes.length; i++) {
+    const a = el.attributes[i];
+    const name = a.name;
+    if (name === 'style' || name.startsWith('on')) continue;
+    if (name === 'class' || name === 'id' || name === 'role' || name.startsWith('data-') || name.startsWith('aria-')) {
+      attrs[name] = a.value;
+    }
+  }
+  // Some semantic attributes that help selecting
+  const include = ['name', 'type', 'href', 'title', 'alt', 'value'];
+  for (const k of include) {
+    const v = el.getAttribute(k);
+    if (v && !(k in attrs)) attrs[k] = v;
+  }
+  return attrs;
+}
+
+function getDataset(el: HTMLElement): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(el.dataset)) {
+    if (v != null) out[k] = String(v).slice(0, 200);
+  }
+  return out;
+}
+
+function getAccessibleName(el: HTMLElement): string | null {
+  return el.getAttribute('aria-label') || el.getAttribute('alt') || null;
+}
+
+function buildUniqueSelector(el: HTMLElement): string {
+  // If ID exists and is unique
+  if (el.id) {
+    const idSel = `#${CSS.escape(el.id)}`;
+    try { if (document.querySelectorAll(idSel).length === 1) return idSel; } catch {}
+  }
+  const classes = Array.from(el.classList).slice(0, 3).map((c) => `.${CSS.escape(c)}`).join('');
+  const tag = el.tagName.toLowerCase();
+  let base = `${tag}${classes}`;
+  try { if (document.querySelectorAll(base).length === 1) return base; } catch {}
+  const parent = el.parentElement;
+  if (parent) {
+    const idx = Array.from(parent.children).filter((c) => (c as HTMLElement).tagName === el.tagName).indexOf(el);
+    if (idx >= 0) base += `:nth-of-type(${idx + 1})`;
+    try { if (document.querySelectorAll(base).length === 1) return base; } catch {}
+    const parentSel = buildUniqueSelector(parent);
+    const combined = `${parentSel} > ${base}`;
+    try { if (document.querySelectorAll(combined).length === 1) return combined; } catch {}
+    return combined;
+  }
+  return base;
+}
+
+// Lightweight element inspector. Draws a highlight overlay and captures a click to select.
+function startElementInspector(onPick: (info: InspectResult) => void, options?: { skipWithin?: HTMLElement | null }) {
+  const overlay = document.createElement('div');
+  overlay.id = 'wiggum-inspector-overlay';
+  Object.assign(overlay.style, {
+    position: 'fixed',
+    top: '0px',
+    left: '0px',
+    width: '0px',
+    height: '0px',
+    border: '2px solid #0ea5e9',
+    background: 'rgba(14, 165, 233, 0.1)',
+    zIndex: '2147483647',
+    pointerEvents: 'none',
+    boxShadow: '0 0 0 999999px rgba(14, 165, 233, 0.05)',
+    transition: 'all 0.04s ease',
+  } as any);
+
+  const tooltip = document.createElement('div');
+  tooltip.id = 'wiggum-inspector-tooltip';
+  Object.assign(tooltip.style, {
+    position: 'fixed',
+    padding: '4px 6px',
+    background: 'rgba(17, 24, 39, 0.98)',
+    color: '#fff',
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial',
+    fontSize: '12px',
+    borderRadius: '4px',
+    zIndex: '2147483647',
+    pointerEvents: 'none',
+    whiteSpace: 'nowrap',
+    maxWidth: '50vw',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    transform: 'translate(-9999px, -9999px)',
+  } as any);
+
+  const rootOverlayHost = document.body;
+  rootOverlayHost.appendChild(overlay);
+  rootOverlayHost.appendChild(tooltip);
+
+  // Allow interacting with underlying page by disabling widget pointer events while active
+  const widgetRoot = document.getElementById('wiggum-chat-widget-root');
+  const prevWidgetPointer = widgetRoot?.style.pointerEvents;
+  if (widgetRoot) widgetRoot.style.pointerEvents = 'none';
+  const prevCursor = document.body.style.cursor;
+  document.body.style.cursor = 'crosshair';
+
+  let lastTarget: Element | null = null;
+  const isWithinSkip = (el: Node | null | undefined) => {
+    if (!el || !(el as any).ownerDocument) return false;
+    let n: Node | null = el;
+    while (n && n instanceof HTMLElement) {
+      if (options?.skipWithin && n === options.skipWithin) return true;
+      if ((n as HTMLElement).id === 'wiggum-chat-widget-root') return true;
+      n = (n as HTMLElement).parentElement;
+    }
+    return false;
+  };
+
+  function highlight(el: Element | null) {
+    if (!el || !(el instanceof HTMLElement)) {
+      overlay.style.width = '0px';
+      overlay.style.height = '0px';
+      tooltip.style.transform = 'translate(-9999px, -9999px)';
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    overlay.style.transform = `translate(${Math.max(0, rect.left)}px, ${Math.max(0, rect.top)}px)`;
+    overlay.style.width = `${Math.max(0, rect.width)}px`;
+    overlay.style.height = `${Math.max(0, rect.height)}px`;
+
+    // Tooltip content and positioning
+    try {
+      const fiber = getFiberFromNode(el);
+      const name = getDisplayNameFromFiber(fiber) || el.tagName.toLowerCase();
+      const path = buildComponentPath(fiber);
+      const shortAttrs = [el.id ? `#${el.id}` : '', Array.from(el.classList).slice(0, 2).map((c) => `.${c}`).join('')]
+        .filter(Boolean)
+        .join('');
+      const label = `${name}${shortAttrs ? ' ' + shortAttrs : ''}${path?.length ? ` — ${path.join(' > ')}` : ''}`;
+      tooltip.textContent = label || '';
+      const margin = 6;
+      let tx = rect.left + margin;
+      let ty = rect.top - (tooltip.offsetHeight || 18) - margin;
+      if (ty < 4) ty = rect.bottom + margin;
+      if (tx + (tooltip.offsetWidth || 120) > window.innerWidth - 4) {
+        tx = window.innerWidth - (tooltip.offsetWidth || 120) - 4;
+      }
+      tooltip.style.transform = `translate(${Math.max(4, tx)}px, ${Math.max(4, ty)}px)`;
+    } catch {
+      tooltip.style.transform = 'translate(-9999px, -9999px)';
+    }
+  }
+
+  const onMove = (e: MouseEvent) => {
+    const target = e.target as Element | null;
+    if (!target) return;
+    if (isWithinSkip(target)) {
+      highlight(null);
+      lastTarget = null;
+      return;
+    }
+    lastTarget = target;
+    highlight(target);
+  };
+
+  const cleanup = () => {
+    document.removeEventListener('mousemove', onMove, true);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKeydown, true);
+    overlay.remove();
+    tooltip.remove();
+    if (widgetRoot) widgetRoot.style.pointerEvents = prevWidgetPointer || '';
+    document.body.style.cursor = prevCursor || '';
+  };
+
+  const onKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cleanup();
+    }
+  };
+
+  const onClick = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = (e.target as Element) as HTMLElement;
+    if (el && !isWithinSkip(el)) {
+      const fiber = getFiberFromNode(el);
+      const componentName = getDisplayNameFromFiber(fiber);
+      let componentPath = buildComponentPath(fiber);
+      // Best-effort: enrich path using React DevTools hook when available
+      try {
+        const hook: any = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+        if (hook && fiber) {
+          if (!componentPath || componentPath.length === 0) {
+            const ownerPath: string[] = [];
+            let f: any | null = fiber;
+            const visited = new Set<any>();
+            while (f && !visited.has(f)) {
+              visited.add(f);
+              if (f._debugOwner) {
+                const n = getDisplayNameFromFiber(f._debugOwner);
+                if (n) ownerPath.push(n);
+                f = f._debugOwner;
+              } else {
+                f = f.return || null;
+              }
+            }
+            if (ownerPath.length) componentPath = ownerPath.reverse();
+          }
+        }
+      } catch {}
+      const rect = el.getBoundingClientRect();
+      const info: InspectResult = {
+        element: el,
+        componentName: componentName || (el.tagName ? el.tagName.toLowerCase() : undefined),
+        componentPath,
+        tag: el.tagName.toLowerCase(),
+        domPath: getDomPath(el),
+        rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+        source: buildSourceTrail(fiber),
+        id: el.id || undefined,
+        classes: Array.from(el.classList || []),
+        attributes: getAttributes(el),
+        dataset: getDataset(el),
+        role: el.getAttribute('role'),
+        selector: buildUniqueSelector(el),
+        accessibleName: getAccessibleName(el),
+        react: getReactInfo(fiber),
+      };
+      try {
+        window.dispatchEvent(new CustomEvent('wiggum:inspect-select', { detail: info }));
+      } catch {}
+      onPick(info);
+    }
+    cleanup();
+  };
+
+  document.addEventListener('mousemove', onMove, true);
+  document.addEventListener('click', onClick, true);
+  document.addEventListener('keydown', onKeydown, true);
+
+  // Initial hint: highlight what's under the cursor
+  highlight(document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2));
+  return cleanup;
 }
 
 export const ChatWidget: React.FC<ChatWidgetProps> = ({
@@ -42,11 +462,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   onSendMessage,
   onMessageResponse,
   initiallyOpen = false,
+  showInspectorButton = true,
+  onInspectElement,
+  restoreState,
+  onStateChange,
 }) => {
-  const [isOpen, setIsOpen] = useState(initiallyOpen);
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [inputValue, setInputValue] = useState('');
+  const [isOpen, setIsOpen] = useState(restoreState?.isOpen ?? initiallyOpen);
+  const [messages, setMessages] = useState<Message[]>(restoreState?.messages ?? initialMessages);
+  const [inputValue, setInputValue] = useState(restoreState?.inputValue ?? '');
   const [isLoading, setIsLoading] = useState(false);
+  const [inspecting, setInspecting] = useState(false);
+  const [pendingContext, setPendingContext] = useState<InspectResult | null>(restoreState?.pendingContext ?? null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -56,6 +482,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Report state changes (for HMR persistence)
+  useEffect(() => {
+    if (!onStateChange) return;
+    const snapshot: WidgetState = { isOpen, messages, inputValue, pendingContext };
+    try { onStateChange(snapshot); } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, messages, inputValue, pendingContext]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
@@ -79,7 +513,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     // Only add a response when handler provided and succeeds
     if (onMessageResponse) {
       try {
-        const response = await onMessageResponse(userMessage.text);
+        const response = await onMessageResponse(userMessage.text, pendingContext);
         if (response && response.trim()) {
           const botMessage: Message = {
             id: (Date.now() + 1).toString(),
@@ -96,6 +530,8 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     }
 
     setIsLoading(false);
+    // Clear pending selection context after it's been sent once
+    if (pendingContext) setPendingContext(null);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -103,6 +539,42 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const startInspecting = () => {
+    if (inspecting) {
+      try { (window as any).__wiggumStopInspector?.(); } catch {}
+      setInspecting(false);
+      return;
+    }
+    setInspecting(true);
+    const stop = startElementInspector((info) => {
+      // Prefer callback if provided
+      if (onInspectElement) {
+        try { onInspectElement(info); } catch (err) { console.warn('onInspectElement error:', err); }
+      }
+      // Also log for convenience
+      // eslint-disable-next-line no-console
+      console.log('[Wiggum] Inspector selected:', info);
+      // Optional: drop a message into the chat
+      try {
+        const summary = `Selected: ${info.componentName || info.tag || 'unknown'}\nSelector: ${info.selector || info.domPath || info.tag}${info.componentPath?.length ? `\nPath: ${info.componentPath.join(' > ')}` : ''}${info.id ? `\n#${info.id}` : ''}${info.classes?.length ? `\n.${info.classes.join('.')}` : ''}`;
+        const botMessage: Message = {
+          id: (Date.now() + 2).toString(),
+          text: summary,
+          sender: 'bot',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, botMessage]);
+        // Keep this selection as pending context for the next user message
+        setPendingContext(info);
+      } catch {}
+      setInspecting(false);
+    });
+    // Safety: end inspecting if widget unmounts
+    const onUnmountCleanup = () => { try { stop(); } catch {} };
+    // Store on window so we can cancel if needed
+    (window as any).__wiggumStopInspector = onUnmountCleanup;
   };
 
   const positionClasses = {
@@ -148,16 +620,35 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
           {/* Header */}
           <div className="chat-widget__header">
             <h3 className="chat-widget__title">{title}</h3>
-            <button
-              className="chat-widget__close"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close chat"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {showInspectorButton && (
+                <button
+                  className="chat-widget__close"
+                  onClick={startInspecting}
+                  aria-label={inspecting ? 'Inspecting... (ESC to cancel)' : 'Inspect element'}
+                  title={inspecting ? 'Inspecting... (ESC to cancel)' : 'Inspect element'}
+                >
+                  {/* Crosshair icon */}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <line x1="12" y1="2" x2="12" y2="6"></line>
+                    <line x1="12" y1="18" x2="12" y2="22"></line>
+                    <line x1="2" y1="12" x2="6" y2="12"></line>
+                    <line x1="18" y1="12" x2="22" y2="12"></line>
+                  </svg>
+                </button>
+              )}
+              <button
+                className="chat-widget__close"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close chat"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Messages */}

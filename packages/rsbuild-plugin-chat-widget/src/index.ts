@@ -1,6 +1,8 @@
 import type { RsbuildPlugin } from '@rsbuild/core';
 import path from 'path';
+import fs from 'fs';
 import { createOpencodeServer } from '@opencode-ai/sdk';
+import { buildMergedConfig } from '@wiggum/agent';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 export interface ChatWidgetOptions {
@@ -41,14 +43,30 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
       ...widgetProps
     } = options;
     
-    // Get the widget entry path
-    // Prefer ESM build for the browser bundle to satisfy package exports
-    const widgetEntryPath = path.join(__dirname, 'widget-loader.mjs');
+    // Resolve the widget entry produced by this package's build
+    // Try common variants to ensure it works in dev and after publish
+    const resolveWidgetEntry = (): string => {
+      const candidates = [
+        path.join(__dirname, 'widget-loader.mjs'),
+        path.join(__dirname, 'widget-loader.js'),
+        path.join(__dirname, 'widget-loader.cjs'),
+        path.resolve(__dirname, '../dist/widget-loader.mjs'),
+        path.resolve(__dirname, '../dist/widget-loader.js'),
+        path.resolve(__dirname, '../dist/widget-loader.cjs'),
+      ];
+      for (const file of candidates) {
+        try { if (fs.existsSync(file)) return file; } catch {}
+      }
+      // Fallback to ESM path (may fail if not built)
+      return path.join(__dirname, 'widget-loader.mjs');
+    };
+    const widgetEntryPath = resolveWidgetEntry();
     
     // Start opencode server just before dev server starts (async-friendly)
     api.onBeforeStartDevServer(async ({ server }) => {
       try {
-        const server = await createOpencodeServer({ hostname: '127.0.0.1', port: 0 });
+        const config = await buildMergedConfig();
+        const server = await createOpencodeServer({ hostname: '127.0.0.1', port: 0, config });
         opencodeUrl = server.url;
         opencodeClose = () => server.close();
       } catch (e) {
@@ -84,11 +102,25 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     
     // Inject widget styles and metadata (no window globals)
     api.modifyHTMLTags((tags) => {
+      // Map plugin options to runtime widget config
+      const runtimeConfig: Record<string, any> = {};
+      if (widgetProps.title) runtimeConfig.title = widgetProps.title;
+      if (widgetProps.position) runtimeConfig.position = widgetProps.position;
+      const theme: Record<string, string> = {};
+      if (widgetProps.primaryColor) theme.primary = widgetProps.primaryColor;
+      if (widgetProps.secondaryColor) theme.secondary = widgetProps.secondaryColor;
+      if (widgetProps.backgroundColor) theme.background = widgetProps.backgroundColor;
+      if (widgetProps.textColor) theme.text = widgetProps.textColor;
+      if (Object.keys(theme).length > 0) runtimeConfig.theme = theme;
+      if (typeof widgetProps.autoOpen === 'boolean') runtimeConfig.initiallyOpen = widgetProps.autoOpen;
+
       const newTags = {
         headTags: [
           ...tags.headTags,
           // Provide project directory via meta tag (server URL proxied via /__opencode__)
           { tag: 'meta', attrs: { name: 'wiggum-opencode-dir', content: api.context.rootPath } },
+          // Inject runtime widget config for the loader to consume
+          { tag: 'script', children: `(function(){try{window.__wiggum_widget_config=${JSON.stringify(runtimeConfig)};}catch(e){}})();` },
           // Inject custom CSS if provided
           ...(customCSS ? [{
             tag: 'style',

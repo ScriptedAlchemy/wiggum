@@ -20,4 +20,17 @@ if (document.readyState === 'loading') {
   loadWidget();
 }
 
+// HMR support: re-run loader on updates
+try {
+  const anyModule = typeof module !== 'undefined' ? (module as any) : undefined;
+  if (anyModule && anyModule.hot) {
+    anyModule.hot.dispose(() => {
+      try { window.WiggumChatWidget?.destroy?.(); } catch {}
+    });
+    anyModule.hot.accept(() => {
+      try { window.WiggumChatWidget?.init?.(); } catch { loadWidget(); }
+    });
+  }
+} catch {}
+
 export {};
