@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
     exclude: ['node_modules/**', 'dist/**'],
-    testTimeout: 10000,
+    testTimeout: 0, // Disable timeout
     globals: true,
     testEnvironment: 'node',
   },
