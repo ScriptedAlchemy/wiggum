@@ -24,14 +24,16 @@ pnpm install
 pnpm build
 ```
 
+Requires Node.js v18 or higher.
+
 ## Usage
 
 ### As MCP Server
 
-The server can be run directly:
+Run the compiled server:
 
 ```bash
-node build/index.js
+node dist/index.js
 ```
 
 ### Configuration
@@ -43,7 +45,7 @@ Add to your MCP client configuration:
   "mcpServers": {
     "wiggum-doc-explorer": {
       "command": "node",
-      "args": ["/path/to/wiggum/packages/mcp/build/index.js"]
+      "args": ["/path/to/wiggum/packages/mcp/dist/index.js"]
     }
   }
 }
@@ -81,21 +83,20 @@ Get detailed information about a specific Rstack site.
 **Returns:** Structured JSON with detailed site information
 
 #### `get_docs`
-Fetch documentation content from a site.
+Fetch documentation content from a site (`llms.txt`).
 
 **Parameters:**
 - `site` (enum: rspack, rsbuild, rspress, rslib, rsdoctor, rstest, rslint)
-- `format` (enum: llms, guide, api) - defaults to "llms"
 
 **Example:**
 ```json
-{"site": "rspack", "format": "llms"}
+{"site": "rspack"}
 ```
 
-**Returns:** Raw documentation content optimized for AI processing
+**Returns:** Raw `llms.txt` content optimized for AI processing
 
-#### `search_docs`
-Search documentation across Rstack ecosystem sites.
+#### `search`
+Search documentation across Rstack ecosystem sites with hybrid TF‑IDF + semantic retrieval.
 
 **Parameters:**
 - `query` (string): Search query
@@ -129,7 +130,7 @@ Fetch a specific documentation page from an Rstack site. This tool parses the ll
 - `contentType`: Always "markdown"
 
 #### `list_pages`
-List all available documentation pages for a specific Rstack site by parsing the llms.txt file.
+List all available documentation pages for a specific Rstack site by parsing `llms.txt`. Returns JSON only (AI‑friendly).
 
 **Parameters:**
 - `site` (enum: rspack, rsbuild, rspress, rslib, rsdoctor, rstest, rslint)
@@ -142,7 +143,7 @@ List all available documentation pages for a specific Rstack site by parsing the
 **Returns:** Structured JSON with:
 - `site`: The requested site
 - `totalPages`: Number of available pages
-- `pages`: Array of page objects with `title`, `path`, and optional `section`
+- `pages`: Array of page objects with `title`, `path`, `url`, optional `section`, and `headings` (array of `{ level, text }`)
 
 ## Integration with Claude for Desktop
 
@@ -153,7 +154,7 @@ To use this MCP server with Claude for Desktop, add the following to your Claude
   "mcpServers": {
     "wiggum-doc-explorer": {
       "command": "bun",
-      "args": ["/path/to/wiggum/packages/mcp/build/index.js"]
+      "args": ["/path/to/wiggum/packages/mcp/dist/index.js"]
     }
   }
 }
@@ -188,7 +189,7 @@ pnpm build
 ### Testing
 
 ```bash
-node build/index.js
+node dist/index.js
 ```
 
 ## JSON-RPC Examples
@@ -210,7 +211,7 @@ Request:
 ```
 Response:
 ```json
-{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"get_ecosystem_tools"},{"name":"get_site_info"},{"name":"get_docs"},{"name":"search_docs"},{"name":"get_page"}]}}
+{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"get_ecosystem_tools"},{"name":"get_site_info"},{"name":"get_docs"},{"name":"search"},{"name":"get_page"},{"name":"list_pages"}]}}
 ```
 
 ### get_ecosystem_tools
@@ -246,7 +247,7 @@ Response:
 ### search_docs
 Request (single site):
 ```json
-{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"configuration","site":"rsbuild"}}}
+{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"search","arguments":{"query":"configuration","site":"rsbuild"}}}
 ```
 Response:
 ```json
@@ -255,7 +256,7 @@ Response:
 
 Request (all sites):
 ```json
-{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"configuration"}}}
+{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"search","arguments":{"query":"configuration"}}}
 ```
 Response:
 ```json

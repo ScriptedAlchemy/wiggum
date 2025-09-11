@@ -11,6 +11,7 @@ import which from 'which';
 import type { Config } from '@opencode-ai/sdk';
 import { createOpencodeTui, type TuiOptions } from './opencode.js';
 import { buildMergedConfig } from '@wiggum/agent';
+import { getPackageManager, installGlobalPackage } from './pm.js'
 
 
 
@@ -42,38 +43,22 @@ export async function checkOpenCodeBinary(): Promise<string | null> {
  * Install OpenCode if not available
  */
 export async function installOpenCode(): Promise<boolean> {
-  const spinner = ora('Installing OpenCode...').start();
-  
   try {
-    // Try to install via npm
-    const npmInstall = spawn('npm', ['install', '-g', 'opencode-ai'], {
-      stdio: 'pipe'
-    });
-
-    await new Promise<void>((resolve, reject) => {
-      npmInstall.on('exit', (code) => {
-        if (code === 0) {
-          spinner.succeed('OpenCode installed successfully');
-          resolve();
-        } else {
-          spinner.fail('Failed to install OpenCode');
-          reject(new Error(`Installation failed with code ${code}`));
-        }
-      });
-      
-      npmInstall.on('error', (error) => {
-        spinner.fail('Failed to install OpenCode');
-        reject(error);
-      });
-    });
-
-    return true;
-  } catch (error) {
+    const pm = await getPackageManager()
+    const ok = await installGlobalPackage('opencode-ai', pm)
+    if (!ok) {
+      console.error(chalk.red('\nPlease install OpenCode manually:'));
+      console.log(chalk.cyan('  npm install -g opencode-ai'));
+      console.log(chalk.gray('  or'));
+      console.log(chalk.cyan('  brew install sst/tap/opencode'));
+    }
+    return ok
+  } catch {
     console.error(chalk.red('\nPlease install OpenCode manually:'));
     console.log(chalk.cyan('  npm install -g opencode-ai'));
     console.log(chalk.gray('  or'));
     console.log(chalk.cyan('  brew install sst/tap/opencode'));
-    return false;
+    return false
   }
 }
 

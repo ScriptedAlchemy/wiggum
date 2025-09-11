@@ -9,6 +9,7 @@ import * as path from 'path';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { createWiggumOpencodeTui, checkOpenCodeBinary, installOpenCode, runOpenCodeServer, runOpenCodeCommand, createOpenCodeConfig, showAgentHelp } from './agent.js';
+import { getPackageManager as pmDetect, installPackageDev, getExecuteCommand, isPackageInstalled } from './pm.js';
 
 // Types
 interface PackageInfo {
@@ -33,16 +34,7 @@ const COMMAND_MAPPING: CommandMapping = {
 };
 
 // Check if a package is installed
-function isPackageInstalled(packageName: string): boolean {
-  try {
-    // In ESM, use createRequire to resolve package paths
-    const req = createRequire(import.meta.url);
-    req.resolve(packageName);
-    return true;
-  } catch {
-    return false;
-  }
-}
+// isPackageInstalled moved to pm.ts
 
 // Handle autofix error by passing to OpenCode
 async function handleAutofixError(
@@ -91,46 +83,24 @@ async function handleAutofixError(
 }
 
 // Get package manager (with caching to avoid duplicate detection)
-let cachedPackageManager: string | null = null;
 async function getPackageManager(silent: boolean = false): Promise<string> {
-  if (cachedPackageManager) {
-    return cachedPackageManager;
-  }
-  
   try {
-    const result = await detect({ cwd: process.cwd() });
-    cachedPackageManager = result?.agent || 'npm';
-    if (!silent) {
-      console.log(chalk.blue(`Detected package manager: ${cachedPackageManager}`));
-    }
-    return cachedPackageManager;
-  } catch (error) {
-    cachedPackageManager = 'npm';
-    if (!silent) {
-      console.log(chalk.yellow('Could not detect package manager, defaulting to npm'));
-    }
-    return cachedPackageManager;
+    const pm = await pmDetect();
+    if (!silent) console.log(chalk.blue(`Detected package manager: ${pm}`));
+    return pm;
+  } catch {
+    if (!silent) console.log(chalk.yellow('Could not detect package manager, defaulting to npm'));
+    return 'npm';
   }
 }
 
 // Install package using detected package manager
 async function installPackage(packageName: string, packageManager: string): Promise<boolean> {
-  const spinner = ora(`Installing ${packageName} as dev dependency...`).start();
-  
-  try {
-    const resolved = resolveCommand(packageManager as any, 'add', [packageName, '--save-dev']);
-    if (!resolved) {
-      throw new Error('Could not resolve package manager command');
-    }
-    const { command, args } = resolved;
-    await execa(command, args, { stdio: 'pipe' });
-    spinner.succeed(`Successfully installed ${packageName} as dev dependency`);
-    return true;
-  } catch (error: any) {
-    spinner.fail(`Failed to install ${packageName}: ${error.message}`);
-    console.error(chalk.red(`Please install ${packageName} manually using: ${packageManager} add ${packageName} --save-dev`));
-    return false;
+  const ok = await installPackageDev(packageName, packageManager);
+  if (!ok) {
+    console.error(chalk.red(`Please install ${packageName} manually using your package manager.`));
   }
+  return ok;
 }
 
 // Forward command to the appropriate tool
@@ -193,7 +163,7 @@ async function forwardCommand(toolName: string, originalArgs: string[], packageI
       
       // Build the dlx arguments - pass originalArgs as-is
       const dlxArgs = [executablePackage, ...originalArgs];
-      const execCommand = resolveCommand(packageManager as any, 'execute', dlxArgs);
+      const execCommand = getExecuteCommand(packageManager as any, dlxArgs);
       
       if (!execCommand) {
         throw new Error('Could not resolve package manager execute command');

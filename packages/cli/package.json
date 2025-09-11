@@ -2,7 +2,7 @@
   "name": "@wiggum/cli",
   "version": "1.0.0",
   "type": "module",
-  "description": "A CLI tool built with yargs",
+  "description": "Wiggum CLI: passthrough for R* tools + OpenCode agent",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",
   "bin": {
@@ -23,8 +23,9 @@
   },
   "keywords": [
     "cli",
-    "yargs",
-    "command-line"
+    "command-line",
+    "wiggum",
+    "opencode"
   ],
   "author": "",
   "license": "MIT",
@@ -35,14 +36,12 @@
     "execa": "^8.0.1",
     "ora": "^5.4.1",
     "package-manager-detector": "^0.2.11",
-    "which": "^4.0.0",
-    "yargs": "^17.7.2"
+    "which": "^4.0.0"
   },
   "devDependencies": {
     "@rslib/core": "^0.12.4",
     "@types/node": "^20.19.12",
     "@types/which": "^3.0.4",
-    "@types/yargs": "^17.0.33",
     "jest": "^29.7.0",
     "tsx": "^4.15.7",
     "rspress": "^1.45.3",
