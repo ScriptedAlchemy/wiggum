@@ -23,7 +23,6 @@ class ChatWidgetManager {
   // Removed persistent lastSelection; selection context flows from ChatWidget per-send
   private lastConfig: ChatWidgetProps = {};
   private observer: MutationObserver | null = null;
-  private policyApplied = false;
 
   init(config: ChatWidgetProps = {}) {
     console.log('Wiggum Chat Widget init called with config:', config);
@@ -51,7 +50,6 @@ class ChatWidgetManager {
     const apiEndpoint = `${location.origin}/__opencode__`;
     const directory = document.querySelector('meta[name="wiggum-opencode-dir"]')?.getAttribute('content') || (config as any)['directory'];
     let sessionId: string | undefined;
-    this.policyApplied = false;
     let client: ReturnType<typeof createOpencodeClient> | undefined;
     if (apiEndpoint) {
       try {
@@ -109,16 +107,6 @@ class ChatWidgetManager {
               }
               if (client && sessionId) {
                 const outParts: any[] = [];
-                // Inject a one-time policy notice to the agent to avoid running commands
-                if (!this.policyApplied) {
-                  const policyText = [
-                    'Policy: Do NOT run shell or system commands in this session.',
-                    'When making code edits, only propose and apply file patches. Do not execute builds, tests, or formatters.',
-                    'Do not perform network actions. Keep changes minimal and focused.',
-                  ].join('\n');
-                  outParts.push({ type: 'text', text: policyText });
-                  this.policyApplied = true;
-                }
                 if (context) {
                   // Filter context to essentials to keep payload small
                   const keep: Record<string, any> = {

@@ -66,9 +66,28 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     api.onBeforeStartDevServer(async ({ server }) => {
       try {
         const config = await buildMergedConfig();
-        const server = await createOpencodeServer({ hostname: '127.0.0.1', port: 0, config });
-        opencodeUrl = server.url;
-        opencodeClose = () => server.close();
+
+        // Overlay build-mode system prompt using packaged prompt file (or a safe fallback)
+        const candidates = [
+          path.join(__dirname, 'prompts', 'build.txt'),
+          path.resolve(__dirname, '../src/prompts/build.txt'),
+          path.resolve(__dirname, '../dist/prompts/build.txt'),
+        ];
+        let buildPrompt: string | undefined;
+        for (const f of candidates) {
+          try { if (fs.existsSync(f)) { buildPrompt = fs.readFileSync(f, 'utf8'); break; } } catch {}
+        }
+        if (!buildPrompt) {
+          buildPrompt = 'You are the Wiggum Build Assistant. Focus on build pipeline and bundling. Do not execute shell commands; propose minimal patches.';
+        }
+
+        const cfg: any = { ...(config as any) };
+        cfg.mode = cfg.mode || {};
+        cfg.mode.build = { ...(cfg.mode.build || {}), prompt: buildPrompt };
+
+        const serverInstance = await createOpencodeServer({ hostname: '127.0.0.1', port: 0, config: cfg });
+        opencodeUrl = serverInstance.url;
+        opencodeClose = () => serverInstance.close();
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[chat-widget] Failed to start opencode server:', (e as any)?.message ?? e);
