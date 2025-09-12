@@ -1,5 +1,5 @@
 {
-  "name": "@wiggum/rsbuild-plugin-chat-widget",
+  "name": "@wiggum/rsbuild-plugin-wiggum",
   "version": "0.1.0",
   "description": "Rsbuild plugin for adding a floating chat widget to web applications",
   "main": "dist/index.js",
@@ -59,7 +59,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/wiggum/wiggum.git",
-    "directory": "packages/rsbuild-plugin-chat-widget"
+    "directory": "packages/rsbuild-plugin-wiggum"
   },
   "publishConfig": {
     "access": "public"

@@ -22,6 +22,8 @@ export class WiggumMCPServer {
   private server: McpServer;
   private documentCache: Map<string, { content: string; timestamp: number }>;
   private searchIndex: Map<string, DocumentIndex>;
+  // Track in-flight indexing jobs per site to avoid duplicates
+  private indexingPromises: Map<string, Promise<DocumentIndex>>;
   private cacheTimeout = 10 * 60 * 1000; // 10 minutes for document cache
   private indexTimeout = 30 * 60 * 1000; // 30 minutes for search index
   private cacheDir: string;
@@ -52,6 +54,7 @@ export class WiggumMCPServer {
 
     this.documentCache = new Map();
     this.searchIndex = new Map();
+    this.indexingPromises = new Map();
     this.setupTools();
     this.initializeCacheDir();
     this.modelInitPromise = null;
@@ -277,7 +280,22 @@ export class WiggumMCPServer {
     const sitesToSearch = site === 'all' ? Object.keys(RSTACK_SITES) : [site];
     const blocks = await Promise.all(sitesToSearch.map(async (siteKey) => {
       try {
-        const index = await this.buildOrGetIndex(siteKey, true);
+        const wantEmbeddings = semanticWeight > 0 && !this.disableEmbeddings;
+        const indexingInProgress = this.isIndexing(siteKey);
+
+        if (wantEmbeddings && indexingInProgress) {
+          const index = await this.buildOrGetIndex(siteKey, false);
+          const lexicalResults = await this.searchWithTFIDF(index, query, maxResults, includeContext);
+          const augmented = lexicalResults.map((m) => ({
+            ...m,
+            searchType: 'lexical_fallback',
+            reason: 'indexing_in_progress',
+            fetchCommand: `Use get_page with site=\"${siteKey}\" and path=\"${m.file}\" to fetch full content`,
+          }));
+          return { site: siteKey, matches: augmented };
+        }
+
+        const index = await this.buildOrGetIndex(siteKey, wantEmbeddings);
         const searchResults = await this.hybridSearch(index, query, maxResults, includeContext, semanticWeight);
         const augmented = searchResults.map((m) => ({ ...m, fetchCommand: `Use get_page with site=\"${siteKey}\" and path=\"${m.file}\" to fetch full content` }));
         return { site: siteKey, matches: augmented };
@@ -311,9 +329,27 @@ export class WiggumMCPServer {
         return cachedIndex;
       }
     }
-    const index = await this.buildSearchIndex(site, wantEmbeddings);
+    // Deduplicate concurrent indexing work per site when embeddings are requested
+    if (wantEmbeddings) {
+      const inflight = this.indexingPromises.get(site);
+      if (inflight) return inflight;
+      const promise = (async () => {
+        const built = await this.buildSearchIndex(site, true);
+        this.searchIndex.set(cacheKey, built);
+        await this.saveIndexToCache(site, built);
+        return built;
+      })();
+      this.indexingPromises.set(site, promise);
+      try {
+        const result = await promise;
+        return result;
+      } finally {
+        this.indexingPromises.delete(site);
+      }
+    }
+
+    const index = await this.buildSearchIndex(site, false);
     this.searchIndex.set(cacheKey, index);
-    if (wantEmbeddings) await this.saveIndexToCache(site, index);
     return index;
   }
 
@@ -342,7 +378,8 @@ export class WiggumMCPServer {
       try { await fs.access(cachePath); } catch { return null; }
       const stats = await fs.stat(cachePath);
       const age = Date.now() - stats.mtimeMs;
-      if (age > 7 * 24 * 60 * 60 * 1000) { process.stderr.write(`[INFO] Cache for ${site} is too old, rebuilding\n`); return null; }
+      // Expire embedding cache after 5 days
+      if (age > 5 * 24 * 60 * 60 * 1000) { process.stderr.write(`[INFO] Cache for ${site} is too old (>5 days), rebuilding\n`); return null; }
       const data = await fs.readFile(cachePath, 'utf-8');
       const cached = JSON.parse(data);
       const index: DocumentIndex = { terms: new Map(), documents: new Map(), idf: new Map(), lastUpdated: cached.lastUpdated } as DocumentIndex;
@@ -355,6 +392,10 @@ export class WiggumMCPServer {
       process.stderr.write(`[WARNING] Failed to load cache: ${error}\n`);
       return null;
     }
+  }
+
+  private isIndexing(site: string): boolean {
+    return this.indexingPromises.has(site);
   }
 
   private async buildSearchIndex(site: string, includeEmbeddings: boolean = false): Promise<DocumentIndex> {
