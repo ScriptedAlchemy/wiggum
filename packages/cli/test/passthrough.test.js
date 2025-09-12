@@ -1,3 +1,4 @@
+import { expect, test, describe } from '@rstest/core';
 const { execSync } = require('child_process');
 const path = require('path');
 
