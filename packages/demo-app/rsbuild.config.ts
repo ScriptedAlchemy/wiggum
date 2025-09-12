@@ -1,7 +1,7 @@
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginTypeCheck } from '@rsbuild/plugin-type-check';
-import { pluginChatWidget } from '@wiggum/rsbuild-plugin-chat-widget';
+import { pluginChatWidget } from '@wiggum/rsbuild-plugin-wiggum';
 
 export default defineConfig({
   source: {
