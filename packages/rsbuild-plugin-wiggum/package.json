@@ -21,7 +21,8 @@
     "build": "rslib build",
     "build:watch": "rslib build --watch",
     "dev": "rslib build --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "publint": "publint"
   },
   "keywords": [
     "rsbuild",
@@ -45,6 +46,7 @@
     "@types/node": "^22.18.1",
     "@types/react": "^18.3.24",
     "@types/react-dom": "^18.3.7",
+    "publint": "^0.3.12",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.9.2",

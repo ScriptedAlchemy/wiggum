@@ -19,7 +19,8 @@
     "build": "rslib build",
     "dev": "rslib build --watch",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "test": "npm run -s build && node test/run-tests.cjs"
+    "test": "npm run -s build && node test/run-tests.cjs",
+    "publint": "publint"
   },
   "author": "Wiggum Team",
   "license": "MIT",
@@ -28,7 +29,8 @@
   },
   "devDependencies": {
     "@rslib/core": "^0.12.4",
-    "typescript": "^5.9.2",
-    "@types/node": "^20.19.12"
+    "@types/node": "^20.19.12",
+    "publint": "^0.3.12",
+    "typescript": "^5.9.2"
   }
 }
