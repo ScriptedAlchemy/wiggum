@@ -399,9 +399,6 @@ Use "wiggum <command> --help" to see help for a specific command.
   }
 }
 
-// Re-export agent functions for testing and external use
-export { spawnOpenCode, runOpenCodeCommand, createWiggumOpencodeTui, checkOpenCodeBinary, installOpenCode, runOpenCodeServer, createOpenCodeConfig, showAgentHelp } from './agent.js';
-
 // Run the CLI
 main().catch(error => {
   console.error(chalk.red('Fatal error:'), error);

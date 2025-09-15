@@ -12,7 +12,8 @@
     "start": "node dist/index.js",
     "test": "pnpm run -s build && rstest",
     "test:watch": "rstest --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "publint": "publint"
   },
   "files": [
     "dist"
@@ -38,6 +39,7 @@
     "@rslib/core": "^0.12.4",
     "@rstest/core": "^0.3.2",
     "@types/node": "^20.19.12",
+    "publint": "^0.3.12",
     "typescript": "^5.9.2"
   },
   "engines": {
