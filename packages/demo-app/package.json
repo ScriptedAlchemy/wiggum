@@ -20,11 +20,12 @@
     "@rsbuild/plugin-type-check": "^1.2.4",
     "@rslint/core": "^0.1.13",
     "@rstest/core": "^0.3.2",
-    "@wiggum/cli": "workspace:*",
-    "@wiggum/rsbuild-plugin-wiggum": "workspace:*",
     "@types/react": "^18.3.24",
     "@types/react-dom": "^18.3.7",
+    "@wiggum/cli": "workspace:*",
+    "@wiggum/rsbuild-plugin-wiggum": "workspace:*",
     "playwright": "^1.55.0",
+    "publint": "^0.3.12",
     "typescript": "^5.9.2"
   },
   "dependencies": {
