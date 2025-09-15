@@ -180,6 +180,19 @@ To use this MCP server with Claude for Desktop, add the following to your Claude
 
 ## Development
 
+### Caching, Indexing, and Search Behavior
+
+- Embedding cache: Embedding indexes are cached on disk for 5 days per site. After 5 days they are considered stale and rebuilt on demand.
+- No duplicate indexing: The server deduplicates per-site indexing. If an indexing job is already running for a site, further requests reuse the in‑flight job instead of starting another.
+- Non‑blocking search: If embedding indexing is still in progress, search automatically falls back to lexical TF‑IDF/Fuse results so queries never block. Returned items include `searchType: "lexical_fallback"` and `reason: "indexing_in_progress"`.
+- Background indexing: On startup, the server kicks off background indexing across sites with limited concurrency.
+
+Environment variables:
+- `MCP_DISABLE_EMBEDDINGS=1` — disable embeddings entirely (lexical search only).
+- `MCP_INDEX_CONCURRENCY=<n>` — control background indexing concurrency (default 2).
+- `MCP_LIST_PAGES_CONCURRENCY=<n>` — control concurrency when fetching headings for `list_pages` (default 4).
+- `MCP_HYBRID_SCORE_THRESHOLD=<float>` — minimum combined score for hybrid results (default 0.05).
+
 ### Building
 
 ```bash

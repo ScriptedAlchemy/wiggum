@@ -17,7 +17,7 @@
     "dev": "rslib build --watch",
     "build": "rslib build",
     "prebuild": "npm run clean",
-    "test": "npm run build && jest",
+    "test": "npm run build && rstest",
     "clean": "rm -rf dist",
     "list:providers": "tsx list-opencode-providers.ts"
   },
@@ -39,12 +39,16 @@
     "which": "^4.0.0"
   },
   "devDependencies": {
+    "@rsdoctor/cli": "^1.2.3",
     "@rslib/core": "^0.12.4",
+    "@rslint/core": "^0.1.13",
+    "@rspack/cli": "^1.5.3",
+    "@rstest/core": "^0.3.2",
     "@types/node": "^20.19.12",
     "@types/which": "^3.0.4",
-    "jest": "^29.7.0",
-    "tsx": "^4.15.7",
     "rspress": "^1.45.3",
+    "strip-ansi": "^7.1.2",
+    "tsx": "^4.15.7",
     "typescript": "^5.9.2"
   },
   "engines": {
