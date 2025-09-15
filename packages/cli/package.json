@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@rslib/core": "^0.12.4",
+    "@rstest/core": "^0.3.2",
     "@types/node": "^20.19.12",
     "@types/which": "^3.0.4",
     "jest": "^29.7.0",

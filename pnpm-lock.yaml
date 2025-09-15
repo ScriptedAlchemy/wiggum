@@ -61,6 +61,9 @@ importers:
       '@rslib/core':
         specifier: ^0.12.4
         version: 0.12.4(typescript@5.9.2)
+      '@rstest/core':
+        specifier: ^0.3.2
+        version: 0.3.2
       '@types/node':
         specifier: ^20.19.12
         version: 20.19.12
