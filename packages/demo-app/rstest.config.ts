@@ -1,20 +1,15 @@
 import { defineConfig } from '@rstest/core';
 
 export default defineConfig({
-  // Test include patterns
   include: [
-    '**/__tests__/**/*.(test|spec).ts',
-    '**/?(*.)(test|spec).ts'
+    'src/__tests__/**/*.test.ts',
+    'src/__tests__/**/*.test.tsx',
+    'src/__tests__/**/*.spec.ts',
+    'src/__tests__/**/*.spec.tsx',
+    'tests/unit/**/*.test.ts',
+    'tests/unit/**/*.spec.ts'
   ],
-  
-  // Test environment
+  ignore: ['tests/e2e/**'],
   testEnvironment: 'jsdom',
-  
-  // Setup files
-  setupFiles: [
-    './tests/setup.ts'
-  ],
-  
-  // Global test timeout
   testTimeout: 10000
 });
