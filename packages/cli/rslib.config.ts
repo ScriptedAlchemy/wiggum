@@ -16,6 +16,7 @@ export default defineConfig({
           root: './dist',
         },
       },
+      dts: true,
       autoExternal: true,
     },
   ],

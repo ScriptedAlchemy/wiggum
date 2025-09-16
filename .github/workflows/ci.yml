@@ -62,7 +62,9 @@ jobs:
           
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      
+      - name: Build workspace (required for lint commands)
+        run: pnpm build
         
       - name: Run linting
-        run: pnpm -r run lint || true
-        continue-on-error: true
+        run: pnpm -r run lint
