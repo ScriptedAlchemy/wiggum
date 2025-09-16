@@ -111,6 +111,10 @@ The `Release Packages` GitHub Actions workflow (`.github/workflows/changesets.ym
 - Once that PR lands and the workflow runs again, it executes `pnpm ci:publish` (a thin wrapper around `pnpm release`) to publish the packages.
 - Ensure the `NPM_TOKEN` repository secret is configured with publish rights before enabling auto-publish.
 
+### Changesets Bot
+
+Install the [Changesets GitHub App](https://github.com/apps/changeset-bot) for this repository so pull requests automatically get reminded to include a changeset. After installation the bot will comment on PRs when a changeset is missing and provide a quick link to create one. You can choose whether to install it for the whole organization or just this repo. (See citeturn0search0)
+
 ## OpenCode
 
 This repo includes a minimal `opencode.json`. The CLI and plugin primarily inject configuration inline at runtime using `@wiggum/agent`.

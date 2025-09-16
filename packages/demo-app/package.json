@@ -11,8 +11,8 @@
     "test:watch": "wiggum test --watch",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "lint": "wiggum lint . --autofix",
-    "lint:fix": "wiggum lint --fix ."
+    "lint": "pnpm --filter @wiggum/cli build && wiggum lint . --autofix",
+    "lint:fix": "pnpm --filter @wiggum/cli build && wiggum lint --fix ."
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

@@ -44,7 +44,7 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -62,7 +62,47 @@ jobs:
           
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      
+      - name: Build workspace (required for lint commands)
+        run: pnpm build
         
       - name: Run linting
-        run: pnpm -r run lint || true
-        continue-on-error: true
+        run: pnpm -r run lint
+
+  changesets:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch main branch
+        run: git fetch origin main --depth=1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify changeset added
+        run: |
+          set +e
+          pnpm exec changeset status --since=origin/main
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "::error::This pull request modifies publishable packages but does not include a changeset. Run 'pnpm changeset' to add one (use --empty if no release is required)."
+            exit $status
+          fi
