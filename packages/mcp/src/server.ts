@@ -148,7 +148,36 @@ export class WiggumMCPServer {
           const searchResults = await this.advancedSearch(query, site, maxResults, includeContext, semanticWeight);
           return { content: [{ type: 'text', text: searchResults }] };
         } catch (error) {
-          return { content: [{ type: 'text', text: JSON.stringify({ error: `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`, query, site }, null, 2) }] };
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          const normalizedSite = site ?? 'all';
+          const suggestions = [
+            'Try broadening the query or switching to site="all" to widen the search scope.',
+            normalizedSite !== 'all'
+              ? `Call list_pages with site=\"${normalizedSite}\" to inspect available content when search cannot locate results.`
+              : 'Follow up with list_pages on a specific site to inspect its available markdown paths.',
+            'Use get_ecosystem_tools to review the available site identifiers before retrying.'
+          ];
+          const nextSteps = {
+            alternateSearchCommand: normalizedSite === 'all'
+              ? 'search site="rsbuild" query="<keywords>"'
+              : 'search site="all" query="<keywords>"',
+            listPagesCommand: normalizedSite === 'all'
+              ? 'list_pages site="rsbuild"'
+              : `list_pages site="${normalizedSite}"`,
+            discoverSitesCommand: 'get_ecosystem_tools'
+          };
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: `Search failed: ${message}`,
+                query,
+                site,
+                suggestions,
+                nextSteps
+              }, null, 2)
+            }]
+          };
         }
       }
     );
@@ -165,7 +194,30 @@ export class WiggumMCPServer {
           const docContent = await this.fetchDocumentation(site);
           return { content: [{ type: 'text', text: docContent }] };
         } catch (error) {
-          return { content: [{ type: 'text', text: JSON.stringify({ error: `Failed to fetch documentation: ${error instanceof Error ? error.message : 'Unknown error'}`, site, format: 'llms' }, null, 2) }] };
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          const normalizedSite = site ?? 'unknown';
+          const suggestions = [
+            `Run get_ecosystem_tools to confirm the available sites and pick a valid identifier before retrying.`,
+            `If you only need specific pages, call list_pages with site=\"${normalizedSite}\" to inspect markdown paths prior to fetching.`,
+            `Use search with site=\"${normalizedSite}\" to locate nearby documentation when direct fetches fail.`
+          ];
+          const nextSteps = {
+            discoverSitesCommand: 'get_ecosystem_tools',
+            listPagesCommand: `list_pages site=\"${normalizedSite}\"`,
+            searchCommand: `search site=\"${normalizedSite}\" query=\"<keywords>\"`
+          };
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: `Failed to fetch documentation: ${message}`,
+                site,
+                format: 'llms',
+                suggestions,
+                nextSteps
+              }, null, 2)
+            }]
+          };
         }
       }
     );
@@ -193,7 +245,30 @@ export class WiggumMCPServer {
           const markdownContent = await response.text();
           return { content: [{ type: 'text', text: JSON.stringify({ site, requestedPath: path, actualPath: markdownPath, url: markdownUrl, content: markdownContent, contentType: 'markdown' }, null, 2) }] };
         } catch (error) {
-          return { content: [{ type: 'text', text: JSON.stringify({ error: `Failed to fetch page: ${error instanceof Error ? error.message : 'Unknown error'}`, site, path }, null, 2) }] };
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          const normalizedSite = site ?? 'unknown';
+          const suggestions = [
+            `Run list_pages with site=\"${normalizedSite}\" to discover the exact markdown paths that are available.`,
+            `If you need to inspect the source index, call get_docs with site=\"${normalizedSite}\" to review the llms.txt entries.`,
+            'Use get_ecosystem_tools or get_site_info when you need to confirm valid site identifiers before retrying.'
+          ];
+          const nextSteps = {
+            listPagesCommand: `list_pages site=\"${normalizedSite}\"`,
+            getDocsCommand: `get_docs site=\"${normalizedSite}\"`,
+            discoverSitesCommand: 'get_ecosystem_tools'
+          };
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: `Failed to fetch page: ${message}`,
+                site,
+                path,
+                suggestions,
+                nextSteps
+              }, null, 2)
+            }]
+          };
         }
       }
     );
@@ -236,7 +311,29 @@ export class WiggumMCPServer {
           const payload = { site, totalPages: enhancedPages.length, pages: enhancedPages };
           return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
         } catch (error) {
-          return { content: [{ type: 'text', text: JSON.stringify({ error: `Failed to list pages: ${error instanceof Error ? error.message : 'Unknown error'}`, site }, null, 2) }] };
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          const normalizedSite = site ?? 'unknown';
+          const suggestions = [
+            `Call get_docs with site=\"${normalizedSite}\" to inspect the raw llms index if listing fails.`,
+            'Verify the site identifier with get_ecosystem_tools or get_site_info before retrying.',
+            'Use search to find relevant pages directly when the index cannot be listed.'
+          ];
+          const nextSteps = {
+            getDocsCommand: `get_docs site=\"${normalizedSite}\"`,
+            discoverSitesCommand: 'get_ecosystem_tools',
+            searchCommand: `search site=\"${normalizedSite}\" query=\"<keywords>\"`
+          };
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({
+                error: `Failed to list pages: ${message}`,
+                site,
+                suggestions,
+                nextSteps
+              }, null, 2)
+            }]
+          };
         }
       }
     );

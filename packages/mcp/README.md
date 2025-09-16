@@ -128,6 +128,7 @@ Fetch a specific documentation page from an Rstack site. This tool parses the ll
 - `url`: The full URL to the markdown file
 - `content`: Raw markdown content
 - `contentType`: Always "markdown"
+- `suggestions` / `nextSteps`: When a fetch fails, the MCP response now points you to recovery commands such as `list_pages` and `get_docs` so the agent can quickly discover valid paths.
 
 #### `list_pages`
 List all available documentation pages for a specific Rstack site by parsing `llms.txt`. Returns JSON only (AI‑friendly).
@@ -162,11 +163,12 @@ To use this MCP server with Claude for Desktop, add the following to your Claude
 
 ## AI Agent Workflow
 
-1. **Discover Tools**: Use `get_ecosystem_tools` to see all available Rstack tools
-2. **Get Site Details**: Use `get_site_info` for specific tool information
-3. **Search Documentation**: Use `search_docs` to find relevant content across sites
-4. **Fetch Content**: Use `get_docs` to retrieve full documentation or `get_page` for specific pages
-5. **Process Results**: All responses are structured JSON for optimal AI consumption
+1. **Discover Tools**: Run `get_ecosystem_tools` to enumerate supported sites.
+2. **Confirm Site Metadata**: Use `get_site_info` to inspect a target site's base URL and docs positioning.
+3. **Inventory Pages** *(recommended)*: Call `list_pages` for the site to capture canonical paths, titles, and headings before fetching.
+4. **Search Documentation**: Use `search` (optionally with `site="all"`) to locate the most relevant entries.
+5. **Fetch Content**: Use `get_page` to retrieve focused markdown or `get_docs` for the full `llms.txt` index.
+6. **Recover Gracefully**: If a fetch fails, follow the `suggestions`/`nextSteps` fields in the response to rerun `list_pages`, `get_docs`, or revisit discovery commands.
 
 ## Supported Rstack Sites
 

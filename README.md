@@ -103,6 +103,14 @@ Changesets targets the `main` branch by default; adjust `.changeset/config.json`
 
 The private `demo-app` workspace is ignored from versioning/publishing and won't receive changeset bumps.
 
+### Automated Releases
+
+The `Release Packages` GitHub Actions workflow (`.github/workflows/changesets.yml`) automates the Changesets flow on every push to `main`:
+
+- When pending changesets exist, it opens a release PR by running `pnpm version-packages`.
+- Once that PR lands and the workflow runs again, it executes `pnpm ci:publish` (a thin wrapper around `pnpm release`) to publish the packages.
+- Ensure the `NPM_TOKEN` repository secret is configured with publish rights before enabling auto-publish.
+
 ## OpenCode
 
 This repo includes a minimal `opencode.json`. The CLI and plugin primarily inject configuration inline at runtime using `@wiggum/agent`.

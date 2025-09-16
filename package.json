@@ -11,7 +11,8 @@
     "publint": "pnpm -r publint",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "pnpm run build && pnpm exec changeset publish"
+    "release": "pnpm run build && pnpm exec changeset publish",
+    "ci:publish": "pnpm release"
   },
   "keywords": [
     "monorepo",
