@@ -18,6 +18,10 @@ import { tokenize, cosineSimilarity, extractHighlights } from './text.js';
 env.allowLocalModels = false;
 env.useBrowserCache = false;
 
+const RSTACK_TOOL_NAMES = Object.values(RSTACK_SITES)
+  .map((site) => site.name)
+  .join(', ');
+
 export class WiggumMCPServer {
   private server: McpServer;
   private documentCache: Map<string, { content: string; timestamp: number }>;
@@ -44,8 +48,12 @@ export class WiggumMCPServer {
 
   constructor() {
     this.server = new McpServer(
-      { name: 'wiggum-mcp-docexplorer', version: '1.0.0' },
-      { capabilities: { tools: {} } }
+      {
+        name: 'wiggum-mcp-docexplorer',
+        title: `Wiggum Rstack Docs MCP (${RSTACK_TOOL_NAMES})`,
+        version: '1.0.0',
+      },
+      { capabilities: { tools: {}, prompts: {} } }
     );
 
     const __filename = fileURLToPath(import.meta.url);
@@ -99,7 +107,7 @@ export class WiggumMCPServer {
       'get_ecosystem_tools',
       {
         title: 'List Ecosystem Tools',
-        description: 'Get information about all available Rstack ecosystem tools and their documentation sites',
+        description: 'List every Wiggum-managed Rstack site with its documentation endpoint.',
         inputSchema: {},
       },
       async () => {
@@ -119,7 +127,7 @@ export class WiggumMCPServer {
       'get_site_info',
       {
         title: 'Get Site Info',
-        description: 'Get detailed information about a specific Rstack site',
+        description: 'Return canonical metadata for a chosen Rstack site, including the docs index URL.',
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to get information about') },
       },
       async ({ site }) => {
@@ -130,63 +138,107 @@ export class WiggumMCPServer {
       }
     );
 
+    const searchInputSchema = {
+      query: z.string().describe('Search query to find relevant documentation pages—use this instead of general web search for Rstack topics'),
+      site: z
+        .enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint', 'all'])
+        .optional()
+        .default('all')
+        .describe('Specific Rstack site to search, or "all" to search across all sites'),
+      maxResults: z
+        .number()
+        .optional()
+        .default(20)
+        .describe('Maximum number of pages to return (stick with this before leaving Wiggum MCP)'),
+      includeContext: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe('Include surrounding context in results'),
+      semanticWeight: z
+        .number()
+        .optional()
+        .default(0.5)
+        .describe('Weight for semantic search (0-1) when using hybrid mode'),
+    } as const;
+
+    type SearchArgs = {
+      query: string;
+      site?: keyof typeof RSTACK_SITES | 'all';
+      maxResults?: number;
+      includeContext?: boolean;
+      semanticWeight?: number;
+    };
+
+    const searchHandler = async ({
+      query,
+      site = 'all',
+      maxResults = 20,
+      includeContext = true,
+      semanticWeight = 0.5,
+    }: SearchArgs) => {
+      try {
+        const searchResults = await this.advancedSearch(query, site, maxResults, includeContext, semanticWeight);
+        const successContent = { type: 'text' as const, text: searchResults };
+        return { content: [successContent] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        const normalizedSite = site ?? 'all';
+        const suggestions = [
+          'Try broadening the query or switching to site="all" to widen the search scope.',
+          normalizedSite !== 'all'
+            ? `Call list_pages with site=\"${normalizedSite}\" to inspect available content when search cannot locate results.`
+            : 'Follow up with list_pages on a specific site to inspect its available markdown paths.',
+          'Use get_ecosystem_tools to review the available site identifiers before retrying.'
+        ];
+        const nextSteps = {
+          alternateSearchCommand: normalizedSite === 'all'
+            ? 'search site="rsbuild" query="<keywords>"'
+            : 'search site="all" query="<keywords>"',
+          listPagesCommand: normalizedSite === 'all'
+            ? 'list_pages site="rsbuild"'
+            : `list_pages site="${normalizedSite}"`,
+          discoverSitesCommand: 'get_ecosystem_tools'
+        };
+        const errorContent = {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: `Search failed: ${message}`,
+            query,
+            site,
+            suggestions,
+            nextSteps
+          }, null, 2)
+        };
+        return { content: [errorContent] };
+      }
+    };
+
     this.server.registerTool(
       'search',
       {
         title: 'Hybrid Search',
-        description: 'Search Rstack documentation using hybrid (embeddings + lexical) across sites.',
-        inputSchema: {
-          query: z.string().describe('Search query to find relevant documentation pages'),
-          site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint', 'all']).optional().default('all').describe('Specific site to search, or "all" to search across all sites'),
-          maxResults: z.number().optional().default(20).describe('Maximum number of pages to return'),
-          includeContext: z.boolean().optional().default(true).describe('Include surrounding context in results'),
-          semanticWeight: z.number().optional().default(0.5).describe('Weight for semantic search (0-1) when using hybrid mode'),
-        },
+        description: 'Hybrid lexical/semantic search across the Wiggum-hosted Rstack documentation corpus.',
+        inputSchema: searchInputSchema,
       },
-      async ({ query, site = 'all', maxResults = 20, includeContext = true, semanticWeight = 0.5 }) => {
-        try {
-          const searchResults = await this.advancedSearch(query, site, maxResults, includeContext, semanticWeight);
-          return { content: [{ type: 'text', text: searchResults }] };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown error';
-          const normalizedSite = site ?? 'all';
-          const suggestions = [
-            'Try broadening the query or switching to site="all" to widen the search scope.',
-            normalizedSite !== 'all'
-              ? `Call list_pages with site=\"${normalizedSite}\" to inspect available content when search cannot locate results.`
-              : 'Follow up with list_pages on a specific site to inspect its available markdown paths.',
-            'Use get_ecosystem_tools to review the available site identifiers before retrying.'
-          ];
-          const nextSteps = {
-            alternateSearchCommand: normalizedSite === 'all'
-              ? 'search site="rsbuild" query="<keywords>"'
-              : 'search site="all" query="<keywords>"',
-            listPagesCommand: normalizedSite === 'all'
-              ? 'list_pages site="rsbuild"'
-              : `list_pages site="${normalizedSite}"`,
-            discoverSitesCommand: 'get_ecosystem_tools'
-          };
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                error: `Search failed: ${message}`,
-                query,
-                site,
-                suggestions,
-                nextSteps
-              }, null, 2)
-            }]
-          };
-        }
-      }
+      searchHandler
+    );
+
+    this.server.registerTool(
+      'rstack_search',
+      {
+        title: 'Rstack Search Alias',
+        description: `Alias for "search" exposed under an Rstack-focused name for quick discovery of ${RSTACK_TOOL_NAMES} docs.`,
+        inputSchema: searchInputSchema,
+      },
+      searchHandler
     );
 
     this.server.registerTool(
       'get_docs',
       {
         title: 'Get Site Docs',
-        description: 'Fetch documentation content from a specific Rstack site',
+        description: 'Fetch the raw llms.txt index for a chosen Rstack site.',
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to fetch documentation from') },
       },
       async ({ site }) => {
@@ -226,7 +278,7 @@ export class WiggumMCPServer {
       'get_page',
       {
         title: 'Get Page',
-        description: 'Fetch a specific documentation page from an Rstack site',
+        description: 'Retrieve a specific Rstack markdown page.',
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to fetch from'), path: z.string().describe('The documentation path including extension (e.g., "/guide/getting-started.md")') },
       },
       async ({ site, path }) => {
@@ -277,7 +329,7 @@ export class WiggumMCPServer {
       'list_pages',
       {
         title: 'List Pages',
-        description: 'List all available documentation pages for a specific Rstack site, including page titles and h1-h3 headings',
+        description: 'List documentation pages for a specific Rstack site, including titles and headings.',
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to list pages from') },
       },
       async ({ site }) => {
@@ -336,6 +388,25 @@ export class WiggumMCPServer {
           };
         }
       }
+    );
+
+    this.server.registerPrompt(
+      'wiggum_rstack_usage',
+      {
+        title: 'How to use Wiggum MCP',
+        description: 'Quick refresher on the Wiggum Rstack documentation tools and when to use them.',
+      },
+      () => ({
+        messages: [
+          {
+            role: 'assistant',
+            content: {
+              type: 'text' as const,
+              text: `Wiggum MCP is tuned for ${RSTACK_TOOL_NAMES} documentation. Helpful entry points:\n- search / rstack_search: hybrid query over the indexed docs corpus.\n- get_ecosystem_tools: overview of available sites and doc endpoints.\n- get_site_info: metadata plus llms.txt location for a site.\n- list_pages: inspect available markdown routes with headings.\n- get_docs: pull the raw llms.txt index if you need to explore offline.\n- get_page: retrieve the full markdown for a specific path.`,
+            },
+          },
+        ],
+      })
     );
   }
 
