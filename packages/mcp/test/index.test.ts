@@ -44,6 +44,52 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
       }
   }, 60000);
 
+  test('search related suggestions present when results exist', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    try {
+      const result = await client.callTool({
+        name: 'search',
+        arguments: { query: 'Module Federation', site: 'rspack', maxResults: 1, includeContext: false, semanticWeight: 0 },
+      });
+      const textItem = (result.content as any[]).find((c) => c.type === 'text');
+      const payload = JSON.parse((textItem as any).text);
+      const first = payload.results?.[0]?.matches?.[0] ?? payload.results?.[0];
+      expect(first.related).toBeDefined();
+      expect(first.related).toMatchInlineSnapshot(`
+        [
+          {
+            "path": "/guide/start/introduction.md",
+            "reason": "Same section: Guide",
+            "title": "Introduction",
+          },
+          {
+            "path": "/guide/start/quick-start.md",
+            "reason": "Same section: Guide",
+            "title": "Quick start",
+          },
+          {
+            "path": "/guide/start/ecosystem.md",
+            "reason": "Same section: Guide",
+            "title": "Ecosystem",
+          },
+        ]
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 60000);
+
   test('search defaults (site omitted) snapshot', async () => {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
@@ -79,6 +125,219 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
             "rslint",
           ],
           "totalResults": 0,
+        }
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 60000);
+
+  test('list_recent_releases for rslib blog entries', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    try {
+      const result = await client.callTool({
+        name: 'list_recent_releases',
+        arguments: { site: 'rslib', limit: 3 },
+      });
+      const textItem = (result.content as any[]).find((c) => c.type === 'text');
+      const payload = JSON.parse((textItem as any).text);
+      expect({
+        count: payload.count,
+        note: payload.note,
+        paths: payload.results.map((r: any) => r.path),
+      }).toMatchInlineSnapshot(`
+        {
+          "count": 2,
+          "note": undefined,
+          "paths": [
+            "/blog/introducing-rslib.md",
+            "/blog/index.md",
+          ],
+        }
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 60000);
+
+  test('list_recent_releases falls back to migration guides when blog missing', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    try {
+      const result = await client.callTool({
+        name: 'list_recent_releases',
+        arguments: { site: 'rsbuild', limit: 2 },
+      });
+      const textItem = (result.content as any[]).find((c) => c.type === 'text');
+      const payload = JSON.parse((textItem as any).text);
+      expect({ note: payload.note, paths: payload.results.map((r: any) => r.path).slice(0, 2) }).toMatchInlineSnapshot(`
+        {
+          "note": "No blog entries detected; returning migration guides instead.",
+          "paths": [
+            "/guide/migration/rsbuild-0-x.md",
+            "/guide/migration/webpack.md",
+          ],
+        }
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 60000);
+
+  test('get_config_option returns structured data for rsbuild output.sourceMap', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    try {
+      const result = await client.callTool({
+        name: 'get_config_option',
+        arguments: { site: 'rsbuild', option: 'output.sourceMap' },
+      });
+      const textItem = (result.content as any[]).find((c) => c.type === 'text');
+      const payload = JSON.parse((textItem as any).text);
+      expect({ path: payload.path, title: payload.title, defaultValue: payload.default ?? null }).toMatchInlineSnapshot(`
+        {
+          "defaultValue": null,
+          "path": "/config/output/source-map.md",
+          "title": "output.sourceMap",
+        }
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 60000);
+
+  test('get_config_option returns suggestions when option missing', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    try {
+      const result = await client.callTool({
+        name: 'get_config_option',
+        arguments: { site: 'rsbuild', option: 'does.not.exist' },
+      });
+      const textItem = (result.content as any[]).find((c) => c.type === 'text');
+      const payload = JSON.parse((textItem as any).text);
+      expect(payload.error).toBeDefined();
+      expect(payload.suggestions.slice(0, 3)).toMatchInlineSnapshot(`
+        [
+          {
+            "path": "/config/index.md",
+            "title": "Config overview",
+          },
+          {
+            "path": "/config/root.md",
+            "title": "root",
+          },
+          {
+            "path": "/config/mode.md",
+            "title": "mode",
+          },
+        ]
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 60000);
+
+  test('suggest_migration_path returns webpack→Rspack guidance', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    try {
+      const result = await client.callTool({
+        name: 'suggest_migration_path',
+        arguments: { site: 'rspack', from: 'webpack' },
+      });
+      const textItem = (result.content as any[]).find((c) => c.type === 'text');
+      const payload = JSON.parse((textItem as any).text);
+      expect({
+        path: payload.primaryGuide.path,
+        title: payload.primaryGuide.title,
+      }).toMatchInlineSnapshot(`
+        {
+          "path": "/guide/migration/webpack.md",
+          "title": "Migrate from webpack",
+        }
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 60000);
+
+  test('suggest_migration_path reports missing guides for rslint', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    try {
+      const result = await client.callTool({
+        name: 'suggest_migration_path',
+        arguments: { site: 'rslint', from: 'eslint' },
+      });
+      const textItem = (result.content as any[]).find((c) => c.type === 'text');
+      const payload = JSON.parse((textItem as any).text);
+      expect(payload).toMatchInlineSnapshot(`
+        {
+          "error": "No migration guides are published for this site.",
+          "from": "eslint",
+          "site": "rslint",
         }
       `);
     } finally {
