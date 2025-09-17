@@ -1259,19 +1259,32 @@ export class WiggumMCPServer {
     const base = new URL(baseUrl);
     const resolved = this.resolveUrlOnSite(base, p);
     if (resolved.origin !== base.origin) throw new Error('Cross-origin markdown URL blocked');
+    const attemptUrls: string[] = [];
     const fullUrl = resolved.toString();
-    const cacheKey = fullUrl;
-    const cached = this.documentCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) return cached.content;
-    try {
-      const response = await this.fetchWithTimeout(fullUrl);
-      if (!response.ok) throw new Error(`Failed to fetch ${fullUrl}: ${response.status}`);
-      const content = await response.text();
-      this.setDocumentCache(cacheKey, { content, timestamp: Date.now() });
-      return content;
-    } catch (error) {
-      throw new Error(`Error fetching markdown from ${fullUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    attemptUrls.push(fullUrl);
+    if (fullUrl.endsWith('.md')) {
+      attemptUrls.push(fullUrl.slice(0, -3));
     }
+
+    let lastError: unknown = null;
+    for (const url of attemptUrls) {
+      const cacheKey = url;
+      const cached = this.documentCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < this.cacheTimeout) return cached.content;
+      try {
+        const response = await this.fetchWithTimeout(url);
+        if (!response.ok) {
+          lastError = new Error(`Failed to fetch ${url}: ${response.status}`);
+          continue;
+        }
+        const content = await response.text();
+        this.setDocumentCache(cacheKey, { content, timestamp: Date.now() });
+        return content;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw new Error(`Error fetching markdown from ${fullUrl}: ${lastError instanceof Error ? lastError.message : 'Unknown error'}`);
   }
 
   // Normalize any absolute .dev links to their .rs counterparts and resolve relative paths against the site base

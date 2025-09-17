@@ -345,6 +345,261 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
     }
   }, 60000);
 
+  test('list_recent_releases across all supported sites', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    try {
+      const rows: any[] = [];
+      const siteInfoMap = new Map<string, string>();
+      const ecosystemRes = await client.callTool({ name: 'get_ecosystem_tools', arguments: {} });
+      const ecosystemText = (ecosystemRes.content as any[]).find((c) => c.type === 'text');
+      const ecosystemPayload = JSON.parse((ecosystemText as any).text);
+      for (const tool of ecosystemPayload.tools) {
+        siteInfoMap.set(tool.id, tool.url);
+      }
+
+      for (const site of SITES_WITH_LLMS) {
+        const res = await client.callTool({
+          name: 'list_recent_releases',
+          arguments: { site, limit: 3 },
+        });
+        const textItem = (res.content as any[]).find((c) => c.type === 'text');
+        const payload = JSON.parse((textItem as any).text);
+        rows.push({
+          site,
+          count: payload.count,
+          note: payload.note,
+          paths: payload.results.map((r: any) => r.path),
+        });
+      }
+
+      expect(rows).toMatchInlineSnapshot(`
+        [
+          {
+            "count": 3,
+            "note": undefined,
+            "paths": [
+              "/blog/announcing-1-5.md",
+              "/blog/announcing-1-4.md",
+              "/blog/rspack-next-partner.md",
+            ],
+            "site": "rspack",
+          },
+          {
+            "count": 3,
+            "note": "No blog entries detected; returning migration guides instead.",
+            "paths": [
+              "/guide/migration/rsbuild-0-x.md",
+              "/guide/migration/webpack.md",
+              "/guide/migration/cra.md",
+            ],
+            "site": "rsbuild",
+          },
+          {
+            "count": 2,
+            "note": undefined,
+            "paths": [
+              "/blog/introducing-rslib.md",
+              "/blog/index.md",
+            ],
+            "site": "rslib",
+          },
+          {
+            "count": 3,
+            "note": undefined,
+            "paths": [
+              "/blog/release/release-note-1_2.md",
+              "/blog/release/release-note-1_0.md",
+              "/blog/release/release-note-0_4.md",
+            ],
+            "site": "rsdoctor",
+          },
+          {
+            "count": undefined,
+            "note": "No release or migration content available for this site.",
+            "paths": [],
+            "site": "rstest",
+          },
+          {
+            "count": undefined,
+            "note": "No release or migration content available for this site.",
+            "paths": [],
+            "site": "rslint",
+          },
+        ]
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 90000);
+
+  test('get_config_option resolves sample config paths from llms.txt', async () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const serverPath = path.resolve(__dirname, '../dist/index.js');
+
+    const transport = new StdioClientTransport({
+      command: 'node',
+      args: [serverPath],
+      env: { MCP_DISABLE_EMBEDDINGS: '1', MCP_FETCH_TIMEOUT_MS: '0' },
+    });
+    const client = new Client({ name: 'test-client', version: '0.0.0' });
+    await client.connect(transport);
+
+    const summaries: Array<{ site: string; option: string; resolvedPath?: string; error?: string }> = [];
+
+    try {
+      const siteInfoMap = new Map<string, string>();
+      const ecosystemRes = await client.callTool({ name: 'get_ecosystem_tools', arguments: {} });
+      const ecosystemText = (ecosystemRes.content as any[]).find((c) => c.type === 'text');
+      const ecosystemPayload = JSON.parse((ecosystemText as any).text);
+      for (const tool of ecosystemPayload.tools) {
+        siteInfoMap.set(tool.id, tool.url);
+      }
+
+      for (const site of SITES_WITH_LLMS) {
+        const siteUrl = siteInfoMap.get(site);
+        if (!siteUrl) {
+          summaries.push({ site, option: '<none>', error: 'site url not found from ecosystem tools' });
+          continue;
+        }
+        const llmsUrl = `${siteUrl}/llms.txt`;
+        const res = await fetch(llmsUrl);
+        if (!res.ok) {
+          summaries.push({ site, option: '<none>', error: `llms fetch failed: ${res.status}` });
+          continue;
+        }
+        const text = await res.text();
+        const matches = Array.from(text.matchAll(/\[([^\]]+)\]\((\/config\/[^)]+\.md)\)/g));
+        if (matches.length === 0) {
+          summaries.push({ site, option: '<none>', error: 'no config pages found' });
+          continue;
+        }
+        const sample = matches.slice(0, Math.min(3, matches.length));
+        for (const [, , pathValue] of sample) {
+          const option = pathValue
+            .replace(/^\/config\//, '')
+            .replace(/\.md$/, '')
+            .replace(/\//g, '.');
+          const result = await client.callTool({
+            name: 'get_config_option',
+            arguments: { site, option },
+          });
+          const textItem = (result.content as any[]).find((c) => c.type === 'text');
+          const payload = JSON.parse((textItem as any).text);
+          summaries.push({ site, option, resolvedPath: payload.path, error: payload.error });
+        }
+      }
+
+      expect(summaries).toMatchInlineSnapshot(`
+        [
+          {
+            "error": undefined,
+            "option": "index",
+            "resolvedPath": "/config/index.md",
+            "site": "rspack",
+          },
+          {
+            "error": undefined,
+            "option": "extends",
+            "resolvedPath": "/config/extends.md",
+            "site": "rspack",
+          },
+          {
+            "error": undefined,
+            "option": "entry",
+            "resolvedPath": "/config/entry.md",
+            "site": "rspack",
+          },
+          {
+            "error": undefined,
+            "option": "index",
+            "resolvedPath": "/config/index.md",
+            "site": "rsbuild",
+          },
+          {
+            "error": undefined,
+            "option": "root",
+            "resolvedPath": "/config/root.md",
+            "site": "rsbuild",
+          },
+          {
+            "error": undefined,
+            "option": "mode",
+            "resolvedPath": "/config/mode.md",
+            "site": "rsbuild",
+          },
+          {
+            "error": undefined,
+            "option": "index",
+            "resolvedPath": "/config/index.md",
+            "site": "rslib",
+          },
+          {
+            "error": undefined,
+            "option": "lib.index",
+            "resolvedPath": "/config/lib/index.md",
+            "site": "rslib",
+          },
+          {
+            "error": undefined,
+            "option": "lib.format",
+            "resolvedPath": "/config/lib/format.md",
+            "site": "rslib",
+          },
+          {
+            "error": undefined,
+            "option": "options.options",
+            "resolvedPath": "/config/options/options.md",
+            "site": "rsdoctor",
+          },
+          {
+            "error": undefined,
+            "option": "options.term",
+            "resolvedPath": "/config/options/term.md",
+            "site": "rsdoctor",
+          },
+          {
+            "error": undefined,
+            "option": "index",
+            "resolvedPath": "/config/index.md",
+            "site": "rstest",
+          },
+          {
+            "error": undefined,
+            "option": "test.root",
+            "resolvedPath": "/config/test/root.md",
+            "site": "rstest",
+          },
+          {
+            "error": undefined,
+            "option": "test.name",
+            "resolvedPath": "/config/test/name.md",
+            "site": "rstest",
+          },
+          {
+            "error": undefined,
+            "option": "index",
+            "resolvedPath": "/config/index.md",
+            "site": "rslint",
+          },
+        ]
+      `);
+    } finally {
+      transport.close();
+    }
+  }, 120000);
+
   test('search snapshots per site (no results path)', async () => {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
