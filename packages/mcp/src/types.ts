@@ -22,4 +22,5 @@ export type SearchResultItem = {
   score: number;
   url?: string;
   highlights?: string[];
+  related?: Array<{ path: string; title: string; reason?: string }>;
 };

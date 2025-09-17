@@ -8,15 +8,22 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { marked } from 'marked';
 
 import { RSTACK_SITES } from './constants.js';
 import { DocumentIndex } from './types.js';
 import { parseMarkdownLinks, extractMarkdownHeadings, parseAvailablePages } from './markdown.js';
 import { tokenize, cosineSimilarity, extractHighlights } from './text.js';
 
+type PageEntry = { title: string; path: string; section?: string };
+
 // Configure transformers.js for Node.js
 env.allowLocalModels = false;
 env.useBrowserCache = false;
+
+const RSTACK_TOOL_NAMES = Object.values(RSTACK_SITES)
+  .map((site) => site.name)
+  .join(', ');
 
 export class WiggumMCPServer {
   private server: McpServer;
@@ -24,6 +31,7 @@ export class WiggumMCPServer {
   private searchIndex: Map<string, DocumentIndex>;
   // Track in-flight indexing jobs per site to avoid duplicates
   private indexingPromises: Map<string, Promise<DocumentIndex>>;
+  private pageCache: Map<string, { pages: PageEntry[]; timestamp: number }>;
   private cacheTimeout = 10 * 60 * 1000; // 10 minutes for document cache
   private indexTimeout = 30 * 60 * 1000; // 30 minutes for search index
   private cacheDir: string;
@@ -44,8 +52,12 @@ export class WiggumMCPServer {
 
   constructor() {
     this.server = new McpServer(
-      { name: 'wiggum-mcp-docexplorer', version: '1.0.0' },
-      { capabilities: { tools: {} } }
+      {
+        name: 'wiggum-mcp-docexplorer',
+        title: `Wiggum Rstack Docs MCP (${RSTACK_TOOL_NAMES})`,
+        version: '1.0.0',
+      },
+      { capabilities: { tools: {}, prompts: {} } }
     );
 
     const __filename = fileURLToPath(import.meta.url);
@@ -55,6 +67,7 @@ export class WiggumMCPServer {
     this.documentCache = new Map();
     this.searchIndex = new Map();
     this.indexingPromises = new Map();
+    this.pageCache = new Map();
     this.setupTools();
     this.initializeCacheDir();
     this.modelInitPromise = null;
@@ -99,7 +112,7 @@ export class WiggumMCPServer {
       'get_ecosystem_tools',
       {
         title: 'List Ecosystem Tools',
-        description: 'Get information about all available Rstack ecosystem tools and their documentation sites',
+        description: 'List every Wiggum-managed Rstack site with its documentation endpoint.',
         inputSchema: {},
       },
       async () => {
@@ -119,7 +132,7 @@ export class WiggumMCPServer {
       'get_site_info',
       {
         title: 'Get Site Info',
-        description: 'Get detailed information about a specific Rstack site',
+        description: 'Return canonical metadata for a chosen Rstack site, including the docs index URL.',
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to get information about') },
       },
       async ({ site }) => {
@@ -131,62 +144,392 @@ export class WiggumMCPServer {
     );
 
     this.server.registerTool(
+      'list_recent_releases',
+      {
+        title: 'List Recent Releases',
+        description: 'Summarize recent release announcements or migration updates for a Rstack project.',
+        inputSchema: {
+          site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('Site identifier to inspect'),
+          since: z.string().optional().describe('Optional ISO date filter (e.g., 2025-01-01)'),
+          limit: z.number().min(1).max(20).optional().default(5).describe('Maximum number of entries to return'),
+        },
+      },
+      async ({ site, since, limit = 5 }) => {
+        const siteInfo = (RSTACK_SITES as any)[site];
+        if (!siteInfo) throw new Error(`Site '${site}' not found`);
+
+        let pages: PageEntry[];
+        try {
+          pages = await this.getSitePages(site);
+        } catch (error) {
+          const payload = {
+            site,
+            error: `Failed to load documentation index: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+        let sources = pages.filter((p) => p.path.startsWith('/blog/'));
+        let fallbackNote: string | undefined;
+        if (sources.length === 0) {
+          sources = pages.filter((p) => p.path.includes('/guide/migration/'));
+          if (sources.length > 0) {
+            fallbackNote = 'No blog entries detected; returning migration guides instead.';
+          }
+        }
+
+        if (sources.length === 0) {
+          const payload = { site, results: [] as unknown[], note: 'No release or migration content available for this site.' };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+
+        const sinceDate = this.safeParseDate(since);
+        const entries: Array<{ title: string; path: string; url: string; published?: string; summary?: string; section?: string }> = [];
+
+        for (const entry of sources) {
+          try {
+            const markdown = await this.fetchMarkdownContent(siteInfo.url, entry.path);
+            const published = this.parseMarkdownDate(markdown);
+            const summary = this.extractSummary(markdown);
+            entries.push({
+              title: entry.title,
+              path: entry.path,
+              url: `${siteInfo.url}${entry.path}`,
+              published: published ? published.toISOString() : undefined,
+              summary: summary || undefined,
+              section: entry.section,
+            });
+          } catch (error) {
+            process.stderr.write(`[WARNING] Failed to read release entry ${entry.path}: ${error}\n`);
+          }
+        }
+
+        if (entries.length === 0) {
+          const payload = { site, results: [], note: 'Failed to pull release metadata for the requested site.' };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+
+        const filtered = sinceDate
+          ? entries.filter((item) => {
+              if (!item.published) return true;
+              const publishedDate = new Date(item.published);
+              if (Number.isNaN(publishedDate.getTime())) return true;
+              return publishedDate >= sinceDate;
+            })
+          : entries;
+
+        filtered.sort((a, b) => {
+          const aDate = a.published ? new Date(a.published).getTime() : 0;
+          const bDate = b.published ? new Date(b.published).getTime() : 0;
+          return bDate - aDate;
+        });
+
+        const results = filtered.slice(0, limit);
+        const payload = {
+          site,
+          count: results.length,
+          totalCandidates: filtered.length,
+          appliedSinceFilter: Boolean(sinceDate),
+          note: fallbackNote,
+          results,
+        };
+        return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+      }
+    );
+
+    this.server.registerTool(
+      'get_config_option',
+      {
+        title: 'Inspect Config Option',
+        description: 'Retrieve metadata and related entries for a specific configuration option.',
+        inputSchema: {
+          site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('Site identifier to inspect'),
+          option: z.string().min(1).describe('Config option identifier (e.g., output.sourceMap)'),
+          includeRelated: z.boolean().optional().default(true).describe('Whether to include related options'),
+        },
+      },
+      async ({ site, option, includeRelated = true }) => {
+        const siteInfo = (RSTACK_SITES as any)[site];
+        if (!siteInfo) throw new Error(`Site '${site}' not found`);
+
+        let pages: PageEntry[];
+        try {
+          pages = await this.getSitePages(site);
+        } catch (error) {
+          const payload = {
+            site,
+            option,
+            error: `Failed to load documentation index: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+        const configPages = pages.filter((p) => p.path.startsWith('/config/'));
+        if (configPages.length === 0) {
+          const payload = { site, option, error: 'No configuration documentation found for this site.' };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+
+        const normalizedQuery = option.trim().toLowerCase();
+        const slugQuery = this.normalizeSlug(option);
+
+        const scored = configPages.map((page) => {
+          const pathLower = page.path.toLowerCase();
+          const dotted = pathLower.replace(/^\/config\//, '').replace(/\.md$/, '').replace(/\//g, '.');
+          const base = page.path.split('/').pop()!.replace(/\.md$/, '');
+          const baseSlug = this.normalizeSlug(base);
+          let score = 0;
+          if (dotted === normalizedQuery) score += 4;
+          if (baseSlug === slugQuery) score += 3;
+          if (pathLower.endsWith(`/${slugQuery}.md`)) score += 2;
+          if (dotted.includes(normalizedQuery)) score += 1;
+          if (page.title.toLowerCase().includes(normalizedQuery)) score += 1;
+          return { page, score, pathLower, dotted, baseSlug };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+        const best = scored.find((item) => item.score > 0);
+
+        if (!best) {
+          const suggestions = scored
+            .slice(0, 5)
+            .map((item) => ({ path: item.page.path, title: item.page.title }));
+          const payload = {
+            site,
+            option,
+            error: 'No matching configuration page found.',
+            suggestions,
+          };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+
+        try {
+          const markdown = await this.fetchMarkdownContent(siteInfo.url, best.page.path);
+          const lines = markdown.split('\n');
+          const titleLine = lines.find((line) => line.startsWith('# '));
+          const title = titleLine ? titleLine.replace(/^#\s+/, '').trim() : best.page.title;
+          const description = this.extractSummary(markdown, 360);
+          const typeSection = this.extractListSection(lines, 'Type');
+          const defaultSection = this.extractListSection(lines, 'Default');
+          const exampleSection = this.extractListSection(lines, 'Example');
+
+          let related: Array<{ path: string; title: string }> | undefined;
+          if (includeRelated) {
+            const directory = best.page.path.split('/').slice(0, -1).join('/');
+            if (directory) {
+              related = configPages
+                .filter((p) => p.path !== best.page.path && p.path.startsWith(`${directory}/`))
+                .slice(0, 4)
+                .map((p) => ({ path: p.path, title: p.title }));
+            }
+          }
+
+          const payload = {
+            site,
+            option,
+            path: best.page.path,
+            url: `${siteInfo.url}${best.page.path}`,
+            title,
+            description,
+            type: typeSection ? typeSection.trim() : undefined,
+            default: defaultSection ? defaultSection.trim() : undefined,
+            example: exampleSection ? exampleSection.trim() : undefined,
+            related,
+          };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        } catch (error) {
+          const payload = { site, option, path: best.page.path, error: `Failed to fetch configuration details: ${error instanceof Error ? error.message : 'Unknown error'}` };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+      }
+    );
+
+    this.server.registerTool(
+      'suggest_migration_path',
+      {
+        title: 'Suggest Migration Path',
+        description: 'Recommend migration documentation when moving from another tool or framework.',
+        inputSchema: {
+          site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('Target Rstack site'),
+          from: z.string().min(1).describe('Source tool or framework (e.g., webpack, vite)'),
+          includeRelated: z.boolean().optional().default(true).describe('Include other migration guides as references'),
+        },
+      },
+      async ({ site, from, includeRelated = true }) => {
+        const siteInfo = (RSTACK_SITES as any)[site];
+        if (!siteInfo) throw new Error(`Site '${site}' not found`);
+
+        let pages: PageEntry[];
+        try {
+          pages = await this.getSitePages(site);
+        } catch (error) {
+          const payload = {
+            site,
+            from,
+            error: `Failed to load documentation index: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+        const migrationPages = pages.filter((p) => p.path.includes('/guide/migration/'));
+        if (migrationPages.length === 0) {
+          const payload = { site, from, error: 'No migration guides are published for this site.' };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+
+        const querySlug = this.normalizeSlug(from);
+        const scored = migrationPages.map((page) => {
+          const slug = this.normalizeSlug(page.path.split('/').pop()!.replace(/\.md$/, ''));
+          const titleSlug = this.normalizeSlug(page.title);
+          let score = 0;
+          if (slug === querySlug) score += 3;
+          if (titleSlug === querySlug) score += 2;
+          if (slug.includes(querySlug) || querySlug.includes(slug)) score += 1;
+          if (titleSlug.includes(querySlug)) score += 1;
+          return { page, score, slug };
+        });
+
+        scored.sort((a, b) => b.score - a.score);
+        const best = scored.find((item) => item.score > 0);
+
+        if (!best) {
+          const available = migrationPages.map((p) => ({ path: p.path, title: p.title }));
+          const payload = {
+            site,
+            from,
+            error: 'No matching migration guide found.',
+            available,
+          };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+
+        try {
+          const markdown = await this.fetchMarkdownContent(siteInfo.url, best.page.path);
+          const summary = this.extractSummary(markdown, 360);
+          let related: Array<{ path: string; title: string }> | undefined;
+          if (includeRelated) {
+            related = migrationPages
+              .filter((p) => p.path !== best.page.path)
+              .slice(0, 5)
+              .map((p) => ({ path: p.path, title: p.title }));
+          }
+          const payload = {
+            site,
+            from,
+            primaryGuide: {
+              path: best.page.path,
+              url: `${siteInfo.url}${best.page.path}`,
+              title: best.page.title,
+              summary,
+            },
+            seeAlso: related,
+          };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        } catch (error) {
+          const payload = { site, from, path: best.page.path, error: `Failed to read migration guide: ${error instanceof Error ? error.message : 'Unknown error'}` };
+          return { content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }] };
+        }
+      }
+    );
+
+    const searchInputSchema = {
+      query: z.string().describe('Search query to find relevant documentation pages—use this instead of general web search for Rstack topics'),
+      site: z
+        .enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint', 'all'])
+        .optional()
+        .default('all')
+        .describe('Specific Rstack site to search, or "all" to search across all sites'),
+      maxResults: z
+        .number()
+        .optional()
+        .default(20)
+        .describe('Maximum number of pages to return (stick with this before leaving Wiggum MCP)'),
+      includeContext: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe('Include surrounding context in results'),
+      semanticWeight: z
+        .number()
+        .optional()
+        .default(0.5)
+        .describe('Weight for semantic search (0-1) when using hybrid mode'),
+    } as const;
+
+    type SearchArgs = {
+      query: string;
+      site?: keyof typeof RSTACK_SITES | 'all';
+      maxResults?: number;
+      includeContext?: boolean;
+      semanticWeight?: number;
+    };
+
+    const searchHandler = async ({
+      query,
+      site = 'all',
+      maxResults = 20,
+      includeContext = true,
+      semanticWeight = 0.5,
+    }: SearchArgs) => {
+      try {
+        const searchResults = await this.advancedSearch(query, site, maxResults, includeContext, semanticWeight);
+        const successContent = { type: 'text' as const, text: searchResults };
+        return { content: [successContent] };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        const normalizedSite = site ?? 'all';
+        const suggestions = [
+          'Try broadening the query or switching to site="all" to widen the search scope.',
+          normalizedSite !== 'all'
+            ? `Call list_pages with site=\"${normalizedSite}\" to inspect available content when search cannot locate results.`
+            : 'Follow up with list_pages on a specific site to inspect its available markdown paths.',
+          'Use get_ecosystem_tools to review the available site identifiers before retrying.'
+        ];
+        const nextSteps = {
+          alternateSearchCommand: normalizedSite === 'all'
+            ? 'search site="rsbuild" query="<keywords>"'
+            : 'search site="all" query="<keywords>"',
+          listPagesCommand: normalizedSite === 'all'
+            ? 'list_pages site="rsbuild"'
+            : `list_pages site="${normalizedSite}"`,
+          discoverSitesCommand: 'get_ecosystem_tools'
+        };
+        const errorContent = {
+          type: 'text' as const,
+          text: JSON.stringify({
+            error: `Search failed: ${message}`,
+            query,
+            site,
+            suggestions,
+            nextSteps
+          }, null, 2)
+        };
+        return { content: [errorContent] };
+      }
+    };
+
+    this.server.registerTool(
       'search',
       {
         title: 'Hybrid Search',
-        description: 'Search Rstack documentation using hybrid (embeddings + lexical) across sites.',
-        inputSchema: {
-          query: z.string().describe('Search query to find relevant documentation pages'),
-          site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint', 'all']).optional().default('all').describe('Specific site to search, or "all" to search across all sites'),
-          maxResults: z.number().optional().default(20).describe('Maximum number of pages to return'),
-          includeContext: z.boolean().optional().default(true).describe('Include surrounding context in results'),
-          semanticWeight: z.number().optional().default(0.5).describe('Weight for semantic search (0-1) when using hybrid mode'),
-        },
+        description: 'Hybrid lexical/semantic search across the Wiggum-hosted Rstack documentation corpus.',
+        inputSchema: searchInputSchema,
       },
-      async ({ query, site = 'all', maxResults = 20, includeContext = true, semanticWeight = 0.5 }) => {
-        try {
-          const searchResults = await this.advancedSearch(query, site, maxResults, includeContext, semanticWeight);
-          return { content: [{ type: 'text', text: searchResults }] };
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown error';
-          const normalizedSite = site ?? 'all';
-          const suggestions = [
-            'Try broadening the query or switching to site="all" to widen the search scope.',
-            normalizedSite !== 'all'
-              ? `Call list_pages with site=\"${normalizedSite}\" to inspect available content when search cannot locate results.`
-              : 'Follow up with list_pages on a specific site to inspect its available markdown paths.',
-            'Use get_ecosystem_tools to review the available site identifiers before retrying.'
-          ];
-          const nextSteps = {
-            alternateSearchCommand: normalizedSite === 'all'
-              ? 'search site="rsbuild" query="<keywords>"'
-              : 'search site="all" query="<keywords>"',
-            listPagesCommand: normalizedSite === 'all'
-              ? 'list_pages site="rsbuild"'
-              : `list_pages site="${normalizedSite}"`,
-            discoverSitesCommand: 'get_ecosystem_tools'
-          };
-          return {
-            content: [{
-              type: 'text',
-              text: JSON.stringify({
-                error: `Search failed: ${message}`,
-                query,
-                site,
-                suggestions,
-                nextSteps
-              }, null, 2)
-            }]
-          };
-        }
-      }
+      searchHandler
+    );
+
+    this.server.registerTool(
+      'rstack_search',
+      {
+        title: 'Rstack Search Alias',
+        description: `Alias for "search" exposed under an Rstack-focused name for quick discovery of ${RSTACK_TOOL_NAMES} docs.`,
+        inputSchema: searchInputSchema,
+      },
+      searchHandler
     );
 
     this.server.registerTool(
       'get_docs',
       {
         title: 'Get Site Docs',
-        description: 'Fetch documentation content from a specific Rstack site',
+        description: 'Fetch the raw llms.txt index for a chosen Rstack site.',
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to fetch documentation from') },
       },
       async ({ site }) => {
@@ -226,7 +569,7 @@ export class WiggumMCPServer {
       'get_page',
       {
         title: 'Get Page',
-        description: 'Fetch a specific documentation page from an Rstack site',
+        description: 'Retrieve a specific Rstack markdown page.',
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to fetch from'), path: z.string().describe('The documentation path including extension (e.g., "/guide/getting-started.md")') },
       },
       async ({ site, path }) => {
@@ -277,14 +620,13 @@ export class WiggumMCPServer {
       'list_pages',
       {
         title: 'List Pages',
-        description: 'List all available documentation pages for a specific Rstack site, including page titles and h1-h3 headings',
+        description: 'List documentation pages for a specific Rstack site, including titles and headings.',
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to list pages from') },
       },
       async ({ site }) => {
         try {
           const siteInfo = (RSTACK_SITES as any)[site];
-          const llmsContent = await this.fetchDocumentation(site);
-          const pages = parseAvailablePages(llmsContent);
+          const pages = await this.getSitePages(site);
 
           // Concurrency-limit heading fetches to reduce bursty load
           const limit = Number.isFinite(Number(process.env.MCP_LIST_PAGES_CONCURRENCY)) && Number(process.env.MCP_LIST_PAGES_CONCURRENCY) > 0
@@ -337,6 +679,184 @@ export class WiggumMCPServer {
         }
       }
     );
+
+    this.server.registerPrompt(
+      'wiggum_rstack_usage',
+      {
+        title: 'How to use Wiggum MCP',
+        description: 'Quick refresher on the Wiggum Rstack documentation tools and when to use them.',
+      },
+      () => ({
+        messages: [
+          {
+            role: 'assistant',
+            content: {
+              type: 'text' as const,
+              text: `Wiggum MCP is tuned for ${RSTACK_TOOL_NAMES} documentation. Helpful entry points:\n- search / rstack_search: hybrid query over the indexed docs corpus.\n- get_ecosystem_tools: overview of available sites and doc endpoints.\n- get_site_info: metadata plus llms.txt location for a site.\n- list_pages: inspect available markdown routes with headings.\n- get_docs: pull the raw llms.txt index if you need to explore offline.\n- get_page: retrieve the full markdown for a specific path.`,
+            },
+          },
+        ],
+      })
+    );
+  }
+
+  private async getSitePages(site: string): Promise<PageEntry[]> {
+    const cached = this.pageCache.get(site);
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      return cached.pages;
+    }
+
+    const llmsContent = await this.fetchDocumentation(site);
+    const parsed = parseAvailablePages(llmsContent)
+      .filter((entry) => entry.path && entry.path.endsWith('.md'))
+      .map((entry) => ({ ...entry }));
+
+    this.pageCache.set(site, { pages: parsed, timestamp: Date.now() });
+    return parsed;
+  }
+
+  private buildRelatedSuggestions(pages: PageEntry[], docPath: string, limit: number = 3): Array<{ path: string; title: string; reason?: string }> {
+    const cleanPath = docPath.startsWith('/') ? docPath : `/${docPath}`;
+    const entry = pages.find((p) => p.path === cleanPath);
+    if (!entry) return [];
+
+    const results: Array<{ path: string; title: string; reason?: string }> = [];
+    const seen = new Set<string>();
+
+    if (entry.section) {
+      for (const candidate of pages) {
+        if (candidate.section === entry.section && candidate.path !== entry.path) {
+          if (!seen.has(candidate.path)) {
+            results.push({ path: candidate.path, title: candidate.title, reason: `Same section: ${entry.section}` });
+            seen.add(candidate.path);
+          }
+          if (results.length >= limit) return results;
+        }
+      }
+    }
+
+    if (results.length < limit) {
+      const directory = entry.path.split('/').slice(0, -1).join('/');
+      if (directory) {
+        for (const candidate of pages) {
+          if (candidate.path === entry.path) continue;
+          if (candidate.path.startsWith(`${directory}/`)) {
+            if (!seen.has(candidate.path)) {
+              const reasonBase = directory.split('/').filter(Boolean).pop() || 'topic';
+              results.push({ path: candidate.path, title: candidate.title, reason: `Same directory: ${reasonBase}` });
+              seen.add(candidate.path);
+            }
+            if (results.length >= limit) return results;
+          }
+        }
+      }
+    }
+
+    if (results.length < limit) {
+      for (const candidate of pages) {
+        if (candidate.path === entry.path) continue;
+        if (!seen.has(candidate.path)) {
+          results.push({ path: candidate.path, title: candidate.title });
+          seen.add(candidate.path);
+          if (results.length >= limit) break;
+        }
+      }
+    }
+
+    return results.slice(0, limit);
+  }
+
+  private parseMarkdownDate(content: string): Date | null {
+    const lines = content.split('\n');
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) continue;
+      const italicMatch = line.match(/^\*(.+)\*$/);
+      if (italicMatch) {
+        const parsed = new Date(italicMatch[1]);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+      }
+      const plainDate = new Date(line);
+      if (!Number.isNaN(plainDate.getTime())) return plainDate;
+      if (!line.startsWith('#')) break;
+    }
+    return null;
+  }
+
+  private safeParseDate(input?: string): Date | null {
+    if (!input) return null;
+    const parsed = new Date(input);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
+  }
+
+  private extractSummary(content: string, maxLength: number = 320): string {
+    try {
+      const tokens = marked.lexer(content);
+      for (const token of tokens) {
+        if (token.type === 'paragraph') {
+          const plain = this.stripMarkdown(token.text || '');
+          if (!plain) continue;
+          if (/^[A-Z][a-z]+\s+\d{1,2},\s+\d{4}$/.test(plain)) continue; // skip standalone date paragraphs
+          const summary = plain.length > maxLength ? `${plain.slice(0, maxLength).trimEnd()}…` : plain;
+          if (summary) return summary;
+        }
+      }
+    } catch (error) {
+      // Fallback handled below
+    }
+
+    const fallback = this.stripMarkdown(content).slice(0, maxLength).trim();
+    return fallback ? `${fallback}${fallback.length === maxLength ? '…' : ''}` : '';
+  }
+
+  private stripMarkdown(value: string): string {
+    return value
+      .replace(/`{1,3}([^`]+)`{1,3}/g, '$1')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/\[(.*?)\]\([^)]*\)/g, '$1')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private normalizeSlug(value: string): string {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
+  }
+
+  private extractListSection(lines: string[], label: string): string | undefined {
+    const normalized = label.toLowerCase();
+    let capture = false;
+    const buffer: string[] = [];
+    let insideBlock = false;
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      if (!capture && trimmed.toLowerCase().includes(`**${normalized}`)) {
+        capture = true;
+        continue;
+      }
+      if (!capture) continue;
+      if (trimmed.startsWith('* **')) break;
+      if (trimmed.startsWith('#')) break;
+      if (trimmed.startsWith(':::')) break;
+      if (trimmed.startsWith('```')) {
+        insideBlock = !insideBlock;
+        buffer.push(trimmed);
+        continue;
+      }
+      if (!insideBlock && trimmed === '') break;
+      buffer.push(line);
+    }
+
+    const result = buffer.join('\n').trim();
+    return result || undefined;
   }
 
   private async fetchDocumentation(site: string): Promise<string> {
@@ -383,18 +903,25 @@ export class WiggumMCPServer {
         if (wantEmbeddings && indexingInProgress) {
           const index = await this.buildOrGetIndex(siteKey, false);
           const lexicalResults = await this.searchWithTFIDF(index, query, maxResults, includeContext);
+          const pages = await this.getSitePages(siteKey);
           const augmented = lexicalResults.map((m) => ({
             ...m,
             searchType: 'lexical_fallback',
             reason: 'indexing_in_progress',
             fetchCommand: `Use get_page with site=\"${siteKey}\" and path=\"${m.file}\" to fetch full content`,
+            related: this.buildRelatedSuggestions(pages, m.file),
           }));
           return { site: siteKey, matches: augmented };
         }
 
         const index = await this.buildOrGetIndex(siteKey, wantEmbeddings);
         const searchResults = await this.hybridSearch(index, query, maxResults, includeContext, semanticWeight);
-        const augmented = searchResults.map((m) => ({ ...m, fetchCommand: `Use get_page with site=\"${siteKey}\" and path=\"${m.file}\" to fetch full content` }));
+        const pages = await this.getSitePages(siteKey);
+        const augmented = searchResults.map((m) => ({
+          ...m,
+          fetchCommand: `Use get_page with site=\"${siteKey}\" and path=\"${m.file}\" to fetch full content`,
+          related: this.buildRelatedSuggestions(pages, m.file),
+        }));
         return { site: siteKey, matches: augmented };
       } catch (error) {
         process.stderr.write(`[ERROR] Failed to search ${siteKey}: ${error}\n`);
@@ -732,19 +1259,32 @@ export class WiggumMCPServer {
     const base = new URL(baseUrl);
     const resolved = this.resolveUrlOnSite(base, p);
     if (resolved.origin !== base.origin) throw new Error('Cross-origin markdown URL blocked');
+    const attemptUrls: string[] = [];
     const fullUrl = resolved.toString();
-    const cacheKey = fullUrl;
-    const cached = this.documentCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) return cached.content;
-    try {
-      const response = await this.fetchWithTimeout(fullUrl);
-      if (!response.ok) throw new Error(`Failed to fetch ${fullUrl}: ${response.status}`);
-      const content = await response.text();
-      this.setDocumentCache(cacheKey, { content, timestamp: Date.now() });
-      return content;
-    } catch (error) {
-      throw new Error(`Error fetching markdown from ${fullUrl}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    attemptUrls.push(fullUrl);
+    if (fullUrl.endsWith('.md')) {
+      attemptUrls.push(fullUrl.slice(0, -3));
     }
+
+    let lastError: unknown = null;
+    for (const url of attemptUrls) {
+      const cacheKey = url;
+      const cached = this.documentCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < this.cacheTimeout) return cached.content;
+      try {
+        const response = await this.fetchWithTimeout(url);
+        if (!response.ok) {
+          lastError = new Error(`Failed to fetch ${url}: ${response.status}`);
+          continue;
+        }
+        const content = await response.text();
+        this.setDocumentCache(cacheKey, { content, timestamp: Date.now() });
+        return content;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw new Error(`Error fetching markdown from ${fullUrl}: ${lastError instanceof Error ? lastError.message : 'Unknown error'}`);
   }
 
   // Normalize any absolute .dev links to their .rs counterparts and resolve relative paths against the site base
