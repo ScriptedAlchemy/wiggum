@@ -315,6 +315,32 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('requires an interactive terminal');
     });
+
+    test('agent serve forwards port and hostname flags', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(
+        fakeOpenCodePath,
+        '#!/usr/bin/env bash\necho \"fake-opencode:$@\"\nexit 0\n',
+        { mode: 0o755 },
+      );
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent serve --port 4096 --hostname 127.0.0.1', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Starting OpenCode server...');
+      expect(result.stdout).toContain('Command: opencode serve --port 4096 --hostname 127.0.0.1');
+      expect(result.stdout).toContain('fake-opencode:serve --port 4096 --hostname 127.0.0.1');
+    });
   });
 
   describe('Complex flag combinations', () => {
