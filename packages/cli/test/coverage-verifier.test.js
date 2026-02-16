@@ -174,6 +174,16 @@ describe('runner coverage verifier', () => {
     ).toThrow('WIGGUM_RUNNER_VERIFY_ROOT must be a string when provided');
   });
 
+  test('resolveVerifierPathsFromEnv rejects non-string config-path override values', () => {
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {
+          WIGGUM_RUNNER_VERIFY_CONFIG_PATH: 42,
+        },
+      }),
+    ).toThrow('WIGGUM_RUNNER_VERIFY_CONFIG_PATH must be a string when provided');
+  });
+
   test('resolveVerifierPathsFromEnv rejects blank fallbackRoot', () => {
     expect(() =>
       resolveVerifierPathsFromEnv({

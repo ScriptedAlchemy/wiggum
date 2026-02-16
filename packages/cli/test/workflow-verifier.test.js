@@ -211,6 +211,16 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT must be a string when provided');
   });
 
+  test('resolveWorkflowVerifierPathsFromEnv rejects non-string workflow-path override values', () => {
+    expect(() =>
+      resolveWorkflowVerifierPathsFromEnv({
+        env: {
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: 42,
+        },
+      }),
+    ).toThrow('WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH must be a string when provided');
+  });
+
   test('resolveWorkflowVerifierPathsFromEnv rejects blank fallbackRoot', () => {
     expect(() =>
       resolveWorkflowVerifierPathsFromEnv({
