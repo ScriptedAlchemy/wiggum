@@ -377,6 +377,23 @@ describe('Wiggum runner workspace graph', () => {
     );
   });
 
+  test('run reports unsupported explicit wiggum.config.ts path', () => {
+    const root = makeTempWorkspace();
+    fs.writeFileSync(
+      path.join(root, 'wiggum.config.ts'),
+      "export default { projects: ['packages/*'] };\n",
+    );
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.ts'), '--dry-run'],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
   test('projects list prefers supported runner config over unsupported ts variant', () => {
     const root = makeTempWorkspace();
     fs.writeFileSync(
