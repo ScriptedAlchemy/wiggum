@@ -144,6 +144,20 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.projects[0].name).toBe('single-project');
   });
 
+  test('projects defaults to list when runner options come first', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'single-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', '--root', root, '--json'], root);
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects).toHaveLength(1);
+    expect(payload.projects[0].name).toBe('single-project');
+  });
+
   test('run build --dry-run --json calculates topological order', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {

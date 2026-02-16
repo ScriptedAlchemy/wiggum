@@ -874,20 +874,24 @@ Global options:
       process.exit(0);
     }
 
-    const subCommand = commandArgs[0] || 'list';
-    if (!['list', 'graph'].includes(subCommand)) {
-      console.error(chalk.red(`Unknown projects subcommand: ${subCommand}`));
+    const firstProjectsArg = commandArgs[0];
+    const hasExplicitSubCommand =
+      firstProjectsArg === 'list' || firstProjectsArg === 'graph';
+    if (firstProjectsArg && !firstProjectsArg.startsWith('-') && !hasExplicitSubCommand) {
+      console.error(chalk.red(`Unknown projects subcommand: ${firstProjectsArg}`));
       printProjectsHelp();
       process.exit(1);
     }
-    if (hasHelpFlagBeforePassthrough(commandArgs.slice(1))) {
+    const subCommand = firstProjectsArg === 'graph' ? 'graph' : 'list';
+    const runnerArgsOffset = hasExplicitSubCommand ? 1 : 0;
+    if (hasHelpFlagBeforePassthrough(commandArgs.slice(runnerArgsOffset))) {
       printProjectsHelp();
       process.exit(0);
     }
 
     let runnerFlags: RunnerFlags;
     try {
-      runnerFlags = parseRunnerFlags(commandArgs.slice(1));
+      runnerFlags = parseRunnerFlags(commandArgs.slice(runnerArgsOffset));
     } catch (error: any) {
       console.error(chalk.red('Invalid runner flags:'), error.message);
       process.exit(1);
