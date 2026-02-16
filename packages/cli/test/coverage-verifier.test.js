@@ -92,7 +92,7 @@ describe('runner coverage verifier', () => {
 
   test('ensureFileSystemContract rejects missing required methods', () => {
     expect(() => ensureFileSystemContract({ existsSync: () => true })).toThrow(
-      'fileSystem must provide existsSync, statSync, and readdirSync functions',
+      'fileSystem is missing required function(s): statSync, readdirSync',
     );
   });
 
@@ -323,7 +323,7 @@ describe('runner coverage verifier', () => {
     const tempRoot = makeTempDir('verify-coverage-list-fs-contract-');
     const packagesDir = path.join(tempRoot, 'packages');
     expect(() => listExpectedProjectRoots(packagesDir, {})).toThrow(
-      'fileSystem must provide existsSync, statSync, and readdirSync functions',
+      'fileSystem is missing required function(s): existsSync, statSync, readdirSync',
     );
   });
 
@@ -498,7 +498,7 @@ describe('runner coverage verifier', () => {
         minExpectedProjects: 1,
         resolveWorkspace: async () => ({ projects: [{ root: path.join(packagesDir, 'cli') }] }),
       }),
-    ).rejects.toThrow('fileSystem must provide existsSync, statSync, and readdirSync functions');
+    ).rejects.toThrow('fileSystem is missing required function(s): existsSync, statSync, readdirSync');
   });
 
   test('verifyRunnerCoverage rejects blank path options', async () => {

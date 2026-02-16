@@ -54,10 +54,16 @@ export function ensureFileSystemContract(fileSystem) {
     throw new Error('fileSystem must provide existsSync, statSync, and readdirSync functions');
   }
   const requiredMethods = ['existsSync', 'statSync', 'readdirSync'];
+  const missingMethods = [];
   for (const methodName of requiredMethods) {
     if (typeof fileSystem[methodName] !== 'function') {
-      throw new Error('fileSystem must provide existsSync, statSync, and readdirSync functions');
+      missingMethods.push(methodName);
     }
+  }
+  if (missingMethods.length > 0) {
+    throw new Error(
+      `fileSystem is missing required function(s): ${missingMethods.join(', ')}`,
+    );
   }
   return fileSystem;
 }
