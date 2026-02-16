@@ -2493,6 +2493,29 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "invalid"');
   });
 
+  test('projects graph rejects unsafe WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['projects', 'graph', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--json'],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '9007199254740992',
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Failed to resolve projects:');
+    expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "9007199254740992"');
+  });
+
   test('projects graph honors WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES scan cap', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -2616,6 +2639,29 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Failed to resolve projects:');
     expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "invalid"');
+  });
+
+  test('projects list rejects unsafe WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--json'],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '9007199254740992',
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Failed to resolve projects:');
+    expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "9007199254740992"');
   });
 
   test('projects graph --no-infer-imports ignores invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES', () => {
