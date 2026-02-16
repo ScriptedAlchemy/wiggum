@@ -111,6 +111,30 @@ wiggum run build -p="@scope/*,!@scope/legacy"
 wiggum projects list -p @scope/app
 ```
 
+### Runner verification scripts (CI and fixtures)
+
+The package includes two CI guard scripts used by workspace-level checks:
+
+- `node ./packages/cli/scripts/verify-runner-coverage.mjs`
+- `node ./packages/cli/scripts/verify-runner-workflow-coverage.mjs`
+
+Both scripts support environment overrides for isolated fixture runs:
+
+Coverage verifier:
+
+- `WIGGUM_RUNNER_VERIFY_ROOT`
+- `WIGGUM_RUNNER_VERIFY_CONFIG_PATH`
+- `WIGGUM_RUNNER_VERIFY_PACKAGES_DIR`
+- `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS`
+
+Workflow verifier:
+
+- `WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT`
+- `WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH`
+- `WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH`
+
+Blank override values are ignored, so whitespace-only values safely fall back to default paths.
+
 ### Agent integration (OpenCode)
 
 The `agent` subcommands use OpenCode to provide an AI assistant for your project.
