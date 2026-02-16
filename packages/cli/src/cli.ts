@@ -1055,7 +1055,11 @@ Global options:
             }
             port = parsedPort;
           }
-          const hostname = typeof flags.hostname === 'string' ? flags.hostname : undefined;
+          const hostnameRaw = typeof flags.hostname === 'string' ? flags.hostname : undefined;
+          if (hostnameRaw !== undefined && hostnameRaw.trim().length === 0) {
+            throw new Error('Invalid --hostname value. Expected a non-empty hostname.');
+          }
+          const hostname = hostnameRaw;
           await runOpenCodeServer(port, hostname);
           break;
         }
