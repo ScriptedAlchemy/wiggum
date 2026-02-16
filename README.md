@@ -65,9 +65,9 @@ Common commands:
 
 Tip: run `wiggum --help` for a concise command list.
 `wiggum agent` chat modes require an interactive terminal (TTY).
-`wiggum agent serve` supports both `--port 4096` and `--port=4096` forms (port must be 1-65535).
+`wiggum agent serve` supports `--port 4096`, `--port=4096`, and `-p=4096` forms (port must be 1-65535).
 Serve hostname flags support both `--hostname` and `--host`.
-Serve short aliases are also supported: `-p <port>` and `-H <hostname>`.
+Serve short aliases are also supported: `-p <port>`, `-p=<port>`, `-H <hostname>`, and `-H=<hostname>`.
 
 ### Runner config (workspace orchestration)
 
