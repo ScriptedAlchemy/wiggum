@@ -83,6 +83,36 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Package script "test:runner" does not match expected command pattern');
   });
 
+  test('fails when package scripts container is not an object', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts = [];
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('package.json "scripts" field must be an object');
+  });
+
+  test('fails when required package script command is blank', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts['test:runner'] = '   ';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "test:runner" must be a non-empty string command');
+  });
+
   test('fails when runner test step uses no-fail shell fallback', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(

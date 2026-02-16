@@ -155,13 +155,25 @@ function verifyPackageScriptsContent(packageJsonContent) {
     throw new Error(`Failed to parse ${PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
-  const scripts = pkg.scripts || {};
+  const scriptsContainer = pkg.scripts ?? {};
+  if (
+    typeof scriptsContainer !== 'object'
+    || scriptsContainer === null
+    || Array.isArray(scriptsContainer)
+  ) {
+    throw new Error('package.json "scripts" field must be an object');
+  }
+  const scripts = scriptsContainer;
   const missing = REQUIRED_PACKAGE_SCRIPTS.filter((scriptName) => !(scriptName in scripts));
   if (missing.length > 0) {
     throw new Error(`Missing required package scripts: ${missing.join(', ')}`);
   }
   for (const scriptName of REQUIRED_PACKAGE_SCRIPTS) {
-    const scriptValue = String(scripts[scriptName] ?? '');
+    const rawScriptValue = scripts[scriptName];
+    if (typeof rawScriptValue !== 'string' || rawScriptValue.trim().length === 0) {
+      throw new Error(`Package script "${scriptName}" must be a non-empty string command`);
+    }
+    const scriptValue = rawScriptValue.trim();
     const expectedPattern = REQUIRED_PACKAGE_SCRIPT_PATTERNS[scriptName];
     if (!expectedPattern.test(scriptValue)) {
       throw new Error(
