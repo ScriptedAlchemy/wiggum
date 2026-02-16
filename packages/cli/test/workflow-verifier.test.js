@@ -133,4 +133,38 @@ describe('runner workflow coverage verifier', () => {
       }),
     ).toThrow('contains forbidden pattern');
   });
+
+  test('accepts required step names when quoted in workflow yaml', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '- name: Run tests',
+      '- name: "Run tests"',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
+  test('accepts required step names with inline comments', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '- name: Run tests',
+      '- name: Run tests # core gate',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
 });

@@ -102,7 +102,15 @@ function extractStepName(line) {
   if (!trimmed.startsWith('- name:')) {
     return undefined;
   }
-  return trimmed.slice('- name:'.length).trim();
+  const rawName = trimmed.slice('- name:'.length).trim();
+  const quotedNameMatch = rawName.match(/^(['"])(.*?)\1(?:\s+#.*)?$/);
+  if (quotedNameMatch) {
+    const quotedName = quotedNameMatch[2].trim();
+    return quotedName.length > 0 ? quotedName : undefined;
+  }
+
+  const unquotedName = rawName.replace(/\s+#.*$/, '').trim();
+  return unquotedName.length > 0 ? unquotedName : undefined;
 }
 
 function extractStepBlocks(workflow, stepName) {
