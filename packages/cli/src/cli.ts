@@ -677,15 +677,9 @@ function parseRunCommandArgs(args: string[]): {
       firstPositionalCandidate = arg;
     }
     if (supportedTasks.has(arg)) {
-      if (task && task !== arg) {
-        throw new Error(`Conflicting run tasks: ${task} and ${arg}`);
-      }
-      if (task && task === arg) {
-        throw new Error(`Duplicate run task token: ${arg}`);
-      }
       task = arg;
       taskIndex = i;
-      continue;
+      break;
     }
   }
 

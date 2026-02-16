@@ -295,28 +295,32 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.projects.map((project) => project.name)).toEqual(['help']);
   });
 
-  test('run rejects conflicting task tokens before passthrough', () => {
+  test('run forwards additional task-like positional args before delimiter', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
       name: 'help-project',
       private: true,
     });
 
-    const result = runCLI(['run', 'build', '--dry-run', 'test'], root);
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Conflicting run tasks: build and test');
+    const result = runCLI(['run', 'build', '--dry-run', '--json', 'test'], root);
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan).toHaveLength(1);
+    expect(payload.plan[0].args).toContain('test');
   });
 
-  test('run rejects duplicate task tokens before passthrough', () => {
+  test('run forwards duplicate task-like positional args before delimiter', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
       name: 'help-project',
       private: true,
     });
 
-    const result = runCLI(['run', 'build', '--dry-run', 'build'], root);
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Duplicate run task token: build');
+    const result = runCLI(['run', 'build', '--dry-run', '--json', 'build'], root);
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan).toHaveLength(1);
+    expect(payload.plan[0].args).toContain('build');
   });
 
   test('run allows task-like passthrough args after delimiter', () => {
