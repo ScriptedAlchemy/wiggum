@@ -89,6 +89,8 @@ For failed workspace runs, you can:
 - print a structured AI remediation prompt with `--ai-prompt`
 - launch OpenCode directly with rich failure context using `--autofix`
 
+In CI/non-interactive terminals, `--autofix` falls back to printing the prompt instead of opening TUI.
+
 ## Chat Widget (Rsbuild plugin)
 
 Add an assistant bubble to your dev app. Minimal setup:
