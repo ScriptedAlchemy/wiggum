@@ -81,6 +81,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('Supported tasks:');
     expect(result.stdout).toContain('--ai-prompt');
     expect(result.stdout).toContain('--autofix');
+    expect(result.stdout).toContain('cannot be combined with --dry-run');
   });
 
   test('projects list --json resolves a single implicit project', () => {

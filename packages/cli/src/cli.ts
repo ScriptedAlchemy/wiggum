@@ -617,6 +617,9 @@ Runner options:
   --autofix                Launch OpenCode autofix flow on failures
   --no-infer-imports       Disable inferred import dependency edges
 
+Notes:
+  --ai-prompt and --autofix cannot be combined with --dry-run.
+
 Pass task arguments after "--" so they are forwarded to the underlying tool.
 `);
 }
