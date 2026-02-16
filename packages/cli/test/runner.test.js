@@ -81,6 +81,18 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
   });
 
+  test('projects --json help prints runner projects usage', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', '--json', 'help'], root);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
+  });
+
   test('projects rejects unknown subcommand token in first position', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
@@ -190,6 +202,18 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('--parallel <count>');
   });
 
+  test('run --dry-run help prints runner run usage', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', '--dry-run', 'help'], root);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
+  });
+
   test('run supports task token after runner options', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -250,6 +274,25 @@ describe('Wiggum runner workspace graph', () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Missing task name.');
+  });
+
+  test('run does not treat --project help value as command help', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/help/package.json'), {
+      name: 'help',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--project', 'help', '--dry-run', '--json'],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['help']);
   });
 
   test('run rejects conflicting task tokens before passthrough', () => {
@@ -395,6 +438,25 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(0);
     const payload = JSON.parse(result.stdout);
     expect(payload.projects.map((project) => project.name)).toEqual(['graph']);
+  });
+
+  test('projects does not treat --project help value as command help', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/help/package.json'), {
+      name: 'help',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--project', 'help', '--json'],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['help']);
   });
 
   test('run build --dry-run --json calculates topological order', () => {

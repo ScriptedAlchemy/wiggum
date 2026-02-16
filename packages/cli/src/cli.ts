@@ -586,7 +586,7 @@ function hasHelpFlagBeforePassthrough(args: string[]): boolean {
 
   for (let i = 0; i < parseSlice.length; i++) {
     const arg = parseSlice[i];
-    if (arg === '--help' || arg === '-h') {
+    if (arg === '--help' || arg === '-h' || arg === 'help') {
       return true;
     }
     if (flagsRequiringValue.has(arg)) {
@@ -1115,6 +1115,10 @@ Global options:
       printRunHelp();
       process.exit(1);
     }
+    if (hasHelpFlagBeforePassthrough(commandArgs)) {
+      printRunHelp();
+      process.exit(0);
+    }
 
     let parsedRunArgs: {
       task?: string;
@@ -1128,11 +1132,6 @@ Global options:
       process.exit(1);
       return;
     }
-    if (hasHelpFlagBeforePassthrough(parsedRunArgs.runnerArgs)) {
-      printRunHelp();
-      process.exit(0);
-    }
-
     const task = parsedRunArgs.task;
     if (!task) {
       console.error(chalk.red('Missing task name.'));
