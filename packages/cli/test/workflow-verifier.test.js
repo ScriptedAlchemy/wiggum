@@ -624,6 +624,33 @@ describe('runner workflow coverage verifier', () => {
     }
   });
 
+  test('workflow verifier CLI entrypoint reports overridden missing workflow path', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent,
+      workflowContent,
+    });
+    const missingWorkflowPath = path.join(fixture.rootDir, 'custom-workflows', 'missing.ci.yml');
+
+    try {
+      const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: fixture.rootDir,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: missingWorkflowPath,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+      expect(result.stderr).toContain(`Failed to read ${missingWorkflowPath}`);
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
+  });
+
   test('workflow verifier CLI entrypoint supports env path overrides', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const invalidDefaultWorkflow = replaceOrThrow(

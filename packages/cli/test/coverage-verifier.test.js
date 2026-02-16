@@ -859,6 +859,29 @@ describe('runner coverage verifier', () => {
     expect(result.stderr).toContain(`Packages directory not found at ${path.join(fixture.rootDir, 'packages')}`);
   });
 
+  test('coverage verifier CLI reports overridden missing config path in error output', () => {
+    const fixture = createCoverageVerifierFixture({
+      configContent: '{"projects":["packages/*"]}',
+      createPackagesDir: true,
+      packageNames: ['cli'],
+    });
+    const missingConfigPath = path.join(fixture.rootDir, 'configs', 'missing.runner.json');
+
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: fixture.rootDir,
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: missingConfigPath,
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-coverage]');
+    expect(result.stderr).toContain(`Runner config not found at ${missingConfigPath}`);
+  });
+
   test('coverage verifier CLI supports config and packages path overrides', () => {
     const fixture = createCoverageVerifierFixture({
       createPackagesDir: false,
