@@ -216,6 +216,49 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Missing task name.');
   });
 
+  test('run rejects conflicting task tokens before passthrough', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', 'build', '--dry-run', 'test'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Conflicting run tasks: build and test');
+  });
+
+  test('run allows task-like passthrough args after delimiter', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--dry-run',
+        '--json',
+        '--',
+        'test',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan).toHaveLength(1);
+    expect(payload.plan[0].args).toContain('test');
+  });
+
   test('run does not treat -h as help when used as missing --project value', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {

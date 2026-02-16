@@ -670,9 +670,15 @@ function parseRunCommandArgs(args: string[]): {
       continue;
     }
     if (supportedTasks.has(arg)) {
+      if (task && task !== arg) {
+        throw new Error(`Conflicting run tasks: ${task} and ${arg}`);
+      }
+      if (task && task === arg) {
+        throw new Error(`Duplicate run task token: ${arg}`);
+      }
       task = arg;
       taskIndex = i;
-      break;
+      continue;
     }
   }
 
@@ -1099,7 +1105,18 @@ Global options:
       process.exit(1);
     }
 
-    const parsedRunArgs = parseRunCommandArgs(commandArgs);
+    let parsedRunArgs: {
+      task?: string;
+      runnerArgs: string[];
+    };
+    try {
+      parsedRunArgs = parseRunCommandArgs(commandArgs);
+    } catch (error: any) {
+      console.error(chalk.red('Invalid run command:'), error.message ?? error);
+      printRunHelp();
+      process.exit(1);
+      return;
+    }
     if (hasHelpFlagBeforePassthrough(parsedRunArgs.runnerArgs)) {
       printRunHelp();
       process.exit(0);
