@@ -661,6 +661,7 @@ function parseRunCommandArgs(args: string[]): {
   let task: string | undefined;
   let taskIndex = -1;
   let firstPositionalCandidate: string | undefined;
+  let firstPositionalIndex = -1;
   let expectValue = false;
 
   for (let i = 0; i < parseBoundary; i++) {
@@ -675,12 +676,23 @@ function parseRunCommandArgs(args: string[]): {
     }
     if (!arg.startsWith('-') && !task && !firstPositionalCandidate) {
       firstPositionalCandidate = arg;
+      firstPositionalIndex = i;
     }
     if (supportedTasks.has(arg)) {
       task = arg;
       taskIndex = i;
       break;
     }
+  }
+
+  if (
+    task
+    && firstPositionalCandidate
+    && firstPositionalCandidate !== task
+    && firstPositionalIndex >= 0
+    && firstPositionalIndex < taskIndex
+  ) {
+    throw new Error(`Unsupported runner task: ${firstPositionalCandidate}`);
   }
 
   if (!task && firstPositionalCandidate) {
