@@ -1,6 +1,7 @@
 import { describe, test, expect } from '@rstest/core';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -25,6 +26,27 @@ function replaceOrThrow(content, searchValue, replacementValue) {
     throw new Error(`Expected token not found: ${searchValue}`);
   }
   return content.replace(searchValue, replacementValue);
+}
+
+function createWorkflowVerifierFixture({
+  packageJsonContent,
+  workflowContent,
+}) {
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-verifier-fixture-'));
+  const workflowDir = path.join(fixtureRoot, '.github', 'workflows');
+  const scriptDir = path.join(fixtureRoot, 'packages', 'cli', 'scripts');
+  fs.mkdirSync(workflowDir, { recursive: true });
+  fs.mkdirSync(scriptDir, { recursive: true });
+  fs.writeFileSync(path.join(fixtureRoot, 'package.json'), packageJsonContent);
+  fs.writeFileSync(path.join(workflowDir, 'ci.yml'), workflowContent);
+  fs.copyFileSync(
+    WORKFLOW_VERIFIER_SCRIPT_PATH,
+    path.join(scriptDir, 'verify-runner-workflow-coverage.mjs'),
+  );
+  return {
+    rootDir: fixtureRoot,
+    scriptPath: path.join(scriptDir, 'verify-runner-workflow-coverage.mjs'),
+  };
 }
 
 describe('runner workflow coverage verifier', () => {
@@ -357,5 +379,49 @@ describe('runner workflow coverage verifier', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow.');
+  });
+
+  test('workflow verifier CLI entrypoint reports prefixed error on invalid workflow', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '- name: Run tests',
+      '- name: Run smoke tests',
+    );
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent,
+      workflowContent: mutatedWorkflow,
+    });
+
+    const result = spawnSync(process.execPath, [fixture.scriptPath], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: process.env,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+    expect(result.stderr).toContain('is missing required step "Run tests"');
+  });
+
+  test('workflow verifier CLI entrypoint reports prefixed error on rewired package script', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts['test:runner'] = 'pnpm -r test';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent: mutatedPackageJson,
+      workflowContent,
+    });
+
+    const result = spawnSync(process.execPath, [fixture.scriptPath], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: process.env,
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+    expect(result.stderr).toContain('Package script "test:runner" does not match expected command pattern');
   });
 });
