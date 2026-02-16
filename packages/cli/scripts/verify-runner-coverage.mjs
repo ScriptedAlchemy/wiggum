@@ -59,19 +59,40 @@ export function verifyRunnerCoverageData({
   minExpectedProjects,
   rootDir,
 }) {
+  if (!Array.isArray(expectedProjectRoots)) {
+    throw new Error('expectedProjectRoots must be an array of project root paths');
+  }
+  if (!Array.isArray(resolvedProjectRoots)) {
+    throw new Error('resolvedProjectRoots must be an array of project root paths');
+  }
+  if (typeof rootDir !== 'string' || rootDir.length === 0) {
+    throw new Error('rootDir must be a non-empty string path');
+  }
+
+  const normalizedExpectedRoots = expectedProjectRoots.map((entry, index) => {
+    if (typeof entry !== 'string' || entry.length === 0) {
+      throw new Error(`expectedProjectRoots[${index}] must be a non-empty string path`);
+    }
+    return path.resolve(entry);
+  });
+  const normalizedResolvedRoots = resolvedProjectRoots.map((entry, index) => {
+    if (typeof entry !== 'string' || entry.length === 0) {
+      throw new Error(`resolvedProjectRoots[${index}] must be a non-empty string path`);
+    }
+    return path.resolve(entry);
+  });
+
   if (!Number.isFinite(minExpectedProjects) || minExpectedProjects < 1) {
     throw new Error(`MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got ${minExpectedProjects}`);
   }
-  if (expectedProjectRoots.length < minExpectedProjects) {
+  if (normalizedExpectedRoots.length < minExpectedProjects) {
     throw new Error(
-      `Expected at least ${minExpectedProjects} package projects, found ${expectedProjectRoots.length}.`,
+      `Expected at least ${minExpectedProjects} package projects, found ${normalizedExpectedRoots.length}.`,
     );
   }
 
-  const normalizedResolvedRoots = new Set(
-    resolvedProjectRoots.map((entry) => path.resolve(entry)),
-  );
-  const missing = expectedProjectRoots.filter((projectRoot) => !normalizedResolvedRoots.has(projectRoot));
+  const resolvedRootsSet = new Set(normalizedResolvedRoots);
+  const missing = normalizedExpectedRoots.filter((projectRoot) => !resolvedRootsSet.has(projectRoot));
   if (missing.length > 0) {
     throw new Error(
       `Runner config is missing ${missing.length} package project(s):\n${missing
@@ -81,8 +102,8 @@ export function verifyRunnerCoverageData({
   }
 
   return {
-    expectedCount: expectedProjectRoots.length,
-    resolvedCount: resolvedProjectRoots.length,
+    expectedCount: normalizedExpectedRoots.length,
+    resolvedCount: normalizedResolvedRoots.length,
   };
 }
 

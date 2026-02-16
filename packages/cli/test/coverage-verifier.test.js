@@ -55,6 +55,50 @@ describe('runner coverage verifier', () => {
     });
   });
 
+  test('rejects invalid expectedProjectRoots container type', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: null,
+        resolvedProjectRoots: ['/repo/packages/cli'],
+        minExpectedProjects: 1,
+        rootDir: '/repo',
+      }),
+    ).toThrow('expectedProjectRoots must be an array of project root paths');
+  });
+
+  test('rejects invalid resolvedProjectRoots container type', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: ['/repo/packages/cli'],
+        resolvedProjectRoots: null,
+        minExpectedProjects: 1,
+        rootDir: '/repo',
+      }),
+    ).toThrow('resolvedProjectRoots must be an array of project root paths');
+  });
+
+  test('rejects non-string project root entries', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: ['/repo/packages/cli', 42],
+        resolvedProjectRoots: ['/repo/packages/cli'],
+        minExpectedProjects: 1,
+        rootDir: '/repo',
+      }),
+    ).toThrow('expectedProjectRoots[1] must be a non-empty string path');
+  });
+
+  test('rejects empty rootDir value', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: ['/repo/packages/cli'],
+        resolvedProjectRoots: ['/repo/packages/cli'],
+        minExpectedProjects: 1,
+        rootDir: '',
+      }),
+    ).toThrow('rootDir must be a non-empty string path');
+  });
+
   test('rejects invalid minimum expected project count', () => {
     expect(() =>
       verifyRunnerCoverageData({
