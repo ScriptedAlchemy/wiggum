@@ -280,6 +280,31 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('fake-opencode:status');
     });
 
+    test('agent run preserves --autofix as command argument', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(
+        fakeOpenCodePath,
+        '#!/usr/bin/env bash\necho \"fake-opencode:$@\"\nexit 0\n',
+        { mode: 0o755 },
+      );
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent run session --autofix', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Running: opencode session --autofix');
+      expect(result.stdout).toContain('fake-opencode:session --autofix');
+    });
+
     test('agent chat requires interactive terminal', () => {
       const root = makeTempDir();
       const binDir = path.join(root, 'bin');
