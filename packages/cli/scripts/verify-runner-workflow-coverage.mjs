@@ -4,11 +4,45 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+function normalizeEnvPathOverride(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const normalizedValue = String(value).trim();
+  return normalizedValue.length > 0 ? normalizedValue : undefined;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, '../../..');
-const PACKAGE_JSON_PATH = path.join(ROOT, 'package.json');
-const WORKFLOW_PATH = path.join(ROOT, '.github/workflows/ci.yml');
+const DEFAULT_ROOT = path.resolve(__dirname, '../../..');
+
+export function resolveWorkflowVerifierPathsFromEnv({
+  env = process.env,
+  fallbackRoot = DEFAULT_ROOT,
+} = {}) {
+  const rootOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT);
+  const packageJsonPathOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH);
+  const workflowPathOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH);
+
+  const rootDir = rootOverride
+    ? path.resolve(rootOverride)
+    : path.resolve(fallbackRoot);
+  const packageJsonPath = packageJsonPathOverride
+    ? path.resolve(rootDir, packageJsonPathOverride)
+    : path.join(rootDir, 'package.json');
+  const workflowPath = workflowPathOverride
+    ? path.resolve(rootDir, workflowPathOverride)
+    : path.join(rootDir, '.github/workflows/ci.yml');
+
+  return {
+    rootDir,
+    packageJsonPath,
+    workflowPath,
+  };
+}
+
+const PACKAGE_JSON_PATH = path.join(DEFAULT_ROOT, 'package.json');
+const WORKFLOW_PATH = path.join(DEFAULT_ROOT, '.github/workflows/ci.yml');
 
 const REQUIRED_PACKAGE_SCRIPTS = ['test:runner', 'verify:runner:coverage', 'verify:runner:workflow'];
 const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
@@ -295,13 +329,14 @@ export function verifyRunnerWorkflowCoverage({
 }
 
 function main() {
-  const packageJsonContent = readUtf8(PACKAGE_JSON_PATH);
-  const workflowContent = readUtf8(WORKFLOW_PATH);
+  const { packageJsonPath, workflowPath } = resolveWorkflowVerifierPathsFromEnv();
+  const packageJsonContent = readUtf8(packageJsonPath);
+  const workflowContent = readUtf8(workflowPath);
   const result = verifyRunnerWorkflowCoverage({
     packageJsonContent,
-    packageJsonPath: PACKAGE_JSON_PATH,
+    packageJsonPath,
     workflowContent,
-    workflowPath: WORKFLOW_PATH,
+    workflowPath,
   });
   console.log(
     `[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow (${result.requiredScriptCount} scripts, ${result.requiredStepCount} steps).`,

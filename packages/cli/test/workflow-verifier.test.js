@@ -5,7 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { verifyRunnerWorkflowCoverage } from '../scripts/verify-runner-workflow-coverage.mjs';
+import {
+  resolveWorkflowVerifierPathsFromEnv,
+  verifyRunnerWorkflowCoverage,
+} from '../scripts/verify-runner-workflow-coverage.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -122,6 +125,39 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('Failed to parse /tmp/custom-package.json');
+  });
+
+  test('resolveWorkflowVerifierPathsFromEnv resolves relative overrides from root', () => {
+    const result = resolveWorkflowVerifierPathsFromEnv({
+      env: {
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: '/repo',
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH: 'configs/package.custom.json',
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: 'configs/ci.custom.yml',
+      },
+    });
+
+    expect(result).toEqual({
+      rootDir: path.resolve('/repo'),
+      packageJsonPath: path.resolve('/repo', 'configs/package.custom.json'),
+      workflowPath: path.resolve('/repo', 'configs/ci.custom.yml'),
+    });
+  });
+
+  test('resolveWorkflowVerifierPathsFromEnv ignores blank overrides and uses fallback root', () => {
+    const result = resolveWorkflowVerifierPathsFromEnv({
+      env: {
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: ' ',
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH: '',
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: '   ',
+      },
+      fallbackRoot: '/repo/fallback',
+    });
+
+    expect(result).toEqual({
+      rootDir: path.resolve('/repo/fallback'),
+      packageJsonPath: path.resolve('/repo/fallback', 'package.json'),
+      workflowPath: path.resolve('/repo/fallback', '.github/workflows/ci.yml'),
+    });
   });
 
   test('accepts the current repository workflow and scripts', () => {
@@ -567,6 +603,43 @@ describe('runner workflow coverage verifier', () => {
       expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
       expect(result.stderr).toContain('Failed to read');
       expect(result.stderr).toContain(path.join(fixture.rootDir, 'package.json'));
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
+  });
+
+  test('workflow verifier CLI entrypoint supports env path overrides', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const invalidDefaultWorkflow = replaceOrThrow(
+      workflowContent,
+      '- name: Run tests',
+      '- name: Run smoke tests',
+    );
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent,
+      workflowContent: invalidDefaultWorkflow,
+    });
+    const customDir = path.join(fixture.rootDir, 'custom-verifier-inputs');
+    fs.mkdirSync(customDir, { recursive: true });
+    const customPackagePath = path.join(customDir, 'package.custom.json');
+    const customWorkflowPath = path.join(customDir, 'ci.custom.yml');
+    fs.writeFileSync(customPackagePath, packageJsonContent);
+    fs.writeFileSync(customWorkflowPath, workflowContent);
+
+    try {
+      const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: fixture.rootDir,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH: 'custom-verifier-inputs/package.custom.json',
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: 'custom-verifier-inputs/ci.custom.yml',
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow');
     } finally {
       cleanupWorkflowVerifierFixture(fixture);
     }
