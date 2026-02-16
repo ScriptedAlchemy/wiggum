@@ -16,6 +16,7 @@ const REPO_ROOT = path.resolve(__dirname, '../../..');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(REPO_ROOT, '.github/workflows/ci.yml');
 const WORKFLOW_VERIFIER_SCRIPT_PATH = path.resolve(__dirname, '../scripts/verify-runner-workflow-coverage.mjs');
+const VERIFIER_PATH_UTILS_SCRIPT_PATH = path.resolve(__dirname, '../scripts/verifier-path-utils.mjs');
 const tempFixtureRoots = new Set();
 
 function readCurrentInputs() {
@@ -47,6 +48,10 @@ function createWorkflowVerifierFixture({
   fs.copyFileSync(
     WORKFLOW_VERIFIER_SCRIPT_PATH,
     path.join(scriptDir, 'verify-runner-workflow-coverage.mjs'),
+  );
+  fs.copyFileSync(
+    VERIFIER_PATH_UTILS_SCRIPT_PATH,
+    path.join(scriptDir, 'verifier-path-utils.mjs'),
   );
   return {
     rootDir: fixtureRoot,

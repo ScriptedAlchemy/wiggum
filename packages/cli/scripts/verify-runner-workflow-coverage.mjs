@@ -3,47 +3,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-
-function normalizeEnvPathOverride(value) {
-  if (value === undefined) {
-    return undefined;
-  }
-  const normalizedValue = value.trim();
-  return normalizedValue.length > 0 ? normalizedValue : undefined;
-}
-
-function readEnvPathOverride(env, key) {
-  const value = env[key];
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== 'string') {
-    throw new Error(`${key} must be a string when provided`);
-  }
-  return normalizeEnvPathOverride(value);
-}
+import {
+  ensureEnvObject,
+  ensureNonEmptyRootPath,
+  readEnvPathOverride,
+} from './verifier-path-utils.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_ROOT = path.resolve(__dirname, '../../..');
-
-function ensureNonEmptyRootPath(value, fieldName) {
-  if (typeof value !== 'string') {
-    throw new Error(`${fieldName} must be a string path`);
-  }
-  const normalizedValue = value.trim();
-  if (normalizedValue.length === 0) {
-    throw new Error(`${fieldName} must be a non-empty string path`);
-  }
-  return normalizedValue;
-}
-
-function ensureEnvObject(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('env must be an object');
-  }
-  return value;
-}
 
 export function resolveWorkflowVerifierPathsFromEnv({
   env = process.env,
