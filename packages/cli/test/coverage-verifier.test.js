@@ -1,4 +1,4 @@
-import { describe, test, expect } from '@rstest/core';
+import { describe, test, expect, afterEach } from '@rstest/core';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -18,6 +18,20 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const COVERAGE_SCRIPT_PATH = path.resolve(__dirname, '../scripts/verify-runner-coverage.mjs');
+const tempDirs = new Set();
+
+function makeTempDir(prefix) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  tempDirs.add(tempDir);
+  return tempDir;
+}
+
+afterEach(() => {
+  for (const tempDir of tempDirs) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+  tempDirs.clear();
+});
 
 describe('runner coverage verifier', () => {
   test('parseMinimumExpectedProjects returns default when value is undefined', () => {
@@ -264,7 +278,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('lists expected package roots sorted and package-json filtered', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-list-'));
+    const tempRoot = makeTempDir('verify-coverage-list-');
     const packagesDir = path.join(tempRoot, 'packages');
     fs.mkdirSync(packagesDir, { recursive: true });
     fs.mkdirSync(path.join(packagesDir, 'zebra'));
@@ -282,7 +296,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('listExpectedProjectRoots rejects missing packages directory', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-list-missing-'));
+    const tempRoot = makeTempDir('verify-coverage-list-missing-');
     const missingPackagesDir = path.join(tempRoot, 'packages');
     expect(() => listExpectedProjectRoots(missingPackagesDir)).toThrow(
       `Packages directory not found at ${missingPackagesDir}`,
@@ -290,7 +304,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('listExpectedProjectRoots rejects non-directory packages path', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-list-file-'));
+    const tempRoot = makeTempDir('verify-coverage-list-file-');
     const notDirectoryPath = path.join(tempRoot, 'packages');
     fs.writeFileSync(notDirectoryPath, 'not-a-directory');
     expect(() => listExpectedProjectRoots(notDirectoryPath)).toThrow(
@@ -299,7 +313,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('verifyRunnerCoverage rejects when config file is missing', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-config-'));
+    const tempRoot = makeTempDir('verify-coverage-config-');
     const packagesDir = path.join(tempRoot, 'packages');
     fs.mkdirSync(packagesDir, { recursive: true });
 
@@ -314,7 +328,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('verifyRunnerCoverage passes expected options to workspace resolver', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-resolve-'));
+    const tempRoot = makeTempDir('verify-coverage-resolve-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
     const packagesDir = path.join(tempRoot, 'packages');
     fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
@@ -355,7 +369,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('verifyRunnerCoverage uses env minimum when argument is omitted', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-env-min-'));
+    const tempRoot = makeTempDir('verify-coverage-env-min-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
     const packagesDir = path.join(tempRoot, 'packages');
     fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
@@ -385,7 +399,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('verifyRunnerCoverage rejects invalid env minimum when argument is omitted', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-env-invalid-'));
+    const tempRoot = makeTempDir('verify-coverage-env-invalid-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
     const packagesDir = path.join(tempRoot, 'packages');
     fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
@@ -415,7 +429,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('verifyRunnerCoverage rejects malformed resolver payload without projects array', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-bad-workspace-'));
+    const tempRoot = makeTempDir('verify-coverage-bad-workspace-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
     const packagesDir = path.join(tempRoot, 'packages');
     fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
@@ -434,7 +448,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('verifyRunnerCoverage rejects non-function resolveWorkspace option', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-non-function-resolver-'));
+    const tempRoot = makeTempDir('verify-coverage-non-function-resolver-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
     const packagesDir = path.join(tempRoot, 'packages');
     fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
@@ -465,7 +479,7 @@ describe('runner coverage verifier', () => {
   });
 
   test('verifyRunnerCoverage rejects malformed resolver project root entries', async () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-bad-project-root-'));
+    const tempRoot = makeTempDir('verify-coverage-bad-project-root-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
     const packagesDir = path.join(tempRoot, 'packages');
     fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
