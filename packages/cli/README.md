@@ -117,6 +117,7 @@ The `agent` subcommands use OpenCode to provide an AI assistant for your project
 - `wiggum agent init` — no‑op placeholder (Wiggum uses inline config by default)
 
 Note: `wiggum agent` / `wiggum agent chat` require an interactive TTY terminal.
+`wiggum agent serve` validates port values (must be 1-65535).
 
 Examples:
 
@@ -124,6 +125,7 @@ Examples:
 wiggum agent install
 wiggum agent chat
 wiggum agent serve --port 4096
+wiggum agent serve --port=4096 --hostname=0.0.0.0
 wiggum agent run session list
 ```
 
