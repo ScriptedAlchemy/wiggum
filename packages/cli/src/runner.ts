@@ -70,6 +70,7 @@ export interface ResolveRunnerWorkspaceOptions {
   projectFilters?: string[];
   includeDependenciesForFiltered?: boolean;
   includeInferredImports?: boolean;
+  inferImportMaxFiles?: number;
 }
 
 const RUNNER_CONFIG_FILES = [
@@ -81,12 +82,33 @@ const RUNNER_CONFIG_FILES = [
 
 const PROJECT_CONFIG_RE = /(?:^|\/)(?:rslib|rsbuild|rspack|rspress|rstest|rslint)\.config\.(?:mjs|js|cjs|mts|cts|ts)$/;
 const IMPORT_ARGUMENT_COMMENT_RE = '(?:\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n\\r]*)\\s*';
-const MAX_INFERRED_IMPORT_SCAN_FILES = 400;
+const DEFAULT_MAX_INFERRED_IMPORT_SCAN_FILES = 400;
 const IMPORT_RE =
   new RegExp(
     `(?:import\\s+(?:[^'"]+from\\s*)?|import\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|export\\s+[^'"]*from\\s*|require\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*)['"]([^'"]+)['"]\\s*\\)?`,
     'g',
   );
+
+function parseInferImportMaxFiles(
+  rawValue = process.env.WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES,
+): number {
+  if (rawValue === undefined || rawValue.trim().length === 0) {
+    return DEFAULT_MAX_INFERRED_IMPORT_SCAN_FILES;
+  }
+  const normalizedValue = rawValue.trim();
+  if (!/^\d+$/.test(normalizedValue)) {
+    throw new Error(
+      `Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "${rawValue}". Expected a positive integer.`,
+    );
+  }
+  const parsedValue = Number.parseInt(normalizedValue, 10);
+  if (!Number.isSafeInteger(parsedValue) || parsedValue < 1) {
+    throw new Error(
+      `Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "${rawValue}". Expected a positive integer.`,
+    );
+  }
+  return parsedValue;
+}
 
 type MutableProject = Omit<RunnerProject, 'dependencies' | 'inferredDependencies'> & {
   dependencies: Set<string>;
@@ -655,7 +677,13 @@ function findCycles(dependencyMap: Map<string, string[]>, unresolved: Set<string
     .sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-async function inferImportDependencies(projects: RunnerProject[]): Promise<void> {
+async function inferImportDependencies(
+  projects: RunnerProject[],
+  maxImportScanFiles: number,
+): Promise<void> {
+  if (!Number.isSafeInteger(maxImportScanFiles) || maxImportScanFiles < 1) {
+    throw new Error(`inferImportDependencies requires maxImportScanFiles >= 1, got ${maxImportScanFiles}`);
+  }
   const packageNameToProject = new Map(
     projects
       .filter((project) => Boolean(project.packageName))
@@ -679,7 +707,7 @@ async function inferImportDependencies(projects: RunnerProject[]): Promise<void>
     });
     const filesToScan = [...files]
       .sort((a, b) => a.localeCompare(b))
-      .slice(0, MAX_INFERRED_IMPORT_SCAN_FILES);
+      .slice(0, maxImportScanFiles);
     const seenDeps = new Set<string>();
     for (const file of filesToScan) {
       IMPORT_RE.lastIndex = 0;
@@ -763,7 +791,8 @@ export async function resolveRunnerWorkspace(
   }
 
   if (options.includeInferredImports !== false) {
-    await inferImportDependencies(projects);
+    const maxImportScanFiles = options.inferImportMaxFiles ?? parseInferImportMaxFiles();
+    await inferImportDependencies(projects, maxImportScanFiles);
   }
 
   const projectFilters = options.projectFilters ?? [];
