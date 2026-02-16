@@ -644,4 +644,20 @@ describe('runner workflow coverage verifier', () => {
       cleanupWorkflowVerifierFixture(fixture);
     }
   });
+
+  test('workflow verifier CLI entrypoint ignores blank env path overrides', () => {
+    const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: ' ',
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH: '',
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: '   ',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow');
+  });
 });
