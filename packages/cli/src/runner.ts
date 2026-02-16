@@ -659,7 +659,10 @@ async function inferImportDependencies(projects: RunnerProject[]): Promise<void>
   if (packageNameToProject.size === 0) return;
 
   for (const project of projects) {
-    const sourcePattern = ['src/**/*.{ts,tsx,js,jsx,mjs,cjs}', 'test/**/*.{ts,tsx,js,jsx,mjs,cjs}'];
+    const sourcePattern = [
+      'src/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+      'test/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+    ];
     const files = await fg(sourcePattern, {
       cwd: project.root,
       absolute: true,
