@@ -1009,21 +1009,12 @@ Global options:
   }
 
   if (command === 'projects') {
-    if (hasHelpFlagBeforePassthrough(commandArgs)) {
-      printProjectsHelp();
-      process.exit(0);
-    }
-
-    if (
-      commandArgs[0] === '--help' ||
-      commandArgs[0] === '-h' ||
-      commandArgs[0] === 'help'
-    ) {
-      printProjectsHelp();
-      process.exit(0);
-    }
-
     const firstProjectsArg = commandArgs[0];
+    if (firstProjectsArg === '--help' || firstProjectsArg === '-h' || firstProjectsArg === 'help') {
+      printProjectsHelp();
+      process.exit(0);
+    }
+
     if (
       firstProjectsArg &&
       !firstProjectsArg.startsWith('-') &&
@@ -1033,6 +1024,10 @@ Global options:
       console.error(chalk.red(`Unknown projects subcommand: ${firstProjectsArg}`));
       printProjectsHelp();
       process.exit(1);
+    }
+    if (hasHelpFlagBeforePassthrough(commandArgs)) {
+      printProjectsHelp();
+      process.exit(0);
     }
 
     let parsedProjectsArgs: {
