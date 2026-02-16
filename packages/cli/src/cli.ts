@@ -657,6 +657,7 @@ function parseRunCommandArgs(args: string[]): {
 
   let task: string | undefined;
   let taskIndex = -1;
+  let firstPositionalCandidate: string | undefined;
   let expectValue = false;
 
   for (let i = 0; i < parseBoundary; i++) {
@@ -669,6 +670,9 @@ function parseRunCommandArgs(args: string[]): {
       expectValue = true;
       continue;
     }
+    if (!arg.startsWith('-') && !task && !firstPositionalCandidate) {
+      firstPositionalCandidate = arg;
+    }
     if (supportedTasks.has(arg)) {
       if (task && task !== arg) {
         throw new Error(`Conflicting run tasks: ${task} and ${arg}`);
@@ -680,6 +684,10 @@ function parseRunCommandArgs(args: string[]): {
       taskIndex = i;
       continue;
     }
+  }
+
+  if (!task && firstPositionalCandidate) {
+    throw new Error(`Unsupported runner task: ${firstPositionalCandidate}`);
   }
 
   const runnerArgs = taskIndex >= 0

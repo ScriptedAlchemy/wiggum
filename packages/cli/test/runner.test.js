@@ -198,6 +198,30 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/app']);
   });
 
+  test('run rejects unsupported task token after runner options', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', '--dry-run', 'deploy'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unsupported runner task: deploy');
+  });
+
+  test('run keeps missing task message when only options are provided', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', '--dry-run'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Missing task name.');
+  });
+
   test('run does not treat --project value as task token', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
