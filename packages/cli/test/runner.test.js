@@ -388,4 +388,40 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('only supported for "wiggum run"');
   });
+
+  test('run rejects --ai-prompt with --dry-run', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--ai-prompt', '--dry-run'],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('--ai-prompt cannot be used with --dry-run');
+  });
+
+  test('run rejects --autofix with --dry-run', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--autofix'],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('--autofix cannot be used with --dry-run');
+  });
 });

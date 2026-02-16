@@ -760,6 +760,12 @@ Use "wiggum <command> --help" to see help for a specific command.
       if (runnerFlags.json && !runnerFlags.dryRun) {
         throw new Error('--json requires --dry-run for run mode');
       }
+      if (runnerFlags.aiPrompt && runnerFlags.dryRun) {
+        throw new Error('--ai-prompt cannot be used with --dry-run');
+      }
+      if (autofix && runnerFlags.dryRun) {
+        throw new Error('--autofix cannot be used with --dry-run');
+      }
     } catch (error: any) {
       console.error(chalk.red('Invalid runner flags:'), error.message);
       process.exit(1);
