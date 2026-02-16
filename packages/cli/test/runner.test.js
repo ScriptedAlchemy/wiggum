@@ -153,6 +153,18 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Unknown projects subcommand: deploy');
   });
 
+  test('projects keeps unknown option-first token error with trailing help token', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', '--json', 'deploy', 'help'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unknown projects subcommand: deploy');
+  });
+
   test('projects rejects duplicate subcommand tokens', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {

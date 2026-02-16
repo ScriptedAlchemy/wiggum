@@ -1025,10 +1025,7 @@ Global options:
       printProjectsHelp();
       process.exit(1);
     }
-    if (hasHelpFlagBeforePassthrough(commandArgs)) {
-      printProjectsHelp();
-      process.exit(0);
-    }
+    const projectsHelpRequested = hasHelpFlagBeforePassthrough(commandArgs);
 
     let parsedProjectsArgs: {
       subCommand: 'list' | 'graph';
@@ -1037,10 +1034,19 @@ Global options:
     try {
       parsedProjectsArgs = parseProjectsCommandArgs(commandArgs);
     } catch (error: any) {
+      const errorMessage = error?.message ?? String(error);
+      if (projectsHelpRequested && errorMessage === 'Unknown projects subcommand: help') {
+        printProjectsHelp();
+        process.exit(0);
+      }
       console.error(chalk.red('Invalid projects command:'), error.message ?? error);
       printProjectsHelp();
       process.exit(1);
       return;
+    }
+    if (projectsHelpRequested) {
+      printProjectsHelp();
+      process.exit(0);
     }
     const subCommand = parsedProjectsArgs.subCommand;
 
