@@ -232,6 +232,8 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Wiggum Agent - OpenCode Integration');
       expect(result.stdout).toContain('wiggum agent [command] [options]');
+      expect(result.stdout).toContain('serve | server');
+      expect(result.stdout).toContain('-p <port>');
     });
 
     test('agent run reports missing OpenCode binary', () => {
