@@ -977,6 +977,9 @@ Global options:
         includeDependenciesForFiltered: true,
         includeInferredImports: runnerFlags.includeInferredImports,
       });
+      if (workspace.projects.length === 0) {
+        throw new Error('No runner projects were resolved for execution. Check your config and filters.');
+      }
       ensureAcyclicGraph(workspace.graph);
 
       const orderedProjects = buildExecutionOrder(workspace.projects, workspace.graph);

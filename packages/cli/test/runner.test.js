@@ -618,6 +618,20 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_PARALLEL value "2abc"');
   });
 
+  test('run fails when runner config resolves zero projects', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: [],
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run'],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('No runner projects were resolved for execution');
+  });
+
   test('projects rejects blank --project list values', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
