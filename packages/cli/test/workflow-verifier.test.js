@@ -226,7 +226,7 @@ describe('runner workflow coverage verifier', () => {
         workflowContent: mutatedWorkflow,
         workflowPath: WORKFLOW_PATH,
       }),
-    ).toThrow('Step "Run tests" is missing expected run command pattern');
+    ).toThrow('Step "Run tests" must run "pnpm test"');
   });
 
   test('accepts required step names when quoted in workflow yaml', () => {
@@ -252,6 +252,40 @@ describe('runner workflow coverage verifier', () => {
       workflowContent,
       '- name: Run tests',
       '- name: Run tests # core gate',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
+  test('accepts quoted run command values for required steps', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm test',
+      'run: "pnpm test"',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
+  test('accepts run commands with inline comments for required steps', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm test',
+      'run: pnpm test # required gate',
     );
 
     expect(() =>

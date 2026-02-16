@@ -19,7 +19,7 @@ const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
 const REQUIRED_WORKFLOW_STEPS = [
   {
     name: 'Build all packages',
-    requiredRunPattern: /^\s*run:\s*pnpm build\s*$/m,
+    requiredRunCommand: 'pnpm build',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm build\s*\|\|\s*true/,
@@ -27,7 +27,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run tests',
-    requiredRunPattern: /^\s*run:\s*pnpm test\s*$/m,
+    requiredRunCommand: 'pnpm test',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm test\s*\|\|\s*true/,
@@ -35,7 +35,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run runner-focused CLI tests',
-    requiredRunPattern: /^\s*run:\s*pnpm run test:runner\s*$/m,
+    requiredRunCommand: 'pnpm run test:runner',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm run test:runner\s*\|\|\s*true/,
@@ -43,7 +43,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Verify runner project coverage',
-    requiredRunPattern: /^\s*run:\s*pnpm run verify:runner:coverage\s*$/m,
+    requiredRunCommand: 'pnpm run verify:runner:coverage',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm run verify:runner:coverage\s*\|\|\s*true/,
@@ -51,7 +51,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Verify runner workflow coverage',
-    requiredRunPattern: /^\s*run:\s*pnpm run verify:runner:workflow\s*$/m,
+    requiredRunCommand: 'pnpm run verify:runner:workflow',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm run verify:runner:workflow\s*\|\|\s*true/,
@@ -59,7 +59,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Build workspace (required for lint commands)',
-    requiredRunPattern: /^\s*run:\s*pnpm build\s*$/m,
+    requiredRunCommand: 'pnpm build',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm build\s*\|\|\s*true/,
@@ -67,7 +67,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run linting',
-    requiredRunPattern: /^\s*run:\s*pnpm -r --if-present run lint\s*$/m,
+    requiredRunCommand: 'pnpm -r --if-present run lint',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm -r --if-present run lint\s*\|\|\s*true/,
@@ -76,7 +76,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Check types',
-    requiredRunPattern: /^\s*run:\s*pnpm -r exec tsc --noEmit\s*$/m,
+    requiredRunCommand: 'pnpm -r exec tsc --noEmit',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm -r exec tsc --noEmit\s*\|\|\s*true/,
@@ -147,6 +147,32 @@ function extractStepBlocks(workflow, stepName) {
   return blocks;
 }
 
+function normalizeInlineScalar(value) {
+  const trimmedValue = value.trim();
+  const quotedMatch = trimmedValue.match(/^(['"])(.*?)\1(?:\s+#.*)?$/);
+  if (quotedMatch) {
+    return quotedMatch[2].trim();
+  }
+  return trimmedValue.replace(/\s+#.*$/, '').trim();
+}
+
+function extractRunCommand(stepBlock) {
+  const lines = stepBlock.split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('run:')) {
+      continue;
+    }
+    const value = trimmed.slice('run:'.length).trim();
+    if (value.length === 0 || value.startsWith('|') || value.startsWith('>')) {
+      return undefined;
+    }
+    const normalizedValue = normalizeInlineScalar(value);
+    return normalizedValue.length > 0 ? normalizedValue : undefined;
+  }
+  return undefined;
+}
+
 function verifyPackageScriptsContent(packageJsonContent) {
   let pkg;
   try {
@@ -193,10 +219,10 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
       throw new Error(`Workflow ${workflowPath} contains duplicate required step "${requiredStep.name}"`);
     }
     const [stepBlock] = stepBlocks;
-
-    if (!requiredStep.requiredRunPattern.test(stepBlock)) {
+    const runCommand = extractRunCommand(stepBlock);
+    if (runCommand !== requiredStep.requiredRunCommand) {
       throw new Error(
-        `Step "${requiredStep.name}" is missing expected run command pattern ${requiredStep.requiredRunPattern}`,
+        `Step "${requiredStep.name}" must run "${requiredStep.requiredRunCommand}"`,
       );
     }
 
