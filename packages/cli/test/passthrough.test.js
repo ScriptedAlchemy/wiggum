@@ -207,6 +207,13 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('wiggum v');
     });
+
+    test('agent --help should show agent command help', () => {
+      const result = runCLI('agent --help');
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Wiggum Agent - OpenCode Integration');
+      expect(result.stdout).toContain('wiggum agent [command] [options]');
+    });
   });
 
   describe('Complex flag combinations', () => {
