@@ -19,10 +19,14 @@ describe('verifier path utility helpers', () => {
   test('ensureEnvObject rejects null and arrays', () => {
     expect(() => ensureEnvObject(null)).toThrow('env must be an object');
     expect(() => ensureEnvObject([])).toThrow('env must be an object');
+    expect(() => ensureEnvObject('invalid')).toThrow('env must be an object');
   });
 
   test('ensureNonEmptyRootPath validates string root values', () => {
     expect(ensureNonEmptyRootPath(' /repo ', 'fallbackRoot')).toBe('/repo');
+    expect(() => ensureNonEmptyRootPath(123, 'fallbackRoot')).toThrow(
+      'fallbackRoot must be a string path',
+    );
     expect(() => ensureNonEmptyRootPath('', 'fallbackRoot')).toThrow(
       'fallbackRoot must be a non-empty string path',
     );
@@ -42,5 +46,11 @@ describe('verifier path utility helpers', () => {
         'WIGGUM_RUNNER_VERIFY_ROOT',
       ),
     ).toBe('/repo/override');
+    expect(
+      readEnvPathOverride(
+        { WIGGUM_RUNNER_VERIFY_ROOT: '   ' },
+        'WIGGUM_RUNNER_VERIFY_ROOT',
+      ),
+    ).toBeUndefined();
   });
 });
