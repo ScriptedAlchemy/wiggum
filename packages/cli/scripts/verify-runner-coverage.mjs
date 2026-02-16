@@ -5,11 +5,28 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveRunnerWorkspace } from '../dist/runner.js';
 
+function normalizeEnvPathOverride(value) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const normalizedValue = String(value).trim();
+  return normalizedValue.length > 0 ? normalizedValue : undefined;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, '../../..');
-const CONFIG_PATH = path.join(ROOT, 'wiggum.config.json');
-const PACKAGES_DIR = path.join(ROOT, 'packages');
+const ROOT_OVERRIDE = normalizeEnvPathOverride(process.env.WIGGUM_RUNNER_VERIFY_ROOT);
+const CONFIG_PATH_OVERRIDE = normalizeEnvPathOverride(process.env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH);
+const PACKAGES_DIR_OVERRIDE = normalizeEnvPathOverride(process.env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR);
+const ROOT = ROOT_OVERRIDE
+  ? path.resolve(ROOT_OVERRIDE)
+  : path.resolve(__dirname, '../../..');
+const CONFIG_PATH = CONFIG_PATH_OVERRIDE
+  ? path.resolve(ROOT, CONFIG_PATH_OVERRIDE)
+  : path.join(ROOT, 'wiggum.config.json');
+const PACKAGES_DIR = PACKAGES_DIR_OVERRIDE
+  ? path.resolve(ROOT, PACKAGES_DIR_OVERRIDE)
+  : path.join(ROOT, 'packages');
 
 export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS) {
   if (rawValue === undefined) {

@@ -19,6 +19,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '../../..');
 const COVERAGE_SCRIPT_PATH = path.resolve(__dirname, '../scripts/verify-runner-coverage.mjs');
 const tempDirs = new Set();
 
@@ -26,6 +27,32 @@ function makeTempDir(prefix) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   tempDirs.add(tempDir);
   return tempDir;
+}
+
+function createCoverageVerifierFixture({
+  configContent,
+  createPackagesDir = true,
+  packageNames = [],
+} = {}) {
+  const fixtureRoot = makeTempDir('coverage-verifier-fixture-');
+
+  if (configContent !== undefined) {
+    fs.writeFileSync(path.join(fixtureRoot, 'wiggum.config.json'), configContent);
+  }
+
+  if (createPackagesDir) {
+    const packagesDir = path.join(fixtureRoot, 'packages');
+    fs.mkdirSync(packagesDir, { recursive: true });
+    for (const packageName of packageNames) {
+      const packageDir = path.join(packagesDir, packageName);
+      fs.mkdirSync(packageDir, { recursive: true });
+      fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name: `@fixture/${packageName}` }));
+    }
+  }
+
+  return {
+    rootDir: fixtureRoot,
+  };
 }
 
 afterEach(() => {
@@ -635,7 +662,7 @@ describe('runner coverage verifier', () => {
 
   test('coverage verifier CLI exits with prefixed error for invalid env minimum', () => {
     const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
-      cwd: path.resolve(__dirname, '../../..'),
+      cwd: REPO_ROOT,
       encoding: 'utf8',
       env: {
         ...process.env,
@@ -650,7 +677,7 @@ describe('runner coverage verifier', () => {
 
   test('coverage verifier CLI succeeds with valid env minimum', () => {
     const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
-      cwd: path.resolve(__dirname, '../../..'),
+      cwd: REPO_ROOT,
       encoding: 'utf8',
       env: {
         ...process.env,
@@ -664,7 +691,7 @@ describe('runner coverage verifier', () => {
 
   test('coverage verifier CLI fails when minimum exceeds discovered packages', () => {
     const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
-      cwd: path.resolve(__dirname, '../../..'),
+      cwd: REPO_ROOT,
       encoding: 'utf8',
       env: {
         ...process.env,
@@ -675,5 +702,45 @@ describe('runner coverage verifier', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('[verify-runner-coverage]');
     expect(result.stderr).toContain('Expected at least 9999 package projects');
+  });
+
+  test('coverage verifier CLI reports prefixed error when config is missing', () => {
+    const fixture = createCoverageVerifierFixture({
+      createPackagesDir: true,
+      packageNames: ['cli'],
+    });
+
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: fixture.rootDir,
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-coverage]');
+    expect(result.stderr).toContain(`Runner config not found at ${path.join(fixture.rootDir, 'wiggum.config.json')}`);
+  });
+
+  test('coverage verifier CLI reports prefixed error when packages directory is missing', () => {
+    const fixture = createCoverageVerifierFixture({
+      configContent: '{"projects":["packages/*"]}',
+      createPackagesDir: false,
+    });
+
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: fixture.rootDir,
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-coverage]');
+    expect(result.stderr).toContain(`Packages directory not found at ${path.join(fixture.rootDir, 'packages')}`);
   });
 });
