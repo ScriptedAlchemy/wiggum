@@ -258,6 +258,14 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('wiggum agent [command] [options]');
     });
 
+    test('leading global --autofix still allows agent serve --help', () => {
+      const result = runCLI('--autofix agent serve --help');
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Usage: wiggum agent serve');
+      expect(result.stdout).toContain('--port <port>');
+      expect(result.stdout).toContain('--hostname <host>');
+    });
+
     test('agent run reports missing OpenCode binary', () => {
       const root = makeTempDir();
       const emptyPathDir = path.join(root, 'empty-bin');
