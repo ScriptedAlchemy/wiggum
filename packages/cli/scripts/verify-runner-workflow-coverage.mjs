@@ -110,8 +110,9 @@ function extractStepName(line) {
   return trimmed.slice('- name:'.length).trim();
 }
 
-function extractStepBlock(workflow, stepName) {
+function extractStepBlocks(workflow, stepName) {
   const lines = workflow.split(/\r?\n/);
+  const blocks = [];
   for (let i = 0; i < lines.length; i++) {
     const parsedStepName = extractStepName(lines[i]);
     if (parsedStepName !== stepName) {
@@ -138,9 +139,9 @@ function extractStepBlock(workflow, stepName) {
       }
     }
 
-    return lines.slice(i, end).join('\n');
+    blocks.push(lines.slice(i, end).join('\n'));
   }
-  return undefined;
+  return blocks;
 }
 
 function verifyPackageScripts() {
@@ -165,10 +166,14 @@ function verifyPackageScripts() {
 function verifyWorkflow() {
   const workflow = readUtf8(WORKFLOW_PATH);
   for (const requiredStep of REQUIRED_WORKFLOW_STEPS) {
-    const stepBlock = extractStepBlock(workflow, requiredStep.name);
-    if (!stepBlock) {
+    const stepBlocks = extractStepBlocks(workflow, requiredStep.name);
+    if (stepBlocks.length === 0) {
       fail(`Workflow ${WORKFLOW_PATH} is missing required step "${requiredStep.name}"`);
     }
+    if (stepBlocks.length > 1) {
+      fail(`Workflow ${WORKFLOW_PATH} contains duplicate required step "${requiredStep.name}"`);
+    }
+    const [stepBlock] = stepBlocks;
 
     if (!requiredStep.requiredRunPattern.test(stepBlock)) {
       fail(
