@@ -513,4 +513,19 @@ describe('runner coverage verifier', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-coverage] Verified');
   });
+
+  test('coverage verifier CLI fails when minimum exceeds discovered packages', () => {
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: path.resolve(__dirname, '../../..'),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS: '9999',
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-coverage]');
+    expect(result.stderr).toContain('Expected at least 9999 package projects');
+  });
 });
