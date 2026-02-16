@@ -1285,6 +1285,41 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('--autofix cannot be used with --dry-run');
   });
 
+  test('run supports leading global --autofix when execution succeeds', () => {
+    const root = makeTempWorkspace();
+    const configPath = path.join(root, 'wiggum.config.json');
+    writeJson(configPath, {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const binDir = path.join(root, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const fakeRsbuildPath = path.join(binDir, 'rsbuild');
+    fs.writeFileSync(
+      fakeRsbuildPath,
+      '#!/usr/bin/env bash\necho "fake-rsbuild:$@"\nexit 0\n',
+      { mode: 0o755 },
+    );
+    fs.chmodSync(fakeRsbuildPath, 0o755);
+
+    const result = runCLI(
+      ['--autofix', 'run', 'build', '--root', root, '--config', configPath],
+      root,
+      {
+        PATH: `${binDir}:${process.env.PATH || ''}`,
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('[runner] build -> @scope/app');
+    expect(result.stdout).toContain('fake-rsbuild:');
+    expect(result.stdout).not.toContain('[autofix]');
+  });
+
   test('run rejects empty --project= value', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
