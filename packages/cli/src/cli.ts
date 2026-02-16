@@ -623,12 +623,24 @@ async function main() {
   
   // Check for --autofix flag
   let autofix = false;
-  let filteredArgs = args;
-  
-  const autofixIndex = args.findIndex(arg => arg === '--autofix');
-  if (autofixIndex !== -1) {
-    autofix = true;
-    filteredArgs = args.filter((_, index) => index !== autofixIndex);
+  let filteredArgs = [...args];
+  const passthroughBoundary = args.indexOf('--');
+  const parseBoundary = passthroughBoundary === -1 ? args.length : passthroughBoundary;
+  const filteredPrefix: string[] = [];
+
+  for (let i = 0; i < parseBoundary; i++) {
+    const arg = args[i];
+    if (arg === '--autofix') {
+      autofix = true;
+      continue;
+    }
+    filteredPrefix.push(arg);
+  }
+
+  if (parseBoundary < args.length) {
+    filteredArgs = [...filteredPrefix, ...args.slice(parseBoundary)];
+  } else {
+    filteredArgs = filteredPrefix;
   }
   
   const command = filteredArgs[0];

@@ -125,6 +125,38 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/shared', '@scope/app']);
   });
 
+  test('run preserves tool --autofix argument after passthrough delimiter', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--dry-run',
+        '--json',
+        '--',
+        '--autofix',
+      ],
+      root,
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan).toHaveLength(1);
+    expect(payload.plan[0].args).toContain('--autofix');
+  });
+
   test('run with --project includes local dependencies for ordering', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
