@@ -68,6 +68,7 @@ Tip: run `wiggum --help` for a concise command list.
 `wiggum agent serve` supports `--port 4096`, `--port=4096`, and `-p=4096` forms (port must be 1-65535).
 Serve hostname flags support both `--hostname` and `--host` (with either `<value>` or `=<value>` forms).
 Serve short aliases are also supported: `-p <port>`, `-p=<port>`, `-H <hostname>`, and `-H=<hostname>`.
+For `wiggum agent run ...`, arguments such as `--autofix` are forwarded to OpenCode as command arguments (they are not treated as Wiggum globals in agent mode).
 
 ### Runner config (workspace orchestration)
 

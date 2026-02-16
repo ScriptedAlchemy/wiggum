@@ -150,6 +150,7 @@ Note: `wiggum agent` / `wiggum agent chat` require an interactive TTY terminal.
 `wiggum agent serve` validates port values (must be 1-65535).
 Hostname aliases: `--hostname <host>`, `--hostname=<host>`, `--host <host>`, or `--host=<host>`.
 You can also use short serve aliases: `-p <port>` / `-p=<port>` and `-H <hostname>` / `-H=<hostname>`.
+`--autofix` is treated as a Wiggum global only for runner/passthrough execution modes; when used with `wiggum agent run ...` it is forwarded as a normal OpenCode argument.
 
 Examples:
 
