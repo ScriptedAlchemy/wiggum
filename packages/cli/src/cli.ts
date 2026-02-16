@@ -1094,6 +1094,9 @@ Global options:
           const portRaw = serveArgs.portRaw;
           let port: number | undefined;
           if (portRaw !== undefined) {
+            if (!/^\d+$/.test(portRaw)) {
+              throw new Error(`Invalid --port value "${portRaw}". Expected an integer between 1 and 65535.`);
+            }
             const parsedPort = Number.parseInt(portRaw, 10);
             if (!Number.isFinite(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
               throw new Error(`Invalid --port value "${portRaw}". Expected an integer between 1 and 65535.`);
