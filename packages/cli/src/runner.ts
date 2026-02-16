@@ -113,8 +113,8 @@ function isProjectConfigFile(filePath: string): boolean {
 }
 
 function wildcardToRegExp(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
-  const wildcarded = escaped.split('\\*').join('.*');
+  const escaped = pattern.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+  const wildcarded = escaped.split('*').join('.*');
   return new RegExp(`^${wildcarded}$`, 'i');
 }
 

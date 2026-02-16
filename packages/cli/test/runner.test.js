@@ -54,6 +54,32 @@ afterEach(() => {
 });
 
 describe('Wiggum runner workspace graph', () => {
+  test('projects --help prints runner projects usage', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', '--help'], root);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
+    expect(result.stdout).toContain('--project <pattern>');
+  });
+
+  test('run --help prints runner run usage', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', '--help'], root);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
+    expect(result.stdout).toContain('Supported tasks:');
+  });
+
   test('projects list --json resolves a single implicit project', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
@@ -133,6 +159,45 @@ describe('Wiggum runner workspace graph', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
     expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/shared', '@scope/app']);
+  });
+
+  test('run supports include and exclude project filters', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/c/package.json'), {
+      name: '@scope/c',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--project',
+        '@scope/*,!@scope/b',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/c']);
+    expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/a', '@scope/c']);
   });
 
   test('run fails when graph has dependency cycles', () => {

@@ -14,6 +14,8 @@ import {
   type RunnerProject,
 } from './runner.js';
 
+type ResolvedRunnerWorkspace = Awaited<ReturnType<typeof resolveRunnerWorkspace>>;
+
 // Types
 interface PackageInfo {
   tool: string;
@@ -39,30 +41,7 @@ const COMMAND_MAPPING: CommandMapping = {
 // Check if a package is installed
 // isPackageInstalled moved to pm.ts
 
-// Handle autofix error by passing to OpenCode
-async function handleAutofixError(
-  toolName: string, 
-  args: string[], 
-  stdout: string, 
-  stderr: string, 
-  exitCode: number | null | undefined
-): Promise<void> {
-  console.log(chalk.yellow(`\n${toolName} command failed with exit code ${exitCode}`));
-  console.log(chalk.cyan('Opening OpenCode TUI with error context...\n'));
-
-  const prompt = [
-    `Command failed: wiggum ${toolName} ${args.join(' ')}`,
-    `Exit code: ${exitCode}`,
-    '',
-    'Output:',
-    stdout || '(no stdout)',
-    '',
-    'Errors:',
-    stderr || '(no stderr)',
-    '',
-    'Please help me fix this error.'
-  ].join('\n');
-
+async function openAutofixSession(prompt: string): Promise<void> {
   // Verify opencode exists
   try {
     await which('opencode');
@@ -83,6 +62,81 @@ async function handleAutofixError(
   });
 
   await new Promise(() => {});
+}
+
+// Handle autofix error by passing to OpenCode
+async function handleAutofixError(
+  toolName: string,
+  args: string[],
+  stdout: string,
+  stderr: string,
+  exitCode: number | null | undefined,
+): Promise<void> {
+  console.log(chalk.yellow(`\n${toolName} command failed with exit code ${exitCode}`));
+  console.log(chalk.cyan('Opening OpenCode TUI with error context...\n'));
+
+  const prompt = [
+    `Command failed: wiggum ${toolName} ${args.join(' ')}`.trim(),
+    `Exit code: ${exitCode}`,
+    '',
+    'Output:',
+    stdout || '(no stdout)',
+    '',
+    'Errors:',
+    stderr || '(no stderr)',
+    '',
+    'Please help me fix this error.',
+  ].join('\n');
+
+  await openAutofixSession(prompt);
+}
+
+async function handleRunnerAutofixError(
+  task: string,
+  runnerArgs: string[],
+  workspace: ResolvedRunnerWorkspace,
+  failures: Array<{ project: string; message: string }>,
+): Promise<void> {
+  const levelSummary = workspace.graph.levels
+    .map((level, index) => `L${index + 1}[${level.join(', ')}]`)
+    .join(' ');
+  const details = failures.map((failure) => `${failure.project}: ${failure.message}`).join('\n');
+  const failedProjectSet = new Set(failures.map((failure) => failure.project));
+  const failureEdges = workspace.graph.edges.filter(
+    (edge) => failedProjectSet.has(edge.from) || failedProjectSet.has(edge.to),
+  );
+  const rerunArgs = ['run', task, '--project', failures.map((failure) => failure.project).join(',')];
+  if (runnerArgs.length > 0) {
+    rerunArgs.push('--', ...runnerArgs);
+  }
+
+  console.log(chalk.yellow(`\nRunner task "${task}" failed on ${failures.length} project(s).`));
+  console.log(chalk.cyan('Opening OpenCode TUI with project failure context...\n'));
+
+  const prompt = [
+    `Runner command failed: wiggum run ${task} ${runnerArgs.join(' ')}`.trim(),
+    `Failed projects (${failures.length}): ${failures.map((failure) => failure.project).join(', ')}`,
+    '',
+    'Runner graph levels:',
+    levelSummary || '(none)',
+    '',
+    'Relevant graph edges:',
+    failureEdges.length > 0
+      ? failureEdges
+          .map((edge) => `${edge.from} <- ${edge.to} (${edge.reason})`)
+          .join('\n')
+      : '(none)',
+    '',
+    'Failure details:',
+    details || '(no details)',
+    '',
+    'Suggested rerun command:',
+    `wiggum ${rerunArgs.join(' ')}`,
+    '',
+    'Please diagnose the root cause and propose concrete fixes.',
+  ].join('\n');
+
+  await openAutofixSession(prompt);
 }
 
 // Get package manager (with caching to avoid duplicate detection)
@@ -411,6 +465,44 @@ function renderProjectList(
   }
 }
 
+function printProjectsHelp(): void {
+  console.log(`
+Usage: wiggum projects [list|graph] [runner options]
+
+Subcommands:
+  list       Show resolved projects (default)
+  graph      Show resolved projects and dependency graph
+
+Runner options:
+  --root <path>            Workspace root to resolve from
+  --config <path>          Explicit runner config path
+  --project <pattern>      Include/exclude projects (supports * and !negation)
+  --json                   Emit machine-readable JSON output
+  --no-infer-imports       Disable inferred import dependency edges
+`);
+}
+
+function printRunHelp(): void {
+  console.log(`
+Usage: wiggum run <task> [runner options] [-- task args]
+
+Supported tasks:
+  ${Object.keys(COMMAND_MAPPING).join(', ')}
+
+Runner options:
+  --root <path>            Workspace root to resolve from
+  --config <path>          Explicit runner config path
+  --project <pattern>      Include/exclude projects (supports * and !negation)
+  --parallel <count>       Max concurrent project runs per level
+  --concurrency <count>    Alias for --parallel
+  --dry-run                Print execution plan without running commands
+  --json                   Emit JSON plan (requires --dry-run)
+  --no-infer-imports       Disable inferred import dependency edges
+
+Pass task arguments after "--" so they are forwarded to the underlying tool.
+`);
+}
+
 // Main CLI execution
 async function main() {
   // Simple CLI argument parsing
@@ -466,10 +558,19 @@ Use "wiggum <command> --help" to see help for a specific command.
   }
 
   if (command === 'projects') {
+    if (
+      commandArgs[0] === '--help' ||
+      commandArgs[0] === '-h' ||
+      commandArgs[0] === 'help'
+    ) {
+      printProjectsHelp();
+      process.exit(0);
+    }
+
     const subCommand = commandArgs[0] || 'list';
     if (!['list', 'graph'].includes(subCommand)) {
       console.error(chalk.red(`Unknown projects subcommand: ${subCommand}`));
-      console.log(chalk.yellow('Usage: wiggum projects [list|graph] [runner flags]'));
+      printProjectsHelp();
       process.exit(1);
     }
 
@@ -480,6 +581,15 @@ Use "wiggum <command> --help" to see help for a specific command.
       console.error(chalk.red('Invalid runner flags:'), error.message);
       process.exit(1);
       return;
+    }
+    if (runnerFlags.passthroughArgs.length > 0) {
+      console.error(
+        chalk.red(
+          `Unknown projects option(s): ${runnerFlags.passthroughArgs.join(' ')}`,
+        ),
+      );
+      printProjectsHelp();
+      process.exit(1);
     }
 
     try {
@@ -535,16 +645,20 @@ Use "wiggum <command> --help" to see help for a specific command.
 
   if (command === 'run') {
     const task = commandArgs[0];
+    if (task === '--help' || task === '-h' || task === 'help') {
+      printRunHelp();
+      process.exit(0);
+    }
     if (!task) {
       console.error(chalk.red('Missing task name.'));
-      console.log(chalk.yellow('Usage: wiggum run <task> [runner flags] [-- task args]'));
+      printRunHelp();
       process.exit(1);
     }
 
     const mapping = COMMAND_MAPPING[task];
     if (!mapping) {
       console.error(chalk.red(`Unsupported runner task: ${task}`));
-      console.log(chalk.yellow(`Supported tasks: ${Object.keys(COMMAND_MAPPING).join(', ')}`));
+      printRunHelp();
       process.exit(1);
     }
 
@@ -643,12 +757,11 @@ Use "wiggum <command> --help" to see help for a specific command.
           .map((failure) => `${failure.project}: ${failure.message}`)
           .join('\n');
         if (autofix) {
-          await handleAutofixError(
-            mapping.tool,
+          await handleRunnerAutofixError(
+            task,
             runnerFlags.passthroughArgs,
-            '',
-            details,
-            1,
+            workspace,
+            failures,
           );
         }
         console.error(chalk.red(`[runner] ${failures.length} project(s) failed:\n${details}`));
