@@ -110,6 +110,8 @@ The `agent` subcommands use OpenCode to provide an AI assistant for your project
 - `wiggum agent install` — install the `opencode` binary (via your package manager)
 - `wiggum agent init` — no‑op placeholder (Wiggum uses inline config by default)
 
+Note: `wiggum agent` / `wiggum agent chat` require an interactive TTY terminal.
+
 Examples:
 
 ```bash

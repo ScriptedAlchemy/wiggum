@@ -77,6 +77,10 @@ const COMMAND_MAPPING: CommandMapping = {
 // Check if a package is installed
 // isPackageInstalled moved to pm.ts
 
+function hasInteractiveTerminal(): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
 async function openAutofixSession(prompt: string): Promise<void> {
   const autofixMode = process.env.WIGGUM_AUTOFIX_MODE?.toLowerCase();
   if (autofixMode === 'prompt' || autofixMode === 'print') {
@@ -85,7 +89,7 @@ async function openAutofixSession(prompt: string): Promise<void> {
     return;
   }
 
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+  if (!hasInteractiveTerminal()) {
     console.log(chalk.yellow('[autofix] Non-interactive terminal detected; printing prompt instead of launching TUI.'));
     console.log(prompt);
     return;
@@ -980,6 +984,13 @@ Use "wiggum <command> --help" to see help for a specific command.
 
     // If no subcommand, default to launching TUI
     const effectiveSub = sub || 'chat';
+    const requiresInteractiveTerminal = effectiveSub === 'chat' || effectiveSub === 'tui';
+
+    if (requiresInteractiveTerminal && !hasInteractiveTerminal()) {
+      console.error(chalk.red('OpenCode chat mode requires an interactive terminal.'));
+      console.log(chalk.yellow('Run "wiggum agent run <command>" or use a TTY-enabled terminal session.'));
+      process.exit(1);
+    }
 
     // All subcommands except install require opencode installed
     if (effectiveSub !== 'install') {

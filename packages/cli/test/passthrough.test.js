@@ -274,6 +274,46 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('Running: opencode status');
       expect(result.stdout).toContain('fake-opencode:status');
     });
+
+    test('agent chat requires interactive terminal', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(fakeOpenCodePath, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent chat', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('requires an interactive terminal');
+    });
+
+    test('agent default command requires interactive terminal', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(fakeOpenCodePath, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('requires an interactive terminal');
+    });
   });
 
   describe('Complex flag combinations', () => {
