@@ -606,6 +606,8 @@ function parseProjectsCommandArgs(args: string[]): {
 
   let subCommand: 'list' | 'graph' | undefined;
   let subCommandIndex = -1;
+  let firstPositionalCandidate: string | undefined;
+  let firstPositionalIndex = -1;
   let expectValue = false;
 
   for (let i = 0; i < parseBoundary; i++) {
@@ -618,6 +620,10 @@ function parseProjectsCommandArgs(args: string[]): {
       expectValue = true;
       continue;
     }
+    if (!arg.startsWith('-') && !subCommand && !firstPositionalCandidate) {
+      firstPositionalCandidate = arg;
+      firstPositionalIndex = i;
+    }
     if (arg === 'list' || arg === 'graph') {
       if (subCommand && subCommand !== arg) {
         throw new Error(`Conflicting projects subcommands: ${subCommand} and ${arg}`);
@@ -628,6 +634,20 @@ function parseProjectsCommandArgs(args: string[]): {
       subCommand = arg;
       subCommandIndex = i;
     }
+  }
+
+  if (
+    subCommand
+    && firstPositionalCandidate
+    && firstPositionalCandidate !== subCommand
+    && firstPositionalIndex >= 0
+    && firstPositionalIndex < subCommandIndex
+  ) {
+    throw new Error(`Unknown projects subcommand: ${firstPositionalCandidate}`);
+  }
+
+  if (!subCommand && firstPositionalCandidate) {
+    throw new Error(`Unknown projects subcommand: ${firstPositionalCandidate}`);
   }
 
   const normalizedSubCommand = subCommand ?? 'list';
@@ -989,6 +1009,11 @@ Global options:
   }
 
   if (command === 'projects') {
+    if (hasHelpFlagBeforePassthrough(commandArgs)) {
+      printProjectsHelp();
+      process.exit(0);
+    }
+
     if (
       commandArgs[0] === '--help' ||
       commandArgs[0] === '-h' ||
@@ -1021,11 +1046,6 @@ Global options:
       printProjectsHelp();
       process.exit(1);
       return;
-    }
-
-    if (hasHelpFlagBeforePassthrough(parsedProjectsArgs.runnerArgs)) {
-      printProjectsHelp();
-      process.exit(0);
     }
     const subCommand = parsedProjectsArgs.subCommand;
 

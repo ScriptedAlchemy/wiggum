@@ -117,6 +117,30 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Conflicting projects subcommands: list and graph');
   });
 
+  test('projects rejects unknown positional token before explicit subcommand', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', '--json', 'deploy', 'list'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unknown projects subcommand: deploy');
+  });
+
+  test('projects rejects unknown positional token in option-first form', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', '--json', 'deploy'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unknown projects subcommand: deploy');
+  });
+
   test('projects rejects duplicate subcommand tokens', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
