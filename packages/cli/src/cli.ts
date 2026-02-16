@@ -432,6 +432,17 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
     }
   };
 
+  const parsePositiveIntegerFlag = (flagName: string, rawValue: string): number => {
+    if (!/^\d+$/.test(rawValue)) {
+      throw new Error(`Invalid ${flagName} value "${rawValue}"`);
+    }
+    const value = Number.parseInt(rawValue, 10);
+    if (!Number.isFinite(value) || value < 1) {
+      throw new Error(`Invalid ${flagName} value "${rawValue}"`);
+    }
+    return value;
+  };
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--') {
@@ -482,29 +493,22 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
       if (!value || value.startsWith('-')) {
         throw new Error(`Missing value for ${arg}`);
       }
-      const parsedNumber = Number.parseInt(value, 10);
-      if (!Number.isFinite(parsedNumber) || parsedNumber < 1) {
-        throw new Error(`Invalid ${arg} value "${value}"`);
-      }
+      const parsedNumber = parsePositiveIntegerFlag(arg, value);
       parsed.parallel = parsedNumber;
       trackRunOnlyFlag(arg);
       i++;
       continue;
     }
     if (arg.startsWith('--parallel=')) {
-      const value = Number.parseInt(arg.slice('--parallel='.length), 10);
-      if (!Number.isFinite(value) || value < 1) {
-        throw new Error(`Invalid --parallel value "${arg}"`);
-      }
+      const rawValue = arg.slice('--parallel='.length);
+      const value = parsePositiveIntegerFlag('--parallel', rawValue);
       parsed.parallel = value;
       trackRunOnlyFlag('--parallel');
       continue;
     }
     if (arg.startsWith('--concurrency=')) {
-      const value = Number.parseInt(arg.slice('--concurrency='.length), 10);
-      if (!Number.isFinite(value) || value < 1) {
-        throw new Error(`Invalid --concurrency value "${arg}"`);
-      }
+      const rawValue = arg.slice('--concurrency='.length);
+      const value = parsePositiveIntegerFlag('--concurrency', rawValue);
       parsed.parallel = value;
       trackRunOnlyFlag('--concurrency');
       continue;
