@@ -856,6 +856,42 @@ interface ParsedAgentServeArgs {
   hostnameRaw?: string;
 }
 
+function extractGlobalAutofixArgs(args: string[]): {
+  autofix: boolean;
+  filteredArgs: string[];
+} {
+  let autofix = false;
+  let filteredArgs = [...args];
+  const passthroughBoundary = args.indexOf('--');
+  const parseBoundary = passthroughBoundary === -1 ? args.length : passthroughBoundary;
+  const parseSlice = args.slice(0, parseBoundary);
+  const commandIndex = parseSlice.findIndex((arg) => !arg.startsWith('-'));
+  const commandCandidate = commandIndex >= 0 ? parseSlice[commandIndex] : undefined;
+  const filteredPrefix: string[] = [];
+
+  for (let i = 0; i < parseBoundary; i++) {
+    const arg = args[i];
+    const isBeforeCommandToken = commandIndex === -1 || i < commandIndex;
+    const shouldTreatAsGlobalAutofix = isBeforeCommandToken || commandCandidate !== 'agent';
+    if (arg === '--autofix' && shouldTreatAsGlobalAutofix) {
+      autofix = true;
+      continue;
+    }
+    filteredPrefix.push(arg);
+  }
+
+  if (parseBoundary < args.length) {
+    filteredArgs = [...filteredPrefix, ...args.slice(parseBoundary)];
+  } else {
+    filteredArgs = filteredPrefix;
+  }
+
+  return {
+    autofix,
+    filteredArgs,
+  };
+}
+
 function parseAgentServeArgs(argsArr: string[]): ParsedAgentServeArgs {
   const parsed: ParsedAgentServeArgs = {
     help: false,
@@ -952,33 +988,7 @@ function parseAgentServeArgs(argsArr: string[]): ParsedAgentServeArgs {
 async function main() {
   // Simple CLI argument parsing
   const args = process.argv.slice(2);
-  
-  // Check for --autofix flag
-  let autofix = false;
-  let filteredArgs = [...args];
-  const passthroughBoundary = args.indexOf('--');
-  const parseBoundary = passthroughBoundary === -1 ? args.length : passthroughBoundary;
-  const parseSlice = args.slice(0, parseBoundary);
-  const commandIndex = parseSlice.findIndex((arg) => !arg.startsWith('-'));
-  const commandCandidate = commandIndex >= 0 ? parseSlice[commandIndex] : undefined;
-  const filteredPrefix: string[] = [];
-
-  for (let i = 0; i < parseBoundary; i++) {
-    const arg = args[i];
-    const isBeforeCommandToken = commandIndex === -1 || i < commandIndex;
-    const shouldTreatAsGlobalAutofix = isBeforeCommandToken || commandCandidate !== 'agent';
-    if (arg === '--autofix' && shouldTreatAsGlobalAutofix) {
-      autofix = true;
-      continue;
-    }
-    filteredPrefix.push(arg);
-  }
-
-  if (parseBoundary < args.length) {
-    filteredArgs = [...filteredPrefix, ...args.slice(parseBoundary)];
-  } else {
-    filteredArgs = filteredPrefix;
-  }
+  const { autofix, filteredArgs } = extractGlobalAutofixArgs(args);
   
   const command = filteredArgs[0];
   const commandArgs = filteredArgs.slice(1);

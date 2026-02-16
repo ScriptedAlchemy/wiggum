@@ -227,6 +227,12 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('wiggum v');
     });
 
+    test('--autofix without command shows usage error', () => {
+      const result = runCLI('--autofix');
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain('Usage: wiggum <command> [options]');
+    });
+
     test('--autofix --version should still show wiggum version', () => {
       const result = runCLI('--autofix --version');
       expect(result.exitCode).toBe(0);
