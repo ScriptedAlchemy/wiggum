@@ -2,7 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -84,16 +84,11 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
 ];
 
-function fail(message) {
-  console.error(`[verify-runner-workflow-coverage] ${message}`);
-  process.exit(1);
-}
-
 function readUtf8(filePath) {
   try {
     return fs.readFileSync(filePath, 'utf8');
   } catch (error) {
-    fail(`Failed to read ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Failed to read ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -144,46 +139,50 @@ function extractStepBlocks(workflow, stepName) {
   return blocks;
 }
 
-function verifyPackageScripts() {
-  const content = readUtf8(PACKAGE_JSON_PATH);
-  const pkg = JSON.parse(content);
+function verifyPackageScriptsContent(packageJsonContent) {
+  let pkg;
+  try {
+    pkg = JSON.parse(packageJsonContent);
+  } catch (error) {
+    throw new Error(`Failed to parse ${PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
   const scripts = pkg.scripts || {};
   const missing = REQUIRED_PACKAGE_SCRIPTS.filter((scriptName) => !(scriptName in scripts));
   if (missing.length > 0) {
-    fail(`Missing required package scripts: ${missing.join(', ')}`);
+    throw new Error(`Missing required package scripts: ${missing.join(', ')}`);
   }
   for (const scriptName of REQUIRED_PACKAGE_SCRIPTS) {
     const scriptValue = String(scripts[scriptName] ?? '');
     const expectedPattern = REQUIRED_PACKAGE_SCRIPT_PATTERNS[scriptName];
     if (!expectedPattern.test(scriptValue)) {
-      fail(
+      throw new Error(
         `Package script "${scriptName}" does not match expected command pattern ${expectedPattern}. Found: ${scriptValue}`,
       );
     }
   }
 }
 
-function verifyWorkflow() {
-  const workflow = readUtf8(WORKFLOW_PATH);
+function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
   for (const requiredStep of REQUIRED_WORKFLOW_STEPS) {
     const stepBlocks = extractStepBlocks(workflow, requiredStep.name);
     if (stepBlocks.length === 0) {
-      fail(`Workflow ${WORKFLOW_PATH} is missing required step "${requiredStep.name}"`);
+      throw new Error(`Workflow ${workflowPath} is missing required step "${requiredStep.name}"`);
     }
     if (stepBlocks.length > 1) {
-      fail(`Workflow ${WORKFLOW_PATH} contains duplicate required step "${requiredStep.name}"`);
+      throw new Error(`Workflow ${workflowPath} contains duplicate required step "${requiredStep.name}"`);
     }
     const [stepBlock] = stepBlocks;
 
     if (!requiredStep.requiredRunPattern.test(stepBlock)) {
-      fail(
+      throw new Error(
         `Step "${requiredStep.name}" is missing expected run command pattern ${requiredStep.requiredRunPattern}`,
       );
     }
 
     for (const forbiddenPattern of requiredStep.forbiddenPatterns) {
       if (forbiddenPattern.test(stepBlock)) {
-        fail(
+        throw new Error(
           `Step "${requiredStep.name}" contains forbidden pattern ${forbiddenPattern}`,
         );
       }
@@ -191,12 +190,35 @@ function verifyWorkflow() {
   }
 }
 
+export function verifyRunnerWorkflowCoverage({
+  packageJsonContent,
+  workflowContent,
+  workflowPath = WORKFLOW_PATH,
+}) {
+  verifyPackageScriptsContent(packageJsonContent);
+  verifyWorkflowContent(workflowContent, workflowPath);
+}
+
 function main() {
-  verifyPackageScripts();
-  verifyWorkflow();
+  const packageJsonContent = readUtf8(PACKAGE_JSON_PATH);
+  const workflowContent = readUtf8(WORKFLOW_PATH);
+  verifyRunnerWorkflowCoverage({
+    packageJsonContent,
+    workflowContent,
+    workflowPath: WORKFLOW_PATH,
+  });
   console.log(
     '[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow.',
   );
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    main();
+  } catch (error) {
+    console.error(
+      `[verify-runner-workflow-coverage] ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  }
+}
