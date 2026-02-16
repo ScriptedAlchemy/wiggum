@@ -12,14 +12,14 @@ const WORKFLOW_PATH = path.join(ROOT, '.github/workflows/ci.yml');
 
 const REQUIRED_PACKAGE_SCRIPTS = ['test:runner', 'verify:runner:coverage', 'verify:runner:workflow'];
 const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
-  'test:runner': /pnpm\s+-F\s+@wiggum\/cli\s+test/,
-  'verify:runner:coverage': /node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs/,
-  'verify:runner:workflow': /node\s+\.\/packages\/cli\/scripts\/verify-runner-workflow-coverage\.mjs/,
+  'test:runner': /^pnpm\s+-F\s+@wiggum\/cli\s+test$/,
+  'verify:runner:coverage': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs$/,
+  'verify:runner:workflow': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-workflow-coverage\.mjs$/,
 };
 const REQUIRED_WORKFLOW_STEPS = [
   {
     name: 'Build all packages',
-    requiredRunPattern: /run:\s*pnpm build/,
+    requiredRunPattern: /^\s*run:\s*pnpm build\s*$/m,
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm build\s*\|\|\s*true/,
@@ -27,7 +27,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run tests',
-    requiredRunPattern: /run:\s*pnpm test/,
+    requiredRunPattern: /^\s*run:\s*pnpm test\s*$/m,
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm test\s*\|\|\s*true/,
@@ -35,7 +35,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run runner-focused CLI tests',
-    requiredRunPattern: /run:\s*pnpm run test:runner/,
+    requiredRunPattern: /^\s*run:\s*pnpm run test:runner\s*$/m,
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm run test:runner\s*\|\|\s*true/,
@@ -43,7 +43,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Verify runner project coverage',
-    requiredRunPattern: /run:\s*pnpm run verify:runner:coverage/,
+    requiredRunPattern: /^\s*run:\s*pnpm run verify:runner:coverage\s*$/m,
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm run verify:runner:coverage\s*\|\|\s*true/,
@@ -51,7 +51,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Verify runner workflow coverage',
-    requiredRunPattern: /run:\s*pnpm run verify:runner:workflow/,
+    requiredRunPattern: /^\s*run:\s*pnpm run verify:runner:workflow\s*$/m,
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm run verify:runner:workflow\s*\|\|\s*true/,
@@ -59,7 +59,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Build workspace (required for lint commands)',
-    requiredRunPattern: /run:\s*pnpm build/,
+    requiredRunPattern: /^\s*run:\s*pnpm build\s*$/m,
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm build\s*\|\|\s*true/,
@@ -67,7 +67,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run linting',
-    requiredRunPattern: /run:\s*pnpm -r --if-present run lint/,
+    requiredRunPattern: /^\s*run:\s*pnpm -r --if-present run lint\s*$/m,
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm -r --if-present run lint\s*\|\|\s*true/,
@@ -76,7 +76,7 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Check types',
-    requiredRunPattern: /run:\s*pnpm -r exec tsc --noEmit/,
+    requiredRunPattern: /^\s*run:\s*pnpm -r exec tsc --noEmit\s*$/m,
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm -r exec tsc --noEmit\s*\|\|\s*true/,

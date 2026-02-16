@@ -116,6 +116,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Package script "test:runner" does not match expected command pattern');
   });
 
+  test('fails when required package script adds trailing command arguments', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts['test:runner'] = 'pnpm -F @wiggum/cli test -- --watch';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "test:runner" does not match expected command pattern');
+  });
+
   test('fails when package scripts container is not an object', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const parsedPackage = JSON.parse(packageJsonContent);
@@ -195,6 +210,23 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('contains forbidden pattern');
+  });
+
+  test('fails when a required workflow command is replaced with suffixed variant', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm test',
+      'run: pnpm test:runner',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Run tests" is missing expected run command pattern');
   });
 
   test('accepts required step names when quoted in workflow yaml', () => {
