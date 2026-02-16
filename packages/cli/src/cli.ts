@@ -26,6 +26,42 @@ interface CommandMapping {
   [key: string]: PackageInfo;
 }
 
+interface CommandInvocation {
+  command: string;
+  args: string[];
+}
+
+interface CommandExecutionResult {
+  toolName: string;
+  command: string;
+  args: string[];
+  cwd: string;
+  stdout: string;
+  stderr: string;
+  exitCode: number | null | undefined;
+}
+
+interface ForwardCommandOptions {
+  autofix?: boolean;
+  cwd?: string;
+  captureOutput?: boolean;
+}
+
+interface RunnerFailureContext extends CommandExecutionResult {
+  project: string;
+  message: string;
+}
+
+class CommandExecutionError extends Error {
+  readonly result: CommandExecutionResult;
+
+  constructor(result: CommandExecutionResult) {
+    super(`Command "${result.toolName}" failed with exit code ${result.exitCode ?? 'unknown'}.`);
+    this.name = 'CommandExecutionError';
+    this.result = result;
+  }
+}
+
 // Command mapping from unified commands to specific tools
 // All tools use 'packages' array for consistency
 const COMMAND_MAPPING: CommandMapping = {
@@ -91,16 +127,23 @@ async function handleAutofixError(
   await openAutofixSession(prompt);
 }
 
+function truncateForPrompt(input: string, maxLength: number): string {
+  if (input.length <= maxLength) {
+    return input;
+  }
+  const omitted = input.length - maxLength;
+  return `${input.slice(0, maxLength)}\n... (${omitted} chars omitted)`;
+}
+
 async function handleRunnerAutofixError(
   task: string,
   runnerArgs: string[],
   workspace: ResolvedRunnerWorkspace,
-  failures: Array<{ project: string; message: string }>,
+  failures: RunnerFailureContext[],
 ): Promise<void> {
   const levelSummary = workspace.graph.levels
     .map((level, index) => `L${index + 1}[${level.join(', ')}]`)
     .join(' ');
-  const details = failures.map((failure) => `${failure.project}: ${failure.message}`).join('\n');
   const failedProjectSet = new Set(failures.map((failure) => failure.project));
   const failureEdges = workspace.graph.edges.filter(
     (edge) => failedProjectSet.has(edge.from) || failedProjectSet.has(edge.to),
@@ -112,6 +155,24 @@ async function handleRunnerAutofixError(
 
   console.log(chalk.yellow(`\nRunner task "${task}" failed on ${failures.length} project(s).`));
   console.log(chalk.cyan('Opening OpenCode TUI with project failure context...\n'));
+
+  const failureSections = failures
+    .map((failure) =>
+      [
+        `Project: ${failure.project}`,
+        `Command: ${failure.command} ${failure.args.join(' ')}`.trim(),
+        `Working directory: ${failure.cwd}`,
+        `Exit code: ${failure.exitCode ?? 'unknown'}`,
+        `Error summary: ${truncateForPrompt(failure.message, 600)}`,
+        '',
+        'Captured stdout:',
+        truncateForPrompt(failure.stdout || '(no stdout)', 4000),
+        '',
+        'Captured stderr:',
+        truncateForPrompt(failure.stderr || '(no stderr)', 4000),
+      ].join('\n'),
+    )
+    .join('\n\n----\n\n');
 
   const prompt = [
     `Runner command failed: wiggum run ${task} ${runnerArgs.join(' ')}`.trim(),
@@ -127,8 +188,8 @@ async function handleRunnerAutofixError(
           .join('\n')
       : '(none)',
     '',
-    'Failure details:',
-    details || '(no details)',
+    'Failure diagnostics by project:',
+    failureSections || '(no details)',
     '',
     'Suggested rerun command:',
     `wiggum ${rerunArgs.join(' ')}`,
@@ -160,109 +221,118 @@ async function installPackage(packageName: string, packageManager: string): Prom
   return ok;
 }
 
+function writeCapturedOutput(stream: NodeJS.WriteStream, value: string): void {
+  if (!value) return;
+  stream.write(value.endsWith('\n') ? value : `${value}\n`);
+}
+
+async function resolveCommandInvocation(
+  toolName: string,
+  originalArgs: string[],
+  packageInfo: PackageInfo,
+): Promise<CommandInvocation> {
+  const toolPath = await which(toolName).catch(() => null);
+  if (toolPath) {
+    return {
+      command: toolName,
+      args: originalArgs,
+    };
+  }
+
+  const isVersionOrHelp = originalArgs.some((arg) =>
+    ['--version', '-v', '--help', '-h'].includes(arg),
+  );
+  const packageManager = await getPackageManager(isVersionOrHelp);
+  const missingPackages = packageInfo.packages.filter((pkg) => !isPackageInstalled(pkg));
+  if (missingPackages.length > 0) {
+    console.log(
+      chalk.yellow(
+        `${toolName} not found, installing required packages: ${missingPackages.join(', ')}...`,
+      ),
+    );
+    for (const pkg of missingPackages) {
+      const success = await installPackage(pkg, packageManager);
+      if (!success) {
+        process.exit(1);
+      }
+    }
+  }
+
+  const executablePackage =
+    packageInfo.packages.find((pkg) => pkg.includes('cli')) || packageInfo.packages[0];
+  const dlxArgs = [executablePackage, ...originalArgs];
+  const execCommand = getExecuteCommand(packageManager as any, dlxArgs);
+  if (!execCommand) {
+    throw new Error('Could not resolve package manager execute command');
+  }
+
+  if (!isVersionOrHelp) {
+    console.log(chalk.blue(`Executing: ${execCommand.command} ${execCommand.args.join(' ')}`));
+  }
+
+  return {
+    command: execCommand.command,
+    args: execCommand.args,
+  };
+}
+
 // Forward command to the appropriate tool
 async function forwardCommand(
   toolName: string,
   originalArgs: string[],
   packageInfo: PackageInfo,
-  autofix: boolean = false,
-  cwd: string = process.cwd(),
-): Promise<void> {
+  options: ForwardCommandOptions = {},
+): Promise<CommandExecutionResult> {
+  const { autofix = false, cwd = process.cwd(), captureOutput = autofix } = options;
+
   try {
-    // First try to find the tool in PATH
-    const toolPath = await which(toolName).catch(() => null);
-    
-    if (toolPath) {
-      // Tool is globally available, use it directly
-      // If autofix is enabled, capture output for error handling
-      if (autofix) {
-        try {
-          const result = await execa(toolName, originalArgs, { 
-            cwd,
-            reject: false
-          });
-          
-          if (result.exitCode !== 0) {
-            await handleAutofixError(toolName, originalArgs, result.stdout, result.stderr, result.exitCode);
-          } else {
-            // Success - print output normally
-            if (result.stdout) console.log(result.stdout);
-            if (result.stderr) console.error(result.stderr);
-          }
-        } catch (error: any) {
-          await handleAutofixError(toolName, originalArgs, '', error.message, 1);
-        }
-      } else {
-        await execa(toolName, originalArgs, { 
-          stdio: 'inherit',
-          cwd
-        });
-      }
-    } else {
-      // Tool not in PATH, check if packages are installed and install if needed
-      // Silent mode for version/help commands
-      const isVersionOrHelp = originalArgs.some(arg => 
-        ['--version', '-v', '--help', '-h'].includes(arg)
-      );
-      const packageManager = await getPackageManager(isVersionOrHelp);
-      
-      // Check if any required packages are missing
-      const missingPackages = packageInfo.packages.filter(pkg => !isPackageInstalled(pkg));
-      
-      if (missingPackages.length > 0) {
-        console.log(chalk.yellow(`${toolName} not found, installing required packages: ${missingPackages.join(', ')}...`));
-        
-        // Install missing packages
-        for (const pkg of missingPackages) {
-          const success = await installPackage(pkg, packageManager);
-          if (!success) {
-            process.exit(1);
-          }
-        }
-      }
-      
-      // For dlx/execute commands, use the package name
-      const executablePackage = packageInfo.packages.find(pkg => pkg.includes('cli')) || packageInfo.packages[0];
-      
-      // Build the dlx arguments - pass originalArgs as-is
-      const dlxArgs = [executablePackage, ...originalArgs];
-      const execCommand = getExecuteCommand(packageManager as any, dlxArgs);
-      
-      if (!execCommand) {
-        throw new Error('Could not resolve package manager execute command');
-      }
-      
-      if (!isVersionOrHelp) {
-        console.log(chalk.blue(`Executing: ${execCommand.command} ${execCommand.args.join(' ')}`));
-      }
-      
-      // If autofix is enabled, capture output for error handling
-      if (autofix) {
-        try {
-          const result = await execa(execCommand.command, execCommand.args, { 
-            cwd,
-            reject: false
-          });
-          
-          if (result.exitCode !== 0) {
-            await handleAutofixError(toolName, originalArgs, result.stdout, result.stderr, result.exitCode);
-          } else {
-            // Success - print output normally
-            if (result.stdout) console.log(result.stdout);
-            if (result.stderr) console.error(result.stderr);
-          }
-        } catch (error: any) {
-          await handleAutofixError(toolName, originalArgs, '', error.message, 1);
-        }
-      } else {
-        await execa(execCommand.command, execCommand.args, { 
-          stdio: 'inherit',
-          cwd
-        });
-      }
+    const invocation = await resolveCommandInvocation(toolName, originalArgs, packageInfo);
+    const result = await execa(invocation.command, invocation.args, {
+      cwd,
+      reject: false,
+      stdio: captureOutput ? 'pipe' : 'inherit',
+    });
+    const stdout = result.stdout ?? '';
+    const stderr = result.stderr ?? '';
+
+    if (captureOutput) {
+      writeCapturedOutput(process.stdout, stdout);
+      writeCapturedOutput(process.stderr, stderr);
     }
-  } catch (error: any) {
-    throw new Error(`Error executing ${toolName}: ${error.message}`);
+
+    const execution: CommandExecutionResult = {
+      toolName,
+      command: invocation.command,
+      args: invocation.args,
+      cwd,
+      stdout,
+      stderr,
+      exitCode: result.exitCode,
+    };
+
+    if (execution.exitCode !== 0) {
+      if (autofix) {
+        await handleAutofixError(
+          toolName,
+          originalArgs,
+          execution.stdout,
+          execution.stderr,
+          execution.exitCode,
+        );
+      }
+      throw new CommandExecutionError(execution);
+    }
+
+    return execution;
+  } catch (error: unknown) {
+    if (error instanceof CommandExecutionError) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    if (autofix) {
+      await handleAutofixError(toolName, originalArgs, '', message, 1);
+    }
+    throw new Error(`Error executing ${toolName}: ${message}`);
   }
 }
 
@@ -279,7 +349,7 @@ async function handleUnifiedCommand(command: string, args: string[], autofix: bo
   
   // SIMPLE PASSTHROUGH: wiggum <command> [args] → <tool> [args]
   // Just pass all arguments directly to the tool
-  await forwardCommand(tool, args, mapping, autofix);
+  await forwardCommand(tool, args, mapping, { autofix });
 }
 
 // Get package version
@@ -725,7 +795,7 @@ Use "wiggum <command> --help" to see help for a specific command.
       }
 
       const byName = new Map(workspace.projects.map((project) => [project.name, project]));
-      const failures: Array<{ project: string; message: string }> = [];
+      const failures: RunnerFailureContext[] = [];
 
       for (const level of workspace.graph.levels) {
         const levelProjects = level
@@ -739,11 +809,30 @@ Use "wiggum <command> --help" to see help for a specific command.
             ),
           );
           try {
-            await forwardCommand(mapping.tool, runArgs, mapping, false, project.root);
-          } catch (error: any) {
+            await forwardCommand(mapping.tool, runArgs, mapping, {
+              autofix: false,
+              cwd: project.root,
+              captureOutput: autofix,
+            });
+          } catch (error: unknown) {
+            if (error instanceof CommandExecutionError) {
+              failures.push({
+                project: project.name,
+                message: error.message,
+                ...error.result,
+              });
+              return;
+            }
             failures.push({
               project: project.name,
-              message: error?.message ?? String(error),
+              message: error instanceof Error ? error.message : String(error),
+              toolName: mapping.tool,
+              command: mapping.tool,
+              args: runArgs,
+              cwd: project.root,
+              stdout: '',
+              stderr: '',
+              exitCode: 1,
             });
           }
         });
@@ -754,7 +843,10 @@ Use "wiggum <command> --help" to see help for a specific command.
 
       if (failures.length > 0) {
         const details = failures
-          .map((failure) => `${failure.project}: ${failure.message}`)
+          .map(
+            (failure) =>
+              `${failure.project}: ${failure.message} (command: ${failure.command} ${failure.args.join(' ')})`,
+          )
           .join('\n');
         if (autofix) {
           await handleRunnerAutofixError(

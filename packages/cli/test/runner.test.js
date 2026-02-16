@@ -24,13 +24,14 @@ function writeJson(filePath, value) {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
 }
 
-function runCLI(args, cwd) {
+function runCLI(args, cwd, envOverrides = {}) {
   const result = spawnSync('node', [CLI_PATH, ...args], {
     cwd,
     encoding: 'utf8',
     timeout: 30000,
     env: {
       ...process.env,
+      ...envOverrides,
       NO_COLOR: '1',
       FORCE_COLOR: '0',
       CLICOLOR: '0',
@@ -226,6 +227,42 @@ describe('Wiggum runner workspace graph', () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Circular project dependencies detected');
+  });
+
+  test('run surfaces project command context on execution failure', () => {
+    const root = makeTempWorkspace();
+    const binDir = path.join(root, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const fakeToolPath = path.join(binDir, 'rsbuild');
+    fs.writeFileSync(
+      fakeToolPath,
+      '#!/usr/bin/env bash\necho \"runner stdout\"\necho \"runner stderr\" 1>&2\nexit 2\n',
+      { mode: 0o755 },
+    );
+    fs.chmodSync(fakeToolPath, 0o755);
+
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json')],
+      root,
+      {
+        PATH: `${binDir}:${process.env.PATH || ''}`,
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('[runner] build -> @scope/app');
+    expect(result.stdout).toContain('runner stdout');
+    expect(result.stderr).toContain('runner stderr');
+    expect(result.stderr).toContain('@scope/app: Command "rsbuild" failed with exit code 2.');
+    expect(result.stderr).toContain('command: rsbuild');
   });
 
   test('supports nested object project entries without temp files', () => {
