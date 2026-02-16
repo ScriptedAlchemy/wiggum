@@ -295,6 +295,38 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/a', '@scope/c']);
   });
 
+  test('projects supports short -p=<pattern> project filters', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'projects',
+        'list',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '-p=@scope/a',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a']);
+  });
+
   test('run supports short -p=<pattern> project filters', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -831,6 +863,24 @@ describe('Wiggum runner workspace graph', () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Missing value for --project');
+  });
+
+  test('projects rejects empty -p= filter values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '-p='],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Missing value for -p');
   });
 
   test('projects rejects empty --root= value', () => {
