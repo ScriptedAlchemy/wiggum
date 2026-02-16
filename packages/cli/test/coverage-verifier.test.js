@@ -242,6 +242,66 @@ describe('runner coverage verifier', () => {
     expect(logMessages[0]).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
   });
 
+  test('verifyRunnerCoverage uses env minimum when argument is omitted', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-env-min-'));
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    const originalValue = process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
+    process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS = '1';
+    try {
+      await expect(
+        verifyRunnerCoverage({
+          rootDir: tempRoot,
+          configPath,
+          packagesDir,
+          resolveWorkspace: async () => ({
+            projects: [{ root: path.join(packagesDir, 'cli') }],
+          }),
+        }),
+      ).resolves.toBeUndefined();
+    } finally {
+      if (originalValue === undefined) {
+        delete process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
+      } else {
+        process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS = originalValue;
+      }
+    }
+  });
+
+  test('verifyRunnerCoverage rejects invalid env minimum when argument is omitted', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-env-invalid-'));
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    const originalValue = process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
+    process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS = 'abc';
+    try {
+      await expect(
+        verifyRunnerCoverage({
+          rootDir: tempRoot,
+          configPath,
+          packagesDir,
+          resolveWorkspace: async () => ({
+            projects: [{ root: path.join(packagesDir, 'cli') }],
+          }),
+        }),
+      ).rejects.toThrow('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a positive integer');
+    } finally {
+      if (originalValue === undefined) {
+        delete process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
+      } else {
+        process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS = originalValue;
+      }
+    }
+  });
+
   test('verifyRunnerCoverage rejects malformed resolver payload without projects array', async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-bad-workspace-'));
     const configPath = path.join(tempRoot, 'wiggum.config.json');

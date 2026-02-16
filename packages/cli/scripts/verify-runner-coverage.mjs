@@ -33,8 +33,6 @@ export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED
   return parsedValue;
 }
 
-const MIN_EXPECTED_PROJECTS = parseMinimumExpectedProjects();
-
 export function listExpectedProjectRoots(packagesDir = PACKAGES_DIR, fileSystem = fs) {
   if (!fileSystem.existsSync(packagesDir)) {
     throw new Error(`Packages directory not found at ${packagesDir}`);
@@ -124,7 +122,7 @@ export async function verifyRunnerCoverage({
   rootDir = ROOT,
   configPath = CONFIG_PATH,
   packagesDir = PACKAGES_DIR,
-  minExpectedProjects = MIN_EXPECTED_PROJECTS,
+  minExpectedProjects,
   fileSystem = fs,
   resolveWorkspace = resolveRunnerWorkspace,
 } = {}) {
@@ -140,11 +138,14 @@ export async function verifyRunnerCoverage({
     includeInferredImports: false,
   });
   const resolvedProjectRoots = extractResolvedProjectRoots(workspace);
+  const effectiveMinExpectedProjects = minExpectedProjects === undefined
+    ? parseMinimumExpectedProjects()
+    : minExpectedProjects;
 
   const result = verifyRunnerCoverageData({
     expectedProjectRoots,
     resolvedProjectRoots,
-    minExpectedProjects,
+    minExpectedProjects: effectiveMinExpectedProjects,
     rootDir,
   });
 
