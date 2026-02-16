@@ -119,6 +119,7 @@ The `agent` subcommands use OpenCode to provide an AI assistant for your project
 
 Note: `wiggum agent` / `wiggum agent chat` require an interactive TTY terminal.
 `wiggum agent serve` validates port values (must be 1-65535).
+You can also use short serve aliases: `-p <port>` and `-H <hostname>`.
 
 Examples:
 
@@ -127,6 +128,7 @@ wiggum agent install
 wiggum agent chat
 wiggum agent serve --port 4096
 wiggum agent serve --port=4096 --hostname=0.0.0.0
+wiggum agent serve -p 4096 -H localhost
 wiggum agent run session list
 ```
 
