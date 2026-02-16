@@ -713,6 +713,58 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.plan[0].project).toBe('@scope/app');
   });
 
+  test('run accepts whitespace-padded --parallel value', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--parallel',
+        ' 2 ',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan).toHaveLength(1);
+    expect(payload.plan[0].project).toBe('@scope/app');
+  });
+
+  test('run accepts whitespace-padded --config= value', () => {
+    const root = makeTempWorkspace();
+    const configPath = path.join(root, 'wiggum.config.json');
+    writeJson(configPath, {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, `--config=  ${configPath}  `, '--dry-run', '--json'],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects).toHaveLength(1);
+    expect(payload.projects[0].name).toBe('@scope/app');
+  });
+
   test('run fails when runner config resolves zero projects', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {

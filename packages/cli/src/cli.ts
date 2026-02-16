@@ -414,10 +414,11 @@ function splitListValue(raw: string): string[] {
 
 function parseRunnerFlags(args: string[]): RunnerFlags {
   const parsePositiveIntegerFlag = (flagName: string, rawValue: string): number => {
-    if (!/^\d+$/.test(rawValue)) {
+    const normalizedValue = rawValue.trim();
+    if (!/^\d+$/.test(normalizedValue)) {
       throw new Error(`Invalid ${flagName} value "${rawValue}"`);
     }
-    const value = Number.parseInt(rawValue, 10);
+    const value = Number.parseInt(normalizedValue, 10);
     if (!Number.isFinite(value) || value < 1) {
       throw new Error(`Invalid ${flagName} value "${rawValue}"`);
     }
@@ -465,10 +466,11 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
   };
 
   const parseRequiredOptionValue = (rawValue: string, flagName: string): string => {
-    if (rawValue.trim().length === 0) {
+    const normalizedValue = rawValue.trim();
+    if (normalizedValue.length === 0) {
       throw new Error(`Missing value for ${flagName}`);
     }
-    return rawValue;
+    return normalizedValue;
   };
 
   for (let i = 0; i < args.length; i++) {
