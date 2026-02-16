@@ -364,6 +364,52 @@ describe('Wiggum runner workspace graph', () => {
     );
   });
 
+  test('resolveRunnerWorkspace rejects unsupported wiggum.config.mts path', async () => {
+    const root = makeTempWorkspace();
+    fs.writeFileSync(
+      path.join(root, 'wiggum.config.mts'),
+      "export default { projects: ['packages/*'] };\n",
+    );
+
+    let caughtError;
+    try {
+      await resolveWorkspaceDirect({
+        rootDir: root,
+        configPath: path.join(root, 'wiggum.config.mts'),
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(String(caughtError.message || caughtError)).toContain(
+      'Unsupported runner config file "wiggum.config.mts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
+  test('resolveRunnerWorkspace rejects unsupported wiggum.config.cts path', async () => {
+    const root = makeTempWorkspace();
+    fs.writeFileSync(
+      path.join(root, 'wiggum.config.cts'),
+      "export default { projects: ['packages/*'] };\n",
+    );
+
+    let caughtError;
+    try {
+      await resolveWorkspaceDirect({
+        rootDir: root,
+        configPath: path.join(root, 'wiggum.config.cts'),
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(String(caughtError.message || caughtError)).toContain(
+      'Unsupported runner config file "wiggum.config.cts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
   test('projects list reports unsupported auto-detected wiggum.config.ts', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
@@ -379,6 +425,24 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain(
       'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
+  test('projects list reports unsupported auto-detected wiggum.config.mts', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'unsupported-config-workspace',
+      private: true,
+    });
+    fs.writeFileSync(
+      path.join(root, 'wiggum.config.mts'),
+      "export default { projects: ['packages/*'] };\n",
+    );
+
+    const result = runCLI(['projects', 'list', '--root', root], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Unsupported runner config file "wiggum.config.mts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
     );
   });
 
