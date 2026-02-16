@@ -2308,6 +2308,54 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(false);
   });
 
+  test('run scan cap uses deterministic lexicographic file ordering', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
+    // Create the import file first so filesystem order could differ from lexical ordering.
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/zzz.with-import.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/aaa.no-import.ts'),
+      'export const noop = 1;\n',
+    );
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--project',
+        '@scope/app',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '1',
+      },
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app']);
+    expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(false);
+  });
+
   test('run rejects invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
