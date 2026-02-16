@@ -45,7 +45,7 @@ async function handleAutofixError(
   args: string[], 
   stdout: string, 
   stderr: string, 
-  exitCode: number | null
+  exitCode: number | null | undefined
 ): Promise<void> {
   console.log(chalk.yellow(`\n${toolName} command failed with exit code ${exitCode}`));
   console.log(chalk.cyan('Opening OpenCode TUI with error context...\n'));
