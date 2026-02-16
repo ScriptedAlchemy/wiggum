@@ -74,6 +74,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('-p <pattern>');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
     expect(result.stdout).toContain('default: 400');
+    expect(result.stdout).toContain('ignored when --no-infer-imports is enabled');
   });
 
   test('leading global --autofix still allows projects --help', () => {
@@ -270,6 +271,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('cannot be combined with --dry-run');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
     expect(result.stdout).toContain('default: 400');
+    expect(result.stdout).toContain('ignored when --no-infer-imports is enabled');
   });
 
   test('leading global --autofix still allows run --help', () => {
