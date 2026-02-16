@@ -424,6 +424,7 @@ describe('runner workflow coverage verifier', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow');
+    expect(result.stdout).toContain('(3 scripts, 8 steps).');
   });
 
   test('workflow verifier CLI entrypoint reports prefixed error on invalid workflow', () => {
