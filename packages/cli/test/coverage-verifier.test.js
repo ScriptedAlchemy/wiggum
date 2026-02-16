@@ -170,6 +170,19 @@ describe('runner coverage verifier', () => {
     expect(result).toBe(path.join(tempRoot, 'wiggum.config.json'));
   });
 
+  test('detectSupportedRunnerConfigPath rejects invalid rootDir values', () => {
+    expect(() => detectSupportedRunnerConfigPath('   ')).toThrow(
+      'rootDir must be a non-empty string path',
+    );
+  });
+
+  test('detectSupportedRunnerConfigPath rejects invalid fileSystem contract', () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-config-bad-fs-');
+    expect(() => detectSupportedRunnerConfigPath(tempRoot, {})).toThrow(
+      'fileSystem is missing required function(s): existsSync, statSync, readdirSync',
+    );
+  });
+
   test('resolveVerifierPathsFromEnv auto-detects supported non-json config files', () => {
     const tempRoot = makeTempDir('verify-coverage-env-detect-config-');
     fs.writeFileSync(path.join(tempRoot, 'wiggum.config.cjs'), 'module.exports = {};');
@@ -202,6 +215,15 @@ describe('runner coverage verifier', () => {
         env: null,
       }),
     ).toThrow('env must be an object');
+  });
+
+  test('resolveVerifierPathsFromEnv rejects invalid fileSystem option', () => {
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {},
+        fileSystem: {},
+      }),
+    ).toThrow('fileSystem is missing required function(s): existsSync, statSync, readdirSync');
   });
 
   test('resolveVerifierPathsFromEnv rejects array env values', () => {
