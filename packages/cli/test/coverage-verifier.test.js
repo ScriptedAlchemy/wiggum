@@ -810,4 +810,21 @@ describe('runner coverage verifier', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
   });
+
+  test('coverage verifier CLI ignores blank override environment paths', () => {
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: '   ',
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: '',
+        WIGGUM_RUNNER_VERIFY_PACKAGES_DIR: ' ',
+        MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS: '1',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[verify-runner-coverage] Verified');
+  });
 });
