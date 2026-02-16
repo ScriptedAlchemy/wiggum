@@ -700,6 +700,7 @@ async function inferImportDependencies(
     const sourcePattern = [
       'src/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
       'test/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+      '__tests__/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
     ];
     const files = await fg(sourcePattern, {
       cwd: project.root,
