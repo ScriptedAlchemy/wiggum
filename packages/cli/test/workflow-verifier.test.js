@@ -415,6 +415,23 @@ describe('runner workflow coverage verifier', () => {
     ).not.toThrow();
   });
 
+  test('accepts run commands with expanded internal whitespace for required steps', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm test',
+      'run:   pnpm    test   ',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
   test('workflow verifier CLI entrypoint succeeds on current repository state', () => {
     const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
       cwd: REPO_ROOT,

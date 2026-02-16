@@ -156,6 +156,10 @@ function normalizeInlineScalar(value) {
   return trimmedValue.replace(/\s+#.*$/, '').trim();
 }
 
+function normalizeCommandWhitespace(command) {
+  return command.trim().replace(/\s+/g, ' ');
+}
+
 function extractRunCommand(stepBlock) {
   const lines = stepBlock.split(/\r?\n/);
   let runCount = 0;
@@ -235,7 +239,11 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
     if (runCount !== 1) {
       throw new Error(`Step "${requiredStep.name}" must declare exactly one run command`);
     }
-    if (runCommand !== requiredStep.requiredRunCommand) {
+    const normalizedRunCommand = typeof runCommand === 'string'
+      ? normalizeCommandWhitespace(runCommand)
+      : undefined;
+    const normalizedRequiredCommand = normalizeCommandWhitespace(requiredStep.requiredRunCommand);
+    if (normalizedRunCommand !== normalizedRequiredCommand) {
       throw new Error(
         `Step "${requiredStep.name}" must run "${requiredStep.requiredRunCommand}"`,
       );
