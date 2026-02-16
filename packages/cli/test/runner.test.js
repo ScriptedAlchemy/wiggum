@@ -1905,6 +1905,50 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('includes inferred dependencies from spec source files', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/spec'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/spec/graph.spec.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--project',
+        '@scope/app',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/shared',
+      to: '@scope/app',
+      reason: 'inferred-import',
+    });
+  });
+
   test('run --no-infer-imports disables inferred dependency closure', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
