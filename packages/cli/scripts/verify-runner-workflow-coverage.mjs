@@ -22,6 +22,7 @@ const REQUIRED_WORKFLOW_RUNS = [
   /pnpm run test:runner/,
   /pnpm run verify:runner:coverage/,
   /pnpm run verify:runner:workflow/,
+  /name:\s*Build workspace \(required for lint commands\)[\s\S]*?run:\s*pnpm build/,
   /name:\s*Run linting[\s\S]*?run:\s*pnpm -r --if-present run lint/,
   /name:\s*Check types[\s\S]*?run:\s*pnpm -r exec tsc --noEmit/,
 ];
@@ -30,6 +31,8 @@ const FORBIDDEN_WORKFLOW_PATTERNS = [
   /name:\s*Build all packages[\s\S]*?run:\s*pnpm build\s*\|\|\s*true/,
   /name:\s*Run tests[\s\S]*?continue-on-error:\s*true/,
   /name:\s*Run tests[\s\S]*?run:\s*pnpm test\s*\|\|\s*true/,
+  /name:\s*Build workspace \(required for lint commands\)[\s\S]*?continue-on-error:\s*true/,
+  /name:\s*Build workspace \(required for lint commands\)[\s\S]*?run:\s*pnpm build\s*\|\|\s*true/,
   /name:\s*Check types[\s\S]*?continue-on-error:\s*true/,
   /name:\s*Check types[\s\S]*?run:\s*pnpm -r exec tsc --noEmit\s*\|\|\s*true/,
   /name:\s*Run linting[\s\S]*?run:\s*pnpm -r run lint/,
