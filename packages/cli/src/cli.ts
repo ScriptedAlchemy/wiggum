@@ -801,6 +801,7 @@ Runner options:
   --no-infer-imports       Disable inferred import dependency edges
 
 Notes:
+  Supported runner config files: wiggum.config.json, wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs.
   Inferred import scan budget can be set via WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer> (default: 400).
   The scan budget is ignored when --no-infer-imports is enabled.
 `);
@@ -828,6 +829,7 @@ Runner options:
 
 Notes:
   --ai-prompt and --autofix cannot be combined with --dry-run.
+  Supported runner config files: wiggum.config.json, wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs.
   Default parallelism can be set via WIGGUM_RUNNER_PARALLEL=<positive integer>.
   Inferred import scan budget can be set via WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer> (default: 400).
   The scan budget is ignored when --no-infer-imports is enabled.
