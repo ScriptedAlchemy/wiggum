@@ -265,6 +265,41 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('command: rsbuild');
   });
 
+  test('run --ai-prompt prints remediation prompt on failure', () => {
+    const root = makeTempWorkspace();
+    const binDir = path.join(root, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const fakeToolPath = path.join(binDir, 'rsbuild');
+    fs.writeFileSync(
+      fakeToolPath,
+      '#!/usr/bin/env bash\necho \"ai stdout\"\necho \"ai stderr\" 1>&2\nexit 2\n',
+      { mode: 0o755 },
+    );
+    fs.chmodSync(fakeToolPath, 0o755);
+
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--ai-prompt'],
+      root,
+      {
+        PATH: `${binDir}:${process.env.PATH || ''}`,
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('[runner] AI remediation prompt:');
+    expect(result.stderr).toContain('Failure diagnostics by project:');
+    expect(result.stderr).toContain('Project: @scope/app');
+    expect(result.stderr).toContain('ai stderr');
+  });
+
   test('supports nested object project entries without temp files', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -338,5 +373,17 @@ describe('Wiggum runner workspace graph', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
     expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(true);
+  });
+
+  test('projects rejects run-only --ai-prompt flag', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'single-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', 'list', '--root', root, '--ai-prompt'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('only supported for "wiggum run"');
   });
 });

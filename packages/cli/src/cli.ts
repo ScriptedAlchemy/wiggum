@@ -141,6 +141,19 @@ async function handleRunnerAutofixError(
   workspace: ResolvedRunnerWorkspace,
   failures: RunnerFailureContext[],
 ): Promise<void> {
+  console.log(chalk.yellow(`\nRunner task "${task}" failed on ${failures.length} project(s).`));
+  console.log(chalk.cyan('Opening OpenCode TUI with project failure context...\n'));
+
+  const prompt = buildRunnerFailurePrompt(task, runnerArgs, workspace, failures);
+  await openAutofixSession(prompt);
+}
+
+function buildRunnerFailurePrompt(
+  task: string,
+  runnerArgs: string[],
+  workspace: ResolvedRunnerWorkspace,
+  failures: RunnerFailureContext[],
+): string {
   const levelSummary = workspace.graph.levels
     .map((level, index) => `L${index + 1}[${level.join(', ')}]`)
     .join(' ');
@@ -152,9 +165,6 @@ async function handleRunnerAutofixError(
   if (runnerArgs.length > 0) {
     rerunArgs.push('--', ...runnerArgs);
   }
-
-  console.log(chalk.yellow(`\nRunner task "${task}" failed on ${failures.length} project(s).`));
-  console.log(chalk.cyan('Opening OpenCode TUI with project failure context...\n'));
 
   const failureSections = failures
     .map((failure) =>
@@ -197,7 +207,7 @@ async function handleRunnerAutofixError(
     'Please diagnose the root cause and propose concrete fixes.',
   ].join('\n');
 
-  await openAutofixSession(prompt);
+  return prompt;
 }
 
 // Get package manager (with caching to avoid duplicate detection)
@@ -372,6 +382,7 @@ interface RunnerFlags {
   parallel: number;
   dryRun: boolean;
   json: boolean;
+  aiPrompt: boolean;
   includeInferredImports: boolean;
   passthroughArgs: string[];
 }
@@ -391,6 +402,7 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
       : 4,
     dryRun: false,
     json: false,
+    aiPrompt: false,
     includeInferredImports: true,
     passthroughArgs: [],
   };
@@ -475,6 +487,10 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
     }
     if (arg === '--json') {
       parsed.json = true;
+      continue;
+    }
+    if (arg === '--ai-prompt') {
+      parsed.aiPrompt = true;
       continue;
     }
     if (arg === '--no-infer-imports') {
@@ -567,6 +583,7 @@ Runner options:
   --concurrency <count>    Alias for --parallel
   --dry-run                Print execution plan without running commands
   --json                   Emit JSON plan (requires --dry-run)
+  --ai-prompt              Print AI remediation prompt on failure
   --no-infer-imports       Disable inferred import dependency edges
 
 Pass task arguments after "--" so they are forwarded to the underlying tool.
@@ -658,6 +675,11 @@ Use "wiggum <command> --help" to see help for a specific command.
           `Unknown projects option(s): ${runnerFlags.passthroughArgs.join(' ')}`,
         ),
       );
+      printProjectsHelp();
+      process.exit(1);
+    }
+    if (runnerFlags.aiPrompt) {
+      console.error(chalk.red('The --ai-prompt flag is only supported for "wiggum run".'));
       printProjectsHelp();
       process.exit(1);
     }
@@ -848,6 +870,16 @@ Use "wiggum <command> --help" to see help for a specific command.
               `${failure.project}: ${failure.message} (command: ${failure.command} ${failure.args.join(' ')})`,
           )
           .join('\n');
+        if (runnerFlags.aiPrompt && !autofix) {
+          const aiPrompt = buildRunnerFailurePrompt(
+            task,
+            runnerFlags.passthroughArgs,
+            workspace,
+            failures,
+          );
+          console.error(chalk.yellow('[runner] AI remediation prompt:'));
+          console.error(aiPrompt);
+        }
         if (autofix) {
           await handleRunnerAutofixError(
             task,
