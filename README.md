@@ -82,7 +82,12 @@ wiggum projects graph --json
 wiggum run build --parallel 4
 wiggum run test --project "@scope/*" --project "!@scope/legacy"
 wiggum run lint --dry-run --json
+wiggum run build --ai-prompt
 ```
+
+For failed workspace runs, you can:
+- print a structured AI remediation prompt with `--ai-prompt`
+- launch OpenCode directly with rich failure context using `--autofix`
 
 ## Chat Widget (Rsbuild plugin)
 

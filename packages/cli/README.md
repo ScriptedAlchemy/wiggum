@@ -80,7 +80,12 @@ Planning/debugging modes:
 ```bash
 wiggum run build --dry-run
 wiggum run build --dry-run --json
+wiggum run build --ai-prompt
+wiggum run build --autofix
 ```
+
+`--ai-prompt` prints a structured remediation prompt (project failures, graph context, command output) to stderr when a run fails.  
+`--autofix` opens the OpenCode TUI directly with the same failure context.
 
 `--project` supports wildcard and negation filters:
 
