@@ -743,4 +743,37 @@ describe('runner coverage verifier', () => {
     expect(result.stderr).toContain('[verify-runner-coverage]');
     expect(result.stderr).toContain(`Packages directory not found at ${path.join(fixture.rootDir, 'packages')}`);
   });
+
+  test('coverage verifier CLI supports config and packages path overrides', () => {
+    const fixture = createCoverageVerifierFixture({
+      createPackagesDir: false,
+    });
+    const customPackagesDir = path.join(fixture.rootDir, 'custom-packages');
+    const customConfigDir = path.join(fixture.rootDir, 'configs');
+    fs.mkdirSync(path.join(customPackagesDir, 'cli'), { recursive: true });
+    fs.mkdirSync(customConfigDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(customConfigDir, 'wiggum.custom.json'),
+      '{"root":"..","projects":["custom-packages/*"]}',
+    );
+    fs.writeFileSync(
+      path.join(customPackagesDir, 'cli', 'package.json'),
+      '{"name":"@fixture/cli"}',
+    );
+
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: fixture.rootDir,
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: 'configs/wiggum.custom.json',
+        WIGGUM_RUNNER_VERIFY_PACKAGES_DIR: 'custom-packages',
+        MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS: '1',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
+  });
 });
