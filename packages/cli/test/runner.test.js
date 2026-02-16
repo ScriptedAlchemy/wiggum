@@ -1283,6 +1283,29 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_PARALLEL value "2abc"');
   });
 
+  test('projects ignores invalid WIGGUM_RUNNER_PARALLEL env value', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--json'],
+      root,
+      {
+        WIGGUM_RUNNER_PARALLEL: '2abc',
+      },
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects).toHaveLength(1);
+    expect(payload.projects[0].name).toBe('@scope/app');
+  });
+
   test('run rejects zero WIGGUM_RUNNER_PARALLEL env value', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {

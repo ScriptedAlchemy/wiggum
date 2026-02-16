@@ -405,6 +405,10 @@ interface RunnerFlags {
   passthroughArgs: string[];
 }
 
+interface ParseRunnerFlagsOptions {
+  useParallelEnv?: boolean;
+}
+
 function splitListValue(raw: string): string[] {
   return raw
     .split(',')
@@ -412,7 +416,8 @@ function splitListValue(raw: string): string[] {
     .filter(Boolean);
 }
 
-function parseRunnerFlags(args: string[]): RunnerFlags {
+function parseRunnerFlags(args: string[], options: ParseRunnerFlagsOptions = {}): RunnerFlags {
+  const useParallelEnv = options.useParallelEnv ?? true;
   const parsePositiveIntegerFlag = (flagName: string, rawValue: string): number => {
     const normalizedValue = rawValue.trim();
     if (normalizedValue.length === 0) {
@@ -429,6 +434,9 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
   };
 
   const defaultParallel = (() => {
+    if (!useParallelEnv) {
+      return 4;
+    }
     const rawValue = process.env.WIGGUM_RUNNER_PARALLEL;
     if (rawValue === undefined || rawValue.trim().length === 0) {
       return 4;
@@ -1057,7 +1065,9 @@ Global options:
 
     let runnerFlags: RunnerFlags;
     try {
-      runnerFlags = parseRunnerFlags(parsedProjectsArgs.runnerArgs);
+      runnerFlags = parseRunnerFlags(parsedProjectsArgs.runnerArgs, {
+        useParallelEnv: false,
+      });
     } catch (error: any) {
       console.error(chalk.red('Invalid runner flags:'), error.message);
       process.exit(1);
@@ -1186,7 +1196,9 @@ Global options:
 
     let runnerFlags: RunnerFlags;
     try {
-      runnerFlags = parseRunnerFlags(parsedRunArgs.runnerArgs);
+      runnerFlags = parseRunnerFlags(parsedRunArgs.runnerArgs, {
+        useParallelEnv: true,
+      });
       if (runnerFlags.json && !runnerFlags.dryRun) {
         throw new Error('--json requires --dry-run for run mode');
       }
