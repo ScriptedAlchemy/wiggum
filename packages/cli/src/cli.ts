@@ -801,7 +801,7 @@ Runner options:
   --no-infer-imports       Disable inferred import dependency edges
 
 Notes:
-  Inferred import scan budget can be set via WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer>.
+  Inferred import scan budget can be set via WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer> (default: 400).
 `);
 }
 
@@ -828,7 +828,7 @@ Runner options:
 Notes:
   --ai-prompt and --autofix cannot be combined with --dry-run.
   Default parallelism can be set via WIGGUM_RUNNER_PARALLEL=<positive integer>.
-  Inferred import scan budget can be set via WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer>.
+  Inferred import scan budget can be set via WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer> (default: 400).
 
 Pass task arguments after "--" so they are forwarded to the underlying tool.
 `);
