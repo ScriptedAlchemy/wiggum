@@ -49,6 +49,19 @@ export function ensureNonEmptyPathString(value, fieldName) {
   return normalizedValue;
 }
 
+export function ensureFileSystemContract(fileSystem) {
+  if (!fileSystem || typeof fileSystem !== 'object') {
+    throw new Error('fileSystem must provide existsSync, statSync, and readdirSync functions');
+  }
+  const requiredMethods = ['existsSync', 'statSync', 'readdirSync'];
+  for (const methodName of requiredMethods) {
+    if (typeof fileSystem[methodName] !== 'function') {
+      throw new Error('fileSystem must provide existsSync, statSync, and readdirSync functions');
+    }
+  }
+  return fileSystem;
+}
+
 export function findDuplicatePaths(entries) {
   const seen = new Set();
   const duplicates = new Set();
@@ -63,19 +76,20 @@ export function findDuplicatePaths(entries) {
 }
 
 export function listExpectedProjectRoots(packagesDir = PACKAGES_DIR, fileSystem = fs) {
-  if (!fileSystem.existsSync(packagesDir)) {
+  const normalizedFileSystem = ensureFileSystemContract(fileSystem);
+  if (!normalizedFileSystem.existsSync(packagesDir)) {
     throw new Error(`Packages directory not found at ${packagesDir}`);
   }
-  const directoryStats = fileSystem.statSync(packagesDir);
+  const directoryStats = normalizedFileSystem.statSync(packagesDir);
   if (!directoryStats.isDirectory()) {
     throw new Error(`Packages path must be a directory: ${packagesDir}`);
   }
 
-  const entries = fileSystem.readdirSync(packagesDir, { withFileTypes: true });
+  const entries = normalizedFileSystem.readdirSync(packagesDir, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(packagesDir, entry.name))
-    .filter((entryPath) => fileSystem.existsSync(path.join(entryPath, 'package.json')))
+    .filter((entryPath) => normalizedFileSystem.existsSync(path.join(entryPath, 'package.json')))
     .map((entryPath) => path.resolve(entryPath))
     .sort((a, b) => a.localeCompare(b));
 }
@@ -179,6 +193,7 @@ export async function verifyRunnerCoverage({
   fileSystem = fs,
   resolveWorkspace = resolveRunnerWorkspace,
 } = {}) {
+  const normalizedFileSystem = ensureFileSystemContract(fileSystem);
   const normalizedRootDir = ensureNonEmptyPathString(rootDir, 'rootDir');
   const normalizedConfigPath = ensureNonEmptyPathString(configPath, 'configPath');
   const normalizedPackagesDir = ensureNonEmptyPathString(packagesDir, 'packagesDir');
@@ -186,11 +201,11 @@ export async function verifyRunnerCoverage({
     throw new Error('resolveWorkspace must be a function');
   }
 
-  if (!fileSystem.existsSync(normalizedConfigPath)) {
+  if (!normalizedFileSystem.existsSync(normalizedConfigPath)) {
     throw new Error(`Runner config not found at ${normalizedConfigPath}`);
   }
 
-  const expectedProjectRoots = listExpectedProjectRoots(normalizedPackagesDir, fileSystem);
+  const expectedProjectRoots = listExpectedProjectRoots(normalizedPackagesDir, normalizedFileSystem);
   const workspace = await resolveWorkspace({
     rootDir: normalizedRootDir,
     configPath: normalizedConfigPath,

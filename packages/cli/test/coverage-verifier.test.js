@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import {
+  ensureFileSystemContract,
   extractResolvedProjectRoots,
   findDuplicatePaths,
   listExpectedProjectRoots,
@@ -86,6 +87,12 @@ describe('runner coverage verifier', () => {
   test('ensureNonEmptyPathString rejects blank strings', () => {
     expect(() => ensureNonEmptyPathString('   ', 'configPath')).toThrow(
       'configPath must be a non-empty string path',
+    );
+  });
+
+  test('ensureFileSystemContract rejects missing required methods', () => {
+    expect(() => ensureFileSystemContract({ existsSync: () => true })).toThrow(
+      'fileSystem must provide existsSync, statSync, and readdirSync functions',
     );
   });
 
@@ -312,6 +319,14 @@ describe('runner coverage verifier', () => {
     );
   });
 
+  test('listExpectedProjectRoots rejects invalid fileSystem option', () => {
+    const tempRoot = makeTempDir('verify-coverage-list-fs-contract-');
+    const packagesDir = path.join(tempRoot, 'packages');
+    expect(() => listExpectedProjectRoots(packagesDir, {})).toThrow(
+      'fileSystem must provide existsSync, statSync, and readdirSync functions',
+    );
+  });
+
   test('verifyRunnerCoverage rejects when config file is missing', async () => {
     const tempRoot = makeTempDir('verify-coverage-config-');
     const packagesDir = path.join(tempRoot, 'packages');
@@ -464,6 +479,26 @@ describe('runner coverage verifier', () => {
         resolveWorkspace: null,
       }),
     ).rejects.toThrow('resolveWorkspace must be a function');
+  });
+
+  test('verifyRunnerCoverage rejects invalid fileSystem option', async () => {
+    const tempRoot = makeTempDir('verify-coverage-invalid-fs-');
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath,
+        packagesDir,
+        fileSystem: {},
+        minExpectedProjects: 1,
+        resolveWorkspace: async () => ({ projects: [{ root: path.join(packagesDir, 'cli') }] }),
+      }),
+    ).rejects.toThrow('fileSystem must provide existsSync, statSync, and readdirSync functions');
   });
 
   test('verifyRunnerCoverage rejects blank path options', async () => {
