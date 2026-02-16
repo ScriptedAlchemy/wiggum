@@ -357,6 +357,58 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout.trim()).toMatch(SEMVER_OR_RSPACK_VERSION);
     });
 
+    test('build forwards --autofix when passed after delimiter', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeRsbuildPath = path.join(binDir, 'rsbuild');
+      fs.writeFileSync(
+        fakeRsbuildPath,
+        '#!/usr/bin/env bash\necho \"fake-rsbuild:$@\"\nexit 0\n',
+        { mode: 0o755 },
+      );
+      fs.chmodSync(fakeRsbuildPath, 0o755);
+
+      const result = runCLI('build -- --autofix', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('fake-rsbuild:-- --autofix');
+    });
+
+    test('global --autofix triggers prompt flow for passthrough failures', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeRsbuildPath = path.join(binDir, 'rsbuild');
+      fs.writeFileSync(
+        fakeRsbuildPath,
+        '#!/usr/bin/env bash\necho \"pass stdout\"\necho \"pass stderr\" 1>&2\nexit 2\n',
+        { mode: 0o755 },
+      );
+      fs.chmodSync(fakeRsbuildPath, 0o755);
+
+      const result = runCLI('build --autofix', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+          WIGGUM_AUTOFIX_MODE: 'prompt',
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stdout).toContain('[autofix] Prompt-only mode enabled.');
+      expect(result.stdout).toContain('Command failed: wiggum rsbuild');
+      expect(result.stdout).toContain('pass stdout');
+      expect(result.stdout).toContain('pass stderr');
+    });
+
     test('should handle invalid commands gracefully', () => {
       const result = runCLI('nonexistent --version');
       expect(result.exitCode).toBe(1);
