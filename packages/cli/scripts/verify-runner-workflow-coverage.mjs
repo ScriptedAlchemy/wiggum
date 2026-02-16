@@ -11,6 +11,11 @@ const PACKAGE_JSON_PATH = path.join(ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(ROOT, '.github/workflows/ci.yml');
 
 const REQUIRED_PACKAGE_SCRIPTS = ['test:runner', 'verify:runner:coverage', 'verify:runner:workflow'];
+const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
+  'test:runner': /pnpm\s+-F\s+@wiggum\/cli\s+test/,
+  'verify:runner:coverage': /node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs/,
+  'verify:runner:workflow': /node\s+\.\/packages\/cli\/scripts\/verify-runner-workflow-coverage\.mjs/,
+};
 const REQUIRED_WORKFLOW_RUNS = [
   /name:\s*Build all packages[\s\S]*?run:\s*pnpm build/,
   /name:\s*Run tests[\s\S]*?run:\s*pnpm test/,
@@ -50,6 +55,15 @@ function verifyPackageScripts() {
   const missing = REQUIRED_PACKAGE_SCRIPTS.filter((scriptName) => !(scriptName in scripts));
   if (missing.length > 0) {
     fail(`Missing required package scripts: ${missing.join(', ')}`);
+  }
+  for (const scriptName of REQUIRED_PACKAGE_SCRIPTS) {
+    const scriptValue = String(scripts[scriptName] ?? '');
+    const expectedPattern = REQUIRED_PACKAGE_SCRIPT_PATTERNS[scriptName];
+    if (!expectedPattern.test(scriptValue)) {
+      fail(
+        `Package script "${scriptName}" does not match expected command pattern ${expectedPattern}. Found: ${scriptValue}`,
+      );
+    }
   }
 }
 
