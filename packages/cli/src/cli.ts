@@ -568,6 +568,12 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
   return parsed;
 }
 
+function hasHelpFlagBeforePassthrough(args: string[]): boolean {
+  const boundary = args.indexOf('--');
+  const parseSlice = boundary === -1 ? args : args.slice(0, boundary);
+  return parseSlice.includes('--help') || parseSlice.includes('-h');
+}
+
 async function runWithConcurrency<T>(
   items: T[],
   concurrency: number,
@@ -861,6 +867,10 @@ Global options:
       printProjectsHelp();
       process.exit(1);
     }
+    if (hasHelpFlagBeforePassthrough(commandArgs.slice(1))) {
+      printProjectsHelp();
+      process.exit(0);
+    }
 
     let runnerFlags: RunnerFlags;
     try {
@@ -960,6 +970,10 @@ Global options:
       console.error(chalk.red(`Unsupported runner task: ${task}`));
       printRunHelp();
       process.exit(1);
+    }
+    if (hasHelpFlagBeforePassthrough(commandArgs.slice(1))) {
+      printRunHelp();
+      process.exit(0);
     }
 
     let runnerFlags: RunnerFlags;

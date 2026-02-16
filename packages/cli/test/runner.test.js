@@ -68,6 +68,18 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('--project <pattern>');
   });
 
+  test('projects list --help prints runner projects usage', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', 'list', '--help'], root);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
+  });
+
   test('run --help prints runner run usage', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
@@ -82,6 +94,19 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('--ai-prompt');
     expect(result.stdout).toContain('--autofix');
     expect(result.stdout).toContain('cannot be combined with --dry-run');
+  });
+
+  test('run build --help prints runner run usage', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', 'build', '--help'], root);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
+    expect(result.stdout).toContain('--parallel <count>');
   });
 
   test('projects list --json resolves a single implicit project', () => {
@@ -157,6 +182,38 @@ describe('Wiggum runner workspace graph', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.plan).toHaveLength(1);
     expect(payload.plan[0].args).toContain('--autofix');
+  });
+
+  test('run preserves tool --help argument after passthrough delimiter', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--dry-run',
+        '--json',
+        '--',
+        '--help',
+      ],
+      root,
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan).toHaveLength(1);
+    expect(payload.plan[0].args).toContain('--help');
   });
 
   test('run with --project includes local dependencies for ordering', () => {
