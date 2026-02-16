@@ -626,6 +626,23 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stderr).toContain('Unknown serve option(s): mystery');
     });
 
+    test('agent serve rejects unexpected positional arguments', () => {
+      const root = makeTempDir();
+      const emptyPathDir = path.join(root, 'empty-bin');
+      fs.mkdirSync(emptyPathDir, { recursive: true });
+
+      const result = runCLI('agent serve localhost', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${path.dirname(process.execPath)}:${emptyPathDir}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Unexpected serve argument: localhost');
+    });
+
     test('agent serve rejects duplicate port options', () => {
       const root = makeTempDir();
       const emptyPathDir = path.join(root, 'empty-bin');
