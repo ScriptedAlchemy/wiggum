@@ -582,14 +582,7 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
 function hasHelpFlagBeforePassthrough(args: string[]): boolean {
   const boundary = args.indexOf('--');
   const parseSlice = boundary === -1 ? args : args.slice(0, boundary);
-  const flagsRequiringValue = new Set([
-    '--project',
-    '-p',
-    '--config',
-    '--root',
-    '--parallel',
-    '--concurrency',
-  ]);
+  const flagsRequiringValue = RUNNER_OPTIONS_REQUIRING_VALUE;
 
   for (let i = 0; i < parseSlice.length; i++) {
     const arg = parseSlice[i];
@@ -609,14 +602,7 @@ function parseProjectsCommandArgs(args: string[]): {
 } {
   const boundary = args.indexOf('--');
   const parseBoundary = boundary === -1 ? args.length : boundary;
-  const flagsRequiringValue = new Set([
-    '--project',
-    '-p',
-    '--config',
-    '--root',
-    '--parallel',
-    '--concurrency',
-  ]);
+  const flagsRequiringValue = RUNNER_OPTIONS_REQUIRING_VALUE;
 
   let subCommand: 'list' | 'graph' | undefined;
   let subCommandIndex = -1;
@@ -648,6 +634,54 @@ function parseProjectsCommandArgs(args: string[]): {
 
   return {
     subCommand: normalizedSubCommand,
+    runnerArgs,
+  };
+}
+
+const RUNNER_OPTIONS_REQUIRING_VALUE = new Set([
+  '--project',
+  '-p',
+  '--config',
+  '--root',
+  '--parallel',
+  '--concurrency',
+]);
+
+function parseRunCommandArgs(args: string[]): {
+  task?: string;
+  runnerArgs: string[];
+} {
+  const boundary = args.indexOf('--');
+  const parseBoundary = boundary === -1 ? args.length : boundary;
+  const supportedTasks = new Set(Object.keys(COMMAND_MAPPING));
+
+  let task: string | undefined;
+  let taskIndex = -1;
+  let expectValue = false;
+
+  for (let i = 0; i < parseBoundary; i++) {
+    const arg = args[i];
+    if (expectValue) {
+      expectValue = false;
+      continue;
+    }
+    if (RUNNER_OPTIONS_REQUIRING_VALUE.has(arg)) {
+      expectValue = true;
+      continue;
+    }
+    if (supportedTasks.has(arg)) {
+      task = arg;
+      taskIndex = i;
+      break;
+    }
+  }
+
+  const runnerArgs = taskIndex >= 0
+    ? [...args.slice(0, taskIndex), ...args.slice(taskIndex + 1)]
+    : [...args];
+
+  return {
+    task,
     runnerArgs,
   };
 }
@@ -1054,11 +1088,24 @@ Global options:
   }
 
   if (command === 'run') {
-    const task = commandArgs[0];
-    if (task === '--help' || task === '-h' || task === 'help') {
+    const firstRunArg = commandArgs[0];
+    if (firstRunArg === '--help' || firstRunArg === '-h' || firstRunArg === 'help') {
       printRunHelp();
       process.exit(0);
     }
+    if (firstRunArg && !firstRunArg.startsWith('-') && !COMMAND_MAPPING[firstRunArg]) {
+      console.error(chalk.red(`Unsupported runner task: ${firstRunArg}`));
+      printRunHelp();
+      process.exit(1);
+    }
+
+    const parsedRunArgs = parseRunCommandArgs(commandArgs);
+    if (hasHelpFlagBeforePassthrough(parsedRunArgs.runnerArgs)) {
+      printRunHelp();
+      process.exit(0);
+    }
+
+    const task = parsedRunArgs.task;
     if (!task) {
       console.error(chalk.red('Missing task name.'));
       printRunHelp();
@@ -1071,14 +1118,10 @@ Global options:
       printRunHelp();
       process.exit(1);
     }
-    if (hasHelpFlagBeforePassthrough(commandArgs.slice(1))) {
-      printRunHelp();
-      process.exit(0);
-    }
 
     let runnerFlags: RunnerFlags;
     try {
-      runnerFlags = parseRunnerFlags(commandArgs.slice(1));
+      runnerFlags = parseRunnerFlags(parsedRunArgs.runnerArgs);
       if (runnerFlags.json && !runnerFlags.dryRun) {
         throw new Error('--json requires --dry-run for run mode');
       }

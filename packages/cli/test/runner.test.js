@@ -178,6 +178,44 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('--parallel <count>');
   });
 
+  test('run supports task token after runner options', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--json', 'build'],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.task).toBe('build');
+    expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/app']);
+  });
+
+  test('run does not treat --project value as task token', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', '--project', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run'],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Missing task name.');
+  });
+
   test('run does not treat -h as help when used as missing --project value', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {

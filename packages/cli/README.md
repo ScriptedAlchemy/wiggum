@@ -79,6 +79,7 @@ Run a task across the workspace:
 wiggum run build
 wiggum run test --project @scope/app
 wiggum run lint --parallel 4
+wiggum run --dry-run --json build
 ```
 
 Planning/debugging modes:
