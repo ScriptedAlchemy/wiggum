@@ -692,7 +692,7 @@ function parseAgentServeArgs(argsArr: string[]): ParsedAgentServeArgs {
       continue;
     }
     if (arg.startsWith('-')) {
-      throw new Error(`Unknown serve option(s): ${arg.replace(/^-+/, '')}`);
+      throw new Error(`Unknown serve option: ${arg}`);
     }
     throw new Error(`Unexpected serve argument: ${arg}`);
   }

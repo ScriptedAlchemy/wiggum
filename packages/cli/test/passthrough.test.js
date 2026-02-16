@@ -668,7 +668,7 @@ describe('Wiggum CLI Passthrough Tests', () => {
       });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('Unknown serve option(s): mystery');
+      expect(result.stderr).toContain('Unknown serve option: --mystery');
     });
 
     test('agent serve rejects unexpected positional arguments', () => {
