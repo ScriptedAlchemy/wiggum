@@ -83,6 +83,7 @@ Then use:
 
 ```bash
 wiggum projects graph --json
+wiggum projects list -p @scope/app
 wiggum run build --parallel 4
 wiggum run test --project "@scope/*" --project "!@scope/legacy"
 wiggum run test -p="@scope/*,!@scope/legacy"

@@ -107,6 +107,7 @@ WIGGUM_AUTOFIX_MODE=prompt wiggum run build --autofix
 ```bash
 wiggum run build --project "@scope/*" --project "!@scope/legacy"
 wiggum run build -p="@scope/*,!@scope/legacy"
+wiggum projects list -p @scope/app
 ```
 
 ### Agent integration (OpenCode)

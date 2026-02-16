@@ -379,6 +379,39 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a']);
   });
 
+  test('projects supports short -p <pattern> project filters', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'projects',
+        'list',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '-p',
+        '@scope/b',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/b']);
+  });
+
   test('run supports short -p=<pattern> project filters', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -411,6 +444,41 @@ describe('Wiggum runner workspace graph', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a']);
     expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/a']);
+  });
+
+  test('run supports short -p <pattern> project filters', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '-p',
+        '@scope/b',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/b']);
+    expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/b']);
   });
 
   test('run fails when graph has dependency cycles', () => {
