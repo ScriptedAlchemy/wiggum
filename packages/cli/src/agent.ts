@@ -187,7 +187,7 @@ ${chalk.yellow('Default:')}
   wiggum agent         Start interactive OpenCode TUI (uses inline config)
 
 ${chalk.yellow('Commands:')}
-  ${chalk.cyan('serve')}               Start OpenCode server
+  ${chalk.cyan('serve | server')}      Start OpenCode server
   ${chalk.cyan('init')}                Initialize OpenCode config
   ${chalk.cyan('install')}             Install OpenCode binary
   ${chalk.cyan('chat')}                Start interactive TUI (same as default)

@@ -342,6 +342,31 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('fake-opencode:serve --port 4096 --hostname 127.0.0.1');
     });
 
+    test('agent server alias forwards port and hostname flags', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(
+        fakeOpenCodePath,
+        '#!/usr/bin/env bash\necho \"fake-opencode:$@\"\nexit 0\n',
+        { mode: 0o755 },
+      );
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent server --port 4010 --hostname 127.0.0.1', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Command: opencode serve --port 4010 --hostname 127.0.0.1');
+      expect(result.stdout).toContain('fake-opencode:serve --port 4010 --hostname 127.0.0.1');
+    });
+
     test('agent serve --help does not require OpenCode binary', () => {
       const root = makeTempDir();
       const emptyPathDir = path.join(root, 'empty-bin');
@@ -376,6 +401,24 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Usage: wiggum agent serve');
       expect(result.stdout).toContain('--hostname <host>');
+    });
+
+    test('agent server --help does not require OpenCode binary', () => {
+      const root = makeTempDir();
+      const emptyPathDir = path.join(root, 'empty-bin');
+      fs.mkdirSync(emptyPathDir, { recursive: true });
+
+      const result = runCLI('agent server --help', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${path.dirname(process.execPath)}:${emptyPathDir}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Usage: wiggum agent serve');
+      expect(result.stderr).not.toContain('OpenCode is not installed');
     });
 
     test('agent serve help ignores trailing invalid flags', () => {
