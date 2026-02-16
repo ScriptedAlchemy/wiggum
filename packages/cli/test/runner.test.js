@@ -92,6 +92,7 @@ describe('Wiggum runner workspace graph', () => {
     const result = runCLI(['projects', 'list', '--help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
+    expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
   });
 
   test('projects --json help prints runner projects usage', () => {
