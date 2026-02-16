@@ -1,7 +1,10 @@
 import { describe, test, expect } from '@rstest/core';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 import {
   extractResolvedProjectRoots,
   findDuplicatePaths,
@@ -11,6 +14,10 @@ import {
   verifyRunnerCoverage,
   verifyRunnerCoverageData,
 } from '../scripts/verify-runner-coverage.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const COVERAGE_SCRIPT_PATH = path.resolve(__dirname, '../scripts/verify-runner-coverage.mjs');
 
 describe('runner coverage verifier', () => {
   test('parseMinimumExpectedProjects returns default when value is undefined', () => {
@@ -459,5 +466,34 @@ describe('runner coverage verifier', () => {
         }),
       }),
     ).rejects.toThrow('resolveRunnerWorkspace returned invalid project root at index 1');
+  });
+
+  test('coverage verifier CLI exits with prefixed error for invalid env minimum', () => {
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: path.resolve(__dirname, '../../..'),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS: 'abc',
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-coverage]');
+    expect(result.stderr).toContain('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a positive integer');
+  });
+
+  test('coverage verifier CLI succeeds with valid env minimum', () => {
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: path.resolve(__dirname, '../../..'),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS: '1',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[verify-runner-coverage] Verified');
   });
 });
