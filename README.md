@@ -93,6 +93,8 @@ wiggum run lint --dry-run --json
 wiggum run build --ai-prompt
 ```
 
+Dependency edges are resolved from local package manifests and inferred local source specifiers (`import`, dynamic `import()`, `require`, and export-from forms), then executed in deterministic topological order.
+
 For failed workspace runs, you can:
 - print a structured AI remediation prompt with `--ai-prompt`
 - launch OpenCode directly with rich failure context using `--autofix`
