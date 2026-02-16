@@ -603,6 +603,55 @@ function hasHelpFlagBeforePassthrough(args: string[]): boolean {
   return false;
 }
 
+function parseProjectsCommandArgs(args: string[]): {
+  subCommand: 'list' | 'graph';
+  runnerArgs: string[];
+} {
+  const boundary = args.indexOf('--');
+  const parseBoundary = boundary === -1 ? args.length : boundary;
+  const flagsRequiringValue = new Set([
+    '--project',
+    '-p',
+    '--config',
+    '--root',
+    '--parallel',
+    '--concurrency',
+  ]);
+
+  let subCommand: 'list' | 'graph' | undefined;
+  let subCommandIndex = -1;
+  let expectValue = false;
+
+  for (let i = 0; i < parseBoundary; i++) {
+    const arg = args[i];
+    if (expectValue) {
+      expectValue = false;
+      continue;
+    }
+    if (flagsRequiringValue.has(arg)) {
+      expectValue = true;
+      continue;
+    }
+    if (arg === 'list' || arg === 'graph') {
+      if (subCommand && subCommand !== arg) {
+        throw new Error(`Conflicting projects subcommands: ${subCommand} and ${arg}`);
+      }
+      subCommand = arg;
+      subCommandIndex = i;
+    }
+  }
+
+  const normalizedSubCommand = subCommand ?? 'list';
+  const runnerArgs = subCommandIndex >= 0
+    ? [...args.slice(0, subCommandIndex), ...args.slice(subCommandIndex + 1)]
+    : [...args];
+
+  return {
+    subCommand: normalizedSubCommand,
+    runnerArgs,
+  };
+}
+
 async function runWithConcurrency<T>(
   items: T[],
   concurrency: number,
@@ -892,24 +941,28 @@ Global options:
       process.exit(0);
     }
 
-    const firstProjectsArg = commandArgs[0];
-    const hasExplicitSubCommand =
-      firstProjectsArg === 'list' || firstProjectsArg === 'graph';
-    if (firstProjectsArg && !firstProjectsArg.startsWith('-') && !hasExplicitSubCommand) {
-      console.error(chalk.red(`Unknown projects subcommand: ${firstProjectsArg}`));
+    let parsedProjectsArgs: {
+      subCommand: 'list' | 'graph';
+      runnerArgs: string[];
+    };
+    try {
+      parsedProjectsArgs = parseProjectsCommandArgs(commandArgs);
+    } catch (error: any) {
+      console.error(chalk.red('Invalid projects command:'), error.message ?? error);
       printProjectsHelp();
       process.exit(1);
+      return;
     }
-    const subCommand = firstProjectsArg === 'graph' ? 'graph' : 'list';
-    const runnerArgsOffset = hasExplicitSubCommand ? 1 : 0;
-    if (hasHelpFlagBeforePassthrough(commandArgs.slice(runnerArgsOffset))) {
+
+    if (hasHelpFlagBeforePassthrough(parsedProjectsArgs.runnerArgs)) {
       printProjectsHelp();
       process.exit(0);
     }
+    const subCommand = parsedProjectsArgs.subCommand;
 
     let runnerFlags: RunnerFlags;
     try {
-      runnerFlags = parseRunnerFlags(commandArgs.slice(runnerArgsOffset));
+      runnerFlags = parseRunnerFlags(parsedProjectsArgs.runnerArgs);
     } catch (error: any) {
       console.error(chalk.red('Invalid runner flags:'), error.message);
       process.exit(1);

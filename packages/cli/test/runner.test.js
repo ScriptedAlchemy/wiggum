@@ -206,6 +206,44 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.projects[0].name).toBe('single-project');
   });
 
+  test('projects supports graph subcommand after runner options', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'single-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', '--json', 'graph', '--root', root], root);
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects).toHaveLength(1);
+    expect(payload.graph).toBeDefined();
+    expect(Array.isArray(payload.graph.topologicalOrder)).toBe(true);
+  });
+
+  test('projects does not treat --project value as subcommand token', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/graph/package.json'), {
+      name: 'graph',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/other/package.json'), {
+      name: 'other',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--project', 'graph', '--json'],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['graph']);
+  });
+
   test('run build --dry-run --json calculates topological order', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
