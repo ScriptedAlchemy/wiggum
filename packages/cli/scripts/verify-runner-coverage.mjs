@@ -222,6 +222,10 @@ export async function verifyRunnerCoverage({
     throw new Error(`Runner config not found at ${normalizedConfigPath}`);
   }
 
+  const effectiveMinExpectedProjects = minExpectedProjects === undefined
+    ? parseMinimumExpectedProjects()
+    : minExpectedProjects;
+
   const expectedProjectRoots = listExpectedProjectRoots(normalizedPackagesDir, normalizedFileSystem);
   const workspace = await resolveWorkspace({
     rootDir: normalizedRootDir,
@@ -230,9 +234,6 @@ export async function verifyRunnerCoverage({
     includeInferredImports: false,
   });
   const resolvedProjectRoots = extractResolvedProjectRoots(workspace);
-  const effectiveMinExpectedProjects = minExpectedProjects === undefined
-    ? parseMinimumExpectedProjects()
-    : minExpectedProjects;
 
   const result = verifyRunnerCoverageData({
     expectedProjectRoots,

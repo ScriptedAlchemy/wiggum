@@ -507,6 +507,41 @@ describe('runner coverage verifier', () => {
     }
   });
 
+  test('verifyRunnerCoverage validates env minimum before resolving workspace', async () => {
+    const tempRoot = makeTempDir('verify-coverage-env-order-');
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    const originalValue = process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
+    process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS = 'abc';
+    let resolveWorkspaceCalls = 0;
+    try {
+      await expect(
+        verifyRunnerCoverage({
+          rootDir: tempRoot,
+          configPath,
+          packagesDir,
+          resolveWorkspace: async () => {
+            resolveWorkspaceCalls += 1;
+            return {
+              projects: [{ root: path.join(packagesDir, 'cli') }],
+            };
+          },
+        }),
+      ).rejects.toThrow('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a positive integer');
+      expect(resolveWorkspaceCalls).toBe(0);
+    } finally {
+      if (originalValue === undefined) {
+        delete process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
+      } else {
+        process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS = originalValue;
+      }
+    }
+  });
+
   test('verifyRunnerCoverage rejects malformed resolver payload without projects array', async () => {
     const tempRoot = makeTempDir('verify-coverage-bad-workspace-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
