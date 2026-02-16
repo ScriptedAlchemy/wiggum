@@ -154,13 +154,13 @@ describe('runner coverage verifier', () => {
     expect(result).toBe(path.join(tempRoot, 'wiggum.config.mjs'));
   });
 
-  test('detectSupportedRunnerConfigPath prefers json when multiple supported files exist', () => {
+  test('detectSupportedRunnerConfigPath follows runner precedence when multiple supported files exist', () => {
     const tempRoot = makeTempDir('verify-coverage-detect-config-order-');
     fs.writeFileSync(path.join(tempRoot, 'wiggum.config.json'), '{}');
     fs.writeFileSync(path.join(tempRoot, 'wiggum.config.mjs'), 'export default {};');
 
     const result = detectSupportedRunnerConfigPath(tempRoot);
-    expect(result).toBe(path.join(tempRoot, 'wiggum.config.json'));
+    expect(result).toBe(path.join(tempRoot, 'wiggum.config.mjs'));
   });
 
   test('detectSupportedRunnerConfigPath falls back to json path when no supported files exist', () => {
@@ -175,7 +175,7 @@ describe('runner coverage verifier', () => {
     fs.writeFileSync(path.join(tempRoot, 'wiggum.config.ts'), 'export default {};');
 
     expect(() => detectSupportedRunnerConfigPath(tempRoot)).toThrow(
-      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.json, wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs',
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
     );
   });
 
@@ -229,7 +229,7 @@ describe('runner coverage verifier', () => {
         },
       }),
     ).toThrow(
-      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.json, wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs',
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
     );
   });
 

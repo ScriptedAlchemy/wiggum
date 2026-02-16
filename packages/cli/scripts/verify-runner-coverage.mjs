@@ -14,11 +14,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_ROOT = path.resolve(__dirname, '../../..');
 const SUPPORTED_RUNNER_CONFIG_FILES = [
-  'wiggum.config.json',
   'wiggum.config.mjs',
   'wiggum.config.js',
   'wiggum.config.cjs',
+  'wiggum.config.json',
 ];
+const DEFAULT_RUNNER_CONFIG_FILE = 'wiggum.config.json';
 const UNSUPPORTED_RUNNER_CONFIG_FILES = [
   'wiggum.config.ts',
   'wiggum.config.mts',
@@ -46,7 +47,7 @@ export function detectSupportedRunnerConfigPath(rootDir, fileSystem = fs) {
       throw unsupportedRunnerConfigError(candidatePath);
     }
   }
-  return path.join(normalizedRootDir, SUPPORTED_RUNNER_CONFIG_FILES[0]);
+  return path.join(normalizedRootDir, DEFAULT_RUNNER_CONFIG_FILE);
 }
 
 export function resolveVerifierPathsFromEnv({
