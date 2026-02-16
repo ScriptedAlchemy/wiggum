@@ -1014,6 +1014,11 @@ Global options:
       printProjectsHelp();
       process.exit(0);
     }
+    if (autofix) {
+      console.error(chalk.red('Global option --autofix is not supported for "wiggum projects".'));
+      printProjectsHelp();
+      process.exit(1);
+    }
 
     if (
       firstProjectsArg &&

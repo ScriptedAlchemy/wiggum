@@ -1179,6 +1179,20 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('--parallel');
   });
 
+  test('projects rejects global --autofix option', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'single-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', 'list', '--root', root, '--autofix'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Global option --autofix is not supported for "wiggum projects".',
+    );
+  });
+
   test('run rejects --ai-prompt with --dry-run', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
