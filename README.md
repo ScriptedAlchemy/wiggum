@@ -98,7 +98,7 @@ For failed workspace runs, you can:
 - note: `--autofix` applies to execution flows (`wiggum run ...` / passthrough commands), not `wiggum projects ...`
 
 In CI/non-interactive terminals, `--autofix` falls back to printing the prompt instead of opening TUI.
-You can set default runner concurrency with `WIGGUM_RUNNER_PARALLEL=<positive integer>`.
+You can set default runner concurrency with `WIGGUM_RUNNER_PARALLEL=<positive integer>` (run mode only).
 
 If a tool argument overlaps with a Wiggum global flag, pass it after `--`:
 

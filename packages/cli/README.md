@@ -95,7 +95,7 @@ wiggum run build --autofix
 `--autofix` opens the OpenCode TUI directly with the same failure context.
 `--ai-prompt` and `--autofix` are runtime-only failure modes and cannot be used with `--dry-run`.
 `--autofix` is only supported for task execution flows (`wiggum run ...` / passthrough tool commands), not `wiggum projects ...`.
-Default runner concurrency can be configured with `WIGGUM_RUNNER_PARALLEL=<positive integer>`.
+Default runner concurrency can be configured with `WIGGUM_RUNNER_PARALLEL=<positive integer>` (applies to `wiggum run ...` execution mode).
 
 For CI/non-interactive contexts, `--autofix` automatically falls back to prompt output instead of launching TUI.  
 You can force prompt-only behavior explicitly with:
