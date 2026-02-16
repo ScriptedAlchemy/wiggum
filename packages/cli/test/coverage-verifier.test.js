@@ -11,6 +11,7 @@ import {
   findDuplicatePaths,
   listExpectedProjectRoots,
   ensureNonEmptyPathString,
+  resolvePathOption,
   parseMinimumExpectedProjects,
   verifyRunnerCoverage,
   verifyRunnerCoverageData,
@@ -88,6 +89,10 @@ describe('runner coverage verifier', () => {
     expect(() => ensureNonEmptyPathString('   ', 'configPath')).toThrow(
       'configPath must be a non-empty string path',
     );
+  });
+
+  test('resolvePathOption resolves relative path against provided base directory', () => {
+    expect(resolvePathOption('packages/cli', 'packagesDir', '/repo')).toBe('/repo/packages/cli');
   });
 
   test('ensureFileSystemContract rejects missing required methods', () => {
@@ -381,6 +386,44 @@ describe('runner coverage verifier', () => {
       includeInferredImports: false,
     });
     expect(logMessages[0]).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
+  });
+
+  test('verifyRunnerCoverage resolves relative root/config/packages paths', async () => {
+    const tempRoot = makeTempDir('verify-coverage-relative-options-');
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    const relativeRootDir = path.relative(process.cwd(), tempRoot);
+    const resolverCalls = [];
+    const originalLog = console.log;
+    console.log = () => {};
+    try {
+      await verifyRunnerCoverage({
+        rootDir: relativeRootDir,
+        configPath: 'wiggum.config.json',
+        packagesDir: 'packages',
+        minExpectedProjects: 1,
+        resolveWorkspace: async (options) => {
+          resolverCalls.push(options);
+          return {
+            projects: [{ root: path.join(packagesDir, 'cli') }],
+          };
+        },
+      });
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(resolverCalls).toHaveLength(1);
+    expect(resolverCalls[0]).toEqual({
+      rootDir: tempRoot,
+      configPath: path.join(tempRoot, 'wiggum.config.json'),
+      includeDependenciesForFiltered: false,
+      includeInferredImports: false,
+    });
   });
 
   test('verifyRunnerCoverage uses env minimum when argument is omitted', async () => {

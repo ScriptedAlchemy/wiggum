@@ -49,6 +49,11 @@ export function ensureNonEmptyPathString(value, fieldName) {
   return normalizedValue;
 }
 
+export function resolvePathOption(value, fieldName, baseDir = process.cwd()) {
+  const normalizedValue = ensureNonEmptyPathString(value, fieldName);
+  return path.resolve(baseDir, normalizedValue);
+}
+
 export function ensureFileSystemContract(fileSystem) {
   if (!fileSystem || typeof fileSystem !== 'object') {
     throw new Error('fileSystem must provide existsSync, statSync, and readdirSync functions');
@@ -200,9 +205,9 @@ export async function verifyRunnerCoverage({
   resolveWorkspace = resolveRunnerWorkspace,
 } = {}) {
   const normalizedFileSystem = ensureFileSystemContract(fileSystem);
-  const normalizedRootDir = ensureNonEmptyPathString(rootDir, 'rootDir');
-  const normalizedConfigPath = ensureNonEmptyPathString(configPath, 'configPath');
-  const normalizedPackagesDir = ensureNonEmptyPathString(packagesDir, 'packagesDir');
+  const normalizedRootDir = resolvePathOption(rootDir, 'rootDir');
+  const normalizedConfigPath = resolvePathOption(configPath, 'configPath', normalizedRootDir);
+  const normalizedPackagesDir = resolvePathOption(packagesDir, 'packagesDir', normalizedRootDir);
   if (typeof resolveWorkspace !== 'function') {
     throw new Error('resolveWorkspace must be a function');
   }
