@@ -229,6 +229,23 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Step "Run tests" must run "pnpm test"');
   });
 
+  test('fails when a required workflow step uses multiline run syntax', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm test',
+      'run: |\n          pnpm test',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Run tests" must run "pnpm test"');
+  });
+
   test('fails when a required workflow step declares multiple run commands', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
