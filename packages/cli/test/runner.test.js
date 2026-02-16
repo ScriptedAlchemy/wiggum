@@ -81,6 +81,25 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
   });
 
+  test('projects does not treat passthrough --help as command help', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--', '--help'],
+      root,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unknown projects option(s): --help');
+  });
+
   test('run --help prints runner run usage', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
@@ -216,6 +235,39 @@ describe('Wiggum runner workspace graph', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.plan).toHaveLength(1);
     expect(payload.plan[0].args).toContain('--help');
+  });
+
+  test('run preserves tool -p argument after passthrough delimiter', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--dry-run',
+        '--json',
+        '--',
+        '-p',
+        '4000',
+      ],
+      root,
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan).toHaveLength(1);
+    expect(payload.plan[0].args).toEqual(expect.arrayContaining(['-p', '4000']));
   });
 
   test('run with --project includes local dependencies for ordering', () => {
