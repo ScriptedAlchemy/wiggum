@@ -941,6 +941,18 @@ Global options:
       process.exit(0);
     }
 
+    const firstProjectsArg = commandArgs[0];
+    if (
+      firstProjectsArg &&
+      !firstProjectsArg.startsWith('-') &&
+      firstProjectsArg !== 'list' &&
+      firstProjectsArg !== 'graph'
+    ) {
+      console.error(chalk.red(`Unknown projects subcommand: ${firstProjectsArg}`));
+      printProjectsHelp();
+      process.exit(1);
+    }
+
     let parsedProjectsArgs: {
       subCommand: 'list' | 'graph';
       runnerArgs: string[];
