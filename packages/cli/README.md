@@ -100,6 +100,7 @@ wiggum projects graph --no-infer-imports --json
 Default runner concurrency can be configured with `WIGGUM_RUNNER_PARALLEL=<positive integer>` (applies to `wiggum run ...` execution mode).
 Use `--no-infer-imports` to disable source-import edge inference and rely only on manifest-declared local package edges.
 Set `WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer>` to control the capped per-project source-file scan budget used for inferred import edges (default: `400`).
+This applies to both `wiggum run ...` and `wiggum projects ...` when inferred imports are enabled, and is ignored when `--no-infer-imports` is set.
 
 Global `--autofix` parsing rules:
 - `wiggum --autofix run build` and `wiggum run build --autofix` both enable autofix mode.
