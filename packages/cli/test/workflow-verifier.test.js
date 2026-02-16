@@ -645,6 +645,38 @@ describe('runner workflow coverage verifier', () => {
     }
   });
 
+  test('workflow verifier CLI entrypoint supports absolute env path overrides', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent,
+      workflowContent,
+    });
+    const customDir = path.join(fixture.rootDir, 'custom-verifier-inputs-abs');
+    fs.mkdirSync(customDir, { recursive: true });
+    const customPackagePath = path.join(customDir, 'package.custom.abs.json');
+    const customWorkflowPath = path.join(customDir, 'ci.custom.abs.yml');
+    fs.writeFileSync(customPackagePath, packageJsonContent);
+    fs.writeFileSync(customWorkflowPath, workflowContent);
+
+    try {
+      const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: fixture.rootDir,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH: customPackagePath,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: customWorkflowPath,
+        },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow');
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
+  });
+
   test('workflow verifier CLI entrypoint ignores blank env path overrides', () => {
     const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
       cwd: REPO_ROOT,
