@@ -20,18 +20,18 @@
     "@rsbuild/plugin-type-check": "^1.3.3",
     "@rslint/core": "^0.2.1",
     "@rstest/core": "^0.8.5",
-    "@types/react": "^18.3.28",
-    "@types/react-dom": "^18.3.7",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@wiggum/cli": "workspace:*",
     "@wiggum/rsbuild-plugin-wiggum": "workspace:*",
-    "jsdom": "^27.4.0",
+    "jsdom": "^28.1.0",
     "playwright": "^1.58.2",
     "publint": "^0.3.17",
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "@rsbuild/plugin-react": "^1.4.5",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   }
 }

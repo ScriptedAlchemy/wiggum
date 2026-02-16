@@ -110,7 +110,6 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
             changeOrigin: true,
             ws: true,
             pathRewrite: { '^/__opencode__': '' },
-            logLevel: 'warn',
           }),
         );
       }
