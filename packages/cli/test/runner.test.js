@@ -500,6 +500,45 @@ describe('Wiggum runner workspace graph', () => {
     expect(workspace.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(false);
   });
 
+  test('resolveRunnerWorkspace ignores invalid env scan budget when includeInferredImports is false', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/index.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+
+    const previousValue = process.env.WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES;
+    process.env.WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES = 'invalid';
+    try {
+      const workspace = await resolveWorkspaceDirect({
+        rootDir: root,
+        configPath: path.join(root, 'wiggum.config.json'),
+        includeInferredImports: false,
+      });
+
+      expect(workspace.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
+      expect(workspace.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(false);
+    } finally {
+      if (previousValue === undefined) {
+        delete process.env.WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES;
+      } else {
+        process.env.WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES = previousValue;
+      }
+    }
+  });
+
   test('run rejects unsupported task token after runner options', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
