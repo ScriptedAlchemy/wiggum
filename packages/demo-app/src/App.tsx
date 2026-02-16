@@ -1,6 +1,6 @@
 import './index.css';
 
-type Tool = {
+interface Tool {
   id: string;
   name: string;
   description: string;
@@ -8,7 +8,7 @@ type Tool = {
   url: string;
   features: string[];
   status: 'ready' | 'beta';
-};
+}
 
 const rstackTools: Tool[] = [
   {
