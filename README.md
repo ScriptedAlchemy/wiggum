@@ -95,6 +95,7 @@ wiggum run build --ai-prompt
 For failed workspace runs, you can:
 - print a structured AI remediation prompt with `--ai-prompt`
 - launch OpenCode directly with rich failure context using `--autofix`
+- note: `--autofix` applies to execution flows (`wiggum run ...` / passthrough commands), not `wiggum projects ...`
 
 In CI/non-interactive terminals, `--autofix` falls back to printing the prompt instead of opening TUI.
 You can set default runner concurrency with `WIGGUM_RUNNER_PARALLEL=<positive integer>`.
