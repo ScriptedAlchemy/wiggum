@@ -1840,6 +1840,77 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "invalid"');
   });
 
+  test('run rejects zero WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--json'],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '0',
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Runner failed:');
+    expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "0"');
+  });
+
+  test('run ignores blank WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/index.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--project',
+        '@scope/app',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '   ',
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/shared',
+      to: '@scope/app',
+      reason: 'inferred-import',
+    });
+  });
+
   test('projects graph rejects invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
