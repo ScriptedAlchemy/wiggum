@@ -437,4 +437,48 @@ describe('runner workflow coverage verifier', () => {
       cleanupWorkflowVerifierFixture(fixture);
     }
   });
+
+  test('workflow verifier CLI entrypoint reports prefixed error on invalid package json', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent,
+      workflowContent,
+    });
+    fs.writeFileSync(path.join(fixture.rootDir, 'package.json'), '{ invalid json');
+    try {
+      const result = spawnSync(process.execPath, [fixture.scriptPath], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: process.env,
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+      expect(result.stderr).toContain('Failed to parse');
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
+  });
+
+  test('workflow verifier CLI entrypoint reports prefixed error on missing workflow file', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent,
+      workflowContent,
+    });
+    fs.rmSync(path.join(fixture.rootDir, '.github', 'workflows', 'ci.yml'), { force: true });
+    try {
+      const result = spawnSync(process.execPath, [fixture.scriptPath], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: process.env,
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+      expect(result.stderr).toContain('Failed to read');
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
+  });
 });
