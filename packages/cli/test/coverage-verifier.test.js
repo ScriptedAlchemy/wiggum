@@ -89,6 +89,23 @@ describe('runner coverage verifier', () => {
     ]);
   });
 
+  test('listExpectedProjectRoots rejects missing packages directory', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-list-missing-'));
+    const missingPackagesDir = path.join(tempRoot, 'packages');
+    expect(() => listExpectedProjectRoots(missingPackagesDir)).toThrow(
+      `Packages directory not found at ${missingPackagesDir}`,
+    );
+  });
+
+  test('listExpectedProjectRoots rejects non-directory packages path', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-list-file-'));
+    const notDirectoryPath = path.join(tempRoot, 'packages');
+    fs.writeFileSync(notDirectoryPath, 'not-a-directory');
+    expect(() => listExpectedProjectRoots(notDirectoryPath)).toThrow(
+      `Packages path must be a directory: ${notDirectoryPath}`,
+    );
+  });
+
   test('verifyRunnerCoverage rejects when config file is missing', async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-config-'));
     const packagesDir = path.join(tempRoot, 'packages');

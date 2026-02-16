@@ -16,6 +16,14 @@ const MIN_EXPECTED_PROJECTS = Number.parseInt(
 );
 
 export function listExpectedProjectRoots(packagesDir = PACKAGES_DIR, fileSystem = fs) {
+  if (!fileSystem.existsSync(packagesDir)) {
+    throw new Error(`Packages directory not found at ${packagesDir}`);
+  }
+  const directoryStats = fileSystem.statSync(packagesDir);
+  if (!directoryStats.isDirectory()) {
+    throw new Error(`Packages path must be a directory: ${packagesDir}`);
+  }
+
   const entries = fileSystem.readdirSync(packagesDir, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isDirectory())
