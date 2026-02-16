@@ -46,8 +46,7 @@ jobs:
         run: pnpm run verify:runner:workflow
         
       - name: Check types
-        run: pnpm -r exec tsc --noEmit || true
-        continue-on-error: true
+        run: pnpm -r exec tsc --noEmit
 
   lint:
     runs-on: ubuntu-latest
