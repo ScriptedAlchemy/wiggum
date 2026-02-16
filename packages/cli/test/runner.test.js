@@ -397,6 +397,56 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app']);
   });
 
+  test('projects list rejects unsupported nested wiggum.config.ts files', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    fs.mkdirSync(path.join(root, 'packages/app'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/wiggum.config.ts'),
+      "export default { projects: ['src/*'] };\n",
+    );
+
+    const result = runCLI(['projects', 'list', '--root', root, '--json'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
+  test('resolveRunnerWorkspace rejects unsupported object entry config path', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: [
+        {
+          root: 'packages/app',
+          config: 'wiggum.config.ts',
+        },
+      ],
+    });
+    fs.mkdirSync(path.join(root, 'packages/app'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/wiggum.config.ts'),
+      "export default { projects: ['src/*'] };\n",
+    );
+
+    let caughtError;
+    try {
+      await resolveWorkspaceDirect({
+        rootDir: root,
+        configPath: path.join(root, 'wiggum.config.json'),
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(String(caughtError.message || caughtError)).toContain(
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
   test('resolveRunnerWorkspace supports inferImportMaxFiles option', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
