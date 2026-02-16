@@ -148,6 +148,14 @@ describe('runner coverage verifier', () => {
     ).toThrow('fallbackRoot must be a string path');
   });
 
+  test('resolveVerifierPathsFromEnv rejects non-object env values', () => {
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: null,
+      }),
+    ).toThrow('env must be an object');
+  });
+
   test('resolveVerifierPathsFromEnv rejects blank fallbackRoot', () => {
     expect(() =>
       resolveVerifierPathsFromEnv({

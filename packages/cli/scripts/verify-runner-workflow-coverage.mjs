@@ -27,13 +27,21 @@ function ensureNonEmptyRootPath(value, fieldName) {
   return normalizedValue;
 }
 
+function ensureEnvObject(value) {
+  if (!value || typeof value !== 'object') {
+    throw new Error('env must be an object');
+  }
+  return value;
+}
+
 export function resolveWorkflowVerifierPathsFromEnv({
   env = process.env,
   fallbackRoot = DEFAULT_ROOT,
 } = {}) {
-  const rootOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT);
-  const packageJsonPathOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH);
-  const workflowPathOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH);
+  const normalizedEnv = ensureEnvObject(env);
+  const rootOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT);
+  const packageJsonPathOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH);
+  const workflowPathOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH);
   const normalizedFallbackRoot = ensureNonEmptyRootPath(fallbackRoot, 'fallbackRoot');
 
   const rootDir = rootOverride

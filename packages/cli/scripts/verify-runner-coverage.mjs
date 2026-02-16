@@ -28,13 +28,21 @@ function ensureNonEmptyRootPath(value, fieldName) {
   return normalizedValue;
 }
 
+function ensureEnvObject(value) {
+  if (!value || typeof value !== 'object') {
+    throw new Error('env must be an object');
+  }
+  return value;
+}
+
 export function resolveVerifierPathsFromEnv({
   env = process.env,
   fallbackRoot = DEFAULT_ROOT,
 } = {}) {
-  const rootOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_ROOT);
-  const configPathOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH);
-  const packagesDirOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR);
+  const normalizedEnv = ensureEnvObject(env);
+  const rootOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_VERIFY_ROOT);
+  const configPathOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_VERIFY_CONFIG_PATH);
+  const packagesDirOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR);
   const normalizedFallbackRoot = ensureNonEmptyRootPath(fallbackRoot, 'fallbackRoot');
 
   const rootDir = rootOverride
