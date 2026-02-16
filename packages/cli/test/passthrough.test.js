@@ -386,6 +386,46 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('Invalid --port value "99999"');
     });
+
+    test('agent serve requires value for --port', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(fakeOpenCodePath, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent serve --port', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Missing value for --port');
+    });
+
+    test('agent serve requires value for --hostname', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(fakeOpenCodePath, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent serve --hostname', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Missing value for --hostname');
+    });
   });
 
   describe('Complex flag combinations', () => {
