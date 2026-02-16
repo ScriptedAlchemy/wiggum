@@ -1193,6 +1193,20 @@ describe('Wiggum runner workspace graph', () => {
     );
   });
 
+  test('projects rejects global --autofix option when provided before command token', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'single-project',
+      private: true,
+    });
+
+    const result = runCLI(['--autofix', 'projects', 'list', '--root', root], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Global option --autofix is not supported for "wiggum projects".',
+    );
+  });
+
   test('run rejects --ai-prompt with --dry-run', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -1223,6 +1237,24 @@ describe('Wiggum runner workspace graph', () => {
 
     const result = runCLI(
       ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--autofix'],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('--autofix cannot be used with --dry-run');
+  });
+
+  test('run rejects global --autofix with --dry-run when provided before command token', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['--autofix', 'run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run'],
       root,
     );
     expect(result.exitCode).toBe(1);
