@@ -120,8 +120,8 @@ export function verifyRunnerCoverageData({
     );
   }
 
-  if (!Number.isFinite(minExpectedProjects) || minExpectedProjects < 1) {
-    throw new Error(`MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got ${minExpectedProjects}`);
+  if (!Number.isInteger(minExpectedProjects) || minExpectedProjects < 1) {
+    throw new Error(`MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be an integer >= 1, got ${minExpectedProjects}`);
   }
   if (normalizedExpectedRoots.length < minExpectedProjects) {
     throw new Error(

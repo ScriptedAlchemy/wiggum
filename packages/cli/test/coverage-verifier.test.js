@@ -153,7 +153,18 @@ describe('runner coverage verifier', () => {
         minExpectedProjects: 0,
         rootDir: '/repo',
       }),
-    ).toThrow('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1');
+    ).toThrow('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be an integer >= 1');
+  });
+
+  test('rejects non-integer minimum expected project count', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: ['/repo/packages/cli'],
+        resolvedProjectRoots: ['/repo/packages/cli'],
+        minExpectedProjects: 1.5,
+        rootDir: '/repo',
+      }),
+    ).toThrow('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be an integer >= 1');
   });
 
   test('rejects duplicate expected project roots', () => {
