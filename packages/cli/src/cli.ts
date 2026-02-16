@@ -799,6 +799,9 @@ Runner options:
   -p <pattern>             Alias for --project (also supports -p=<pattern>)
   --json                   Emit machine-readable JSON output
   --no-infer-imports       Disable inferred import dependency edges
+
+Notes:
+  Inferred import scan budget can be set via WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer>.
 `);
 }
 
@@ -825,6 +828,7 @@ Runner options:
 Notes:
   --ai-prompt and --autofix cannot be combined with --dry-run.
   Default parallelism can be set via WIGGUM_RUNNER_PARALLEL=<positive integer>.
+  Inferred import scan budget can be set via WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer>.
 
 Pass task arguments after "--" so they are forwarded to the underlying tool.
 `);
