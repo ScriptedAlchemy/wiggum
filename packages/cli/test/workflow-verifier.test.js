@@ -161,6 +161,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Package script "test:runner" must be a non-empty string command');
   });
 
+  test('fails when required package script command is not a string', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts['test:runner'] = 42;
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "test:runner" must be a non-empty string command');
+  });
+
   test('fails when runner test step uses no-fail shell fallback', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
