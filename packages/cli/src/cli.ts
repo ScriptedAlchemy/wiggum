@@ -889,6 +889,9 @@ Global options:
         includeDependenciesForFiltered: false,
         includeInferredImports: runnerFlags.includeInferredImports,
       });
+      if (workspace.projects.length === 0) {
+        throw new Error('No runner projects were resolved. Check your config and filters.');
+      }
       if (runnerFlags.json) {
         const payload =
           subCommand === 'list'

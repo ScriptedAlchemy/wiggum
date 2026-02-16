@@ -650,6 +650,20 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Missing value for --project');
   });
 
+  test('projects fails when runner config resolves zero projects', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: [],
+    });
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json')],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('No runner projects were resolved. Check your config and filters.');
+  });
+
   test('run rejects partially numeric --parallel values', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
