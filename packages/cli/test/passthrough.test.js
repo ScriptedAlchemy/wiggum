@@ -395,6 +395,26 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stderr).toContain('requires an interactive terminal');
     });
 
+    test('agent default command still requires interactive terminal with leading global --autofix', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(fakeOpenCodePath, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('--autofix agent', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('requires an interactive terminal');
+    });
+
     test('agent serve forwards port and hostname flags', () => {
       const root = makeTempDir();
       const binDir = path.join(root, 'bin');
@@ -1035,6 +1055,12 @@ describe('Wiggum CLI Passthrough Tests', () => {
 
     test('should handle invalid commands gracefully', () => {
       const result = runCLI('nonexistent --version');
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Unknown command: nonexistent');
+    });
+
+    test('should handle invalid commands with leading global --autofix gracefully', () => {
+      const result = runCLI('--autofix nonexistent --version');
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('Unknown command: nonexistent');
     });
