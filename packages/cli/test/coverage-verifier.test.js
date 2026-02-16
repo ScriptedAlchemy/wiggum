@@ -617,6 +617,47 @@ describe('runner coverage verifier', () => {
     expect(logMessages[0]).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
   });
 
+  test('verifyRunnerCoverage auto-detects supported runner config when configPath is omitted', async () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-runner-config-');
+    const configPath = path.join(tempRoot, 'wiggum.config.mjs');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, 'export default { projects: ["packages/*"] };');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    const resolverCalls = [];
+    const originalLog = console.log;
+    console.log = () => {};
+    try {
+      await expect(
+        verifyRunnerCoverage({
+          rootDir: tempRoot,
+          packagesDir,
+          minExpectedProjects: 1,
+          resolveWorkspace: async (options) => {
+            resolverCalls.push(options);
+            return {
+              projects: [{ root: path.join(packagesDir, 'cli') }],
+            };
+          },
+        }),
+      ).resolves.toEqual({
+        expectedCount: 1,
+        resolvedCount: 1,
+      });
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(resolverCalls).toHaveLength(1);
+    expect(resolverCalls[0]).toEqual({
+      rootDir: tempRoot,
+      configPath,
+      includeDependenciesForFiltered: false,
+      includeInferredImports: false,
+    });
+  });
+
   test('verifyRunnerCoverage resolves relative root/config/packages paths', async () => {
     const tempRoot = makeTempDir('verify-coverage-relative-options-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');

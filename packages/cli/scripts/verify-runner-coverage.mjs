@@ -272,13 +272,19 @@ export async function verifyRunnerCoverage(options = {}) {
   const normalizedFileSystem = ensureFileSystemContract(fileSystem);
   const defaults = resolveVerifierPathsFromEnv({ fileSystem: normalizedFileSystem });
   const normalizedRootDir = resolvePathOption(rootDir ?? defaults.rootDir, 'rootDir');
+  const defaultConfigPath = rootDir !== undefined && configPath === undefined
+    ? detectSupportedRunnerConfigPath(normalizedRootDir, normalizedFileSystem)
+    : defaults.configPath;
+  const defaultPackagesDir = rootDir !== undefined && packagesDir === undefined
+    ? path.join(normalizedRootDir, 'packages')
+    : defaults.packagesDir;
   const normalizedConfigPath = resolvePathOption(
-    configPath ?? defaults.configPath,
+    configPath ?? defaultConfigPath,
     'configPath',
     normalizedRootDir,
   );
   const normalizedPackagesDir = resolvePathOption(
-    packagesDir ?? defaults.packagesDir,
+    packagesDir ?? defaultPackagesDir,
     'packagesDir',
     normalizedRootDir,
   );
