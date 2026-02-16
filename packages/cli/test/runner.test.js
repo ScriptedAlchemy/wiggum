@@ -335,6 +335,48 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Captured stderr:\nai stderr');
   });
 
+  test('run --ai-prompt lists failed projects in execution order', () => {
+    const root = makeTempWorkspace();
+    const binDir = path.join(root, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const fakeToolPath = path.join(binDir, 'rsbuild');
+    fs.writeFileSync(
+      fakeToolPath,
+      '#!/usr/bin/env bash\necho \"multi stderr\" 1>&2\nexit 2\n',
+      { mode: 0o755 },
+    );
+    fs.chmodSync(fakeToolPath, 0o755);
+
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--ai-prompt'],
+      root,
+      {
+        PATH: `${binDir}:${process.env.PATH || ''}`,
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Failed projects (2): @scope/a, @scope/b');
+    const failureListIndex = result.stderr.indexOf('Failed projects (2): @scope/a, @scope/b');
+    const firstProjectIndex = result.stderr.indexOf('Project: @scope/a');
+    const secondProjectIndex = result.stderr.indexOf('Project: @scope/b');
+    expect(failureListIndex).toBeGreaterThan(-1);
+    expect(firstProjectIndex).toBeGreaterThan(-1);
+    expect(secondProjectIndex).toBeGreaterThan(firstProjectIndex);
+  });
+
   test('run --autofix supports prompt-only mode without launching tui', () => {
     const root = makeTempWorkspace();
     const binDir = path.join(root, 'bin');

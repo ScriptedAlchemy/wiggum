@@ -919,7 +919,19 @@ Global options:
       }
 
       if (failures.length > 0) {
-        const details = failures
+        const executionOrderIndex = new Map(
+          orderedProjects.map((project, index) => [project.name, index]),
+        );
+        const sortedFailures = [...failures].sort((left, right) => {
+          const leftIndex = executionOrderIndex.get(left.project) ?? Number.MAX_SAFE_INTEGER;
+          const rightIndex = executionOrderIndex.get(right.project) ?? Number.MAX_SAFE_INTEGER;
+          if (leftIndex !== rightIndex) {
+            return leftIndex - rightIndex;
+          }
+          return left.project.localeCompare(right.project);
+        });
+
+        const details = sortedFailures
           .map(
             (failure) =>
               `${failure.project}: ${failure.message} (command: ${failure.command} ${failure.args.join(' ')})`,
@@ -930,7 +942,7 @@ Global options:
             task,
             runnerFlags.passthroughArgs,
             workspace,
-            failures,
+            sortedFailures,
           );
           console.error(chalk.yellow('[runner] AI remediation prompt:'));
           console.error(aiPrompt);
@@ -940,10 +952,10 @@ Global options:
             task,
             runnerFlags.passthroughArgs,
             workspace,
-            failures,
+            sortedFailures,
           );
         }
-        console.error(chalk.red(`[runner] ${failures.length} project(s) failed:\n${details}`));
+        console.error(chalk.red(`[runner] ${sortedFailures.length} project(s) failed:\n${details}`));
         process.exit(1);
       }
       return;
