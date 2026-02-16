@@ -135,6 +135,7 @@ Workflow verifier:
 - `WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH`
 
 Blank override values are ignored, so whitespace-only values safely fall back to default paths.
+Relative override paths resolve from the configured verifier root, while absolute paths are used as-is.
 
 ### Agent integration (OpenCode)
 

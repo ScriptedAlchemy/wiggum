@@ -146,6 +146,7 @@ These scripts also support path override environment variables for isolated fixt
 - Workflow verifier: `WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT`, `WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH`, `WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH`
 
 Whitespace-only override values are ignored and safely fall back to default repository paths.
+Relative override paths resolve from the verifier root override, and absolute paths are honored directly.
 
 ## Release Management
 
