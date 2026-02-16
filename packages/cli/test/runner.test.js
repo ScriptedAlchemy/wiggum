@@ -67,6 +67,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
     expect(result.stdout).toContain('--project <pattern>');
     expect(result.stdout).toContain('-p <pattern>');
+    expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
   });
 
   test('leading global --autofix still allows projects --help', () => {
@@ -247,6 +248,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('--autofix');
     expect(result.stdout).toContain('-p <pattern>');
     expect(result.stdout).toContain('cannot be combined with --dry-run');
+    expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
   });
 
   test('leading global --autofix still allows run --help', () => {
@@ -272,6 +274,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
     expect(result.stdout).toContain('--parallel <count>');
+    expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
   });
 
   test('run --dry-run help prints runner run usage', () => {
