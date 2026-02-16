@@ -6,6 +6,7 @@ import {
   extractResolvedProjectRoots,
   findDuplicatePaths,
   listExpectedProjectRoots,
+  ensureNonEmptyPathString,
   parseMinimumExpectedProjects,
   verifyRunnerCoverage,
   verifyRunnerCoverageData,
@@ -45,6 +46,20 @@ describe('runner coverage verifier', () => {
       '/repo/packages/agent',
       '/repo/packages/cli',
     ]);
+  });
+
+  test('ensureNonEmptyPathString trims and returns normalized path token', () => {
+    expect(ensureNonEmptyPathString('  /repo/packages  ', 'packagesDir')).toBe('/repo/packages');
+  });
+
+  test('ensureNonEmptyPathString rejects non-string values', () => {
+    expect(() => ensureNonEmptyPathString(null, 'rootDir')).toThrow('rootDir must be a string path');
+  });
+
+  test('ensureNonEmptyPathString rejects blank strings', () => {
+    expect(() => ensureNonEmptyPathString('   ', 'configPath')).toThrow(
+      'configPath must be a non-empty string path',
+    );
   });
 
   test('extractResolvedProjectRoots rejects missing projects container', () => {
@@ -357,6 +372,37 @@ describe('runner coverage verifier', () => {
         resolveWorkspace: async () => ({}),
       }),
     ).rejects.toThrow('resolveRunnerWorkspace must return an object with a projects array');
+  });
+
+  test('verifyRunnerCoverage rejects non-function resolveWorkspace option', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-non-function-resolver-'));
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath,
+        packagesDir,
+        minExpectedProjects: 1,
+        resolveWorkspace: null,
+      }),
+    ).rejects.toThrow('resolveWorkspace must be a function');
+  });
+
+  test('verifyRunnerCoverage rejects blank path options', async () => {
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: '  ',
+        configPath: '/tmp/wiggum.config.json',
+        packagesDir: '/tmp/packages',
+        minExpectedProjects: 1,
+        resolveWorkspace: async () => ({ projects: [] }),
+      }),
+    ).rejects.toThrow('rootDir must be a non-empty string path');
   });
 
   test('verifyRunnerCoverage rejects malformed resolver project root entries', async () => {

@@ -33,6 +33,17 @@ export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED
   return parsedValue;
 }
 
+export function ensureNonEmptyPathString(value, fieldName) {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string path`);
+  }
+  const normalizedValue = value.trim();
+  if (normalizedValue.length === 0) {
+    throw new Error(`${fieldName} must be a non-empty string path`);
+  }
+  return normalizedValue;
+}
+
 export function findDuplicatePaths(entries) {
   const seen = new Set();
   const duplicates = new Set();
@@ -155,14 +166,21 @@ export async function verifyRunnerCoverage({
   fileSystem = fs,
   resolveWorkspace = resolveRunnerWorkspace,
 } = {}) {
-  if (!fileSystem.existsSync(configPath)) {
-    throw new Error(`Runner config not found at ${configPath}`);
+  const normalizedRootDir = ensureNonEmptyPathString(rootDir, 'rootDir');
+  const normalizedConfigPath = ensureNonEmptyPathString(configPath, 'configPath');
+  const normalizedPackagesDir = ensureNonEmptyPathString(packagesDir, 'packagesDir');
+  if (typeof resolveWorkspace !== 'function') {
+    throw new Error('resolveWorkspace must be a function');
   }
 
-  const expectedProjectRoots = listExpectedProjectRoots(packagesDir, fileSystem);
+  if (!fileSystem.existsSync(normalizedConfigPath)) {
+    throw new Error(`Runner config not found at ${normalizedConfigPath}`);
+  }
+
+  const expectedProjectRoots = listExpectedProjectRoots(normalizedPackagesDir, fileSystem);
   const workspace = await resolveWorkspace({
-    rootDir,
-    configPath,
+    rootDir: normalizedRootDir,
+    configPath: normalizedConfigPath,
     includeDependenciesForFiltered: false,
     includeInferredImports: false,
   });
@@ -175,7 +193,7 @@ export async function verifyRunnerCoverage({
     expectedProjectRoots,
     resolvedProjectRoots,
     minExpectedProjects: effectiveMinExpectedProjects,
-    rootDir,
+    rootDir: normalizedRootDir,
   });
 
   console.log(
