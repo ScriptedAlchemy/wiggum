@@ -143,6 +143,22 @@ describe('runner workflow coverage verifier', () => {
     });
   });
 
+  test('resolveWorkflowVerifierPathsFromEnv accepts absolute package and workflow overrides', () => {
+    const result = resolveWorkflowVerifierPathsFromEnv({
+      env: {
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: '/repo',
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH: '/opt/configs/package.custom.json',
+        WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: '/opt/configs/ci.custom.yml',
+      },
+    });
+
+    expect(result).toEqual({
+      rootDir: path.resolve('/repo'),
+      packageJsonPath: path.resolve('/opt/configs/package.custom.json'),
+      workflowPath: path.resolve('/opt/configs/ci.custom.yml'),
+    });
+  });
+
   test('resolveWorkflowVerifierPathsFromEnv ignores blank overrides and uses fallback root', () => {
     const result = resolveWorkflowVerifierPathsFromEnv({
       env: {

@@ -106,6 +106,22 @@ describe('runner coverage verifier', () => {
     });
   });
 
+  test('resolveVerifierPathsFromEnv accepts absolute config and packages overrides', () => {
+    const result = resolveVerifierPathsFromEnv({
+      env: {
+        WIGGUM_RUNNER_VERIFY_ROOT: '/repo',
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: '/opt/configs/wiggum.custom.json',
+        WIGGUM_RUNNER_VERIFY_PACKAGES_DIR: '/srv/workspace/packages',
+      },
+    });
+
+    expect(result).toEqual({
+      rootDir: path.resolve('/repo'),
+      configPath: path.resolve('/opt/configs/wiggum.custom.json'),
+      packagesDir: path.resolve('/srv/workspace/packages'),
+    });
+  });
+
   test('resolveVerifierPathsFromEnv ignores blank overrides and uses fallback root', () => {
     const result = resolveVerifierPathsFromEnv({
       env: {
