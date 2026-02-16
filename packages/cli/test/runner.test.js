@@ -100,6 +100,8 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
+    expect(result.stdout).toContain('default: 400');
+    expect(result.stdout).toContain('ignored when --no-infer-imports is enabled');
   });
 
   test('projects graph --help prints runner projects usage', () => {
@@ -113,6 +115,8 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
+    expect(result.stdout).toContain('default: 400');
+    expect(result.stdout).toContain('ignored when --no-infer-imports is enabled');
   });
 
   test('projects --json help prints runner projects usage', () => {
