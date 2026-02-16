@@ -19,6 +19,17 @@ const SUPPORTED_RUNNER_CONFIG_FILES = [
   'wiggum.config.js',
   'wiggum.config.cjs',
 ];
+const UNSUPPORTED_RUNNER_CONFIG_FILES = [
+  'wiggum.config.ts',
+  'wiggum.config.mts',
+  'wiggum.config.cts',
+];
+
+function unsupportedRunnerConfigError(filePath) {
+  return new Error(
+    `Unsupported runner config file "${path.basename(filePath)}". Use one of: ${SUPPORTED_RUNNER_CONFIG_FILES.join(', ')}`,
+  );
+}
 
 export function detectSupportedRunnerConfigPath(rootDir, fileSystem = fs) {
   const normalizedRootDir = ensureNonEmptyRootPath(rootDir, 'rootDir');
@@ -27,6 +38,12 @@ export function detectSupportedRunnerConfigPath(rootDir, fileSystem = fs) {
     const candidatePath = path.join(normalizedRootDir, configFileName);
     if (normalizedFileSystem.existsSync(candidatePath)) {
       return candidatePath;
+    }
+  }
+  for (const configFileName of UNSUPPORTED_RUNNER_CONFIG_FILES) {
+    const candidatePath = path.join(normalizedRootDir, configFileName);
+    if (normalizedFileSystem.existsSync(candidatePath)) {
+      throw unsupportedRunnerConfigError(candidatePath);
     }
   }
   return path.join(normalizedRootDir, SUPPORTED_RUNNER_CONFIG_FILES[0]);

@@ -170,6 +170,24 @@ describe('runner coverage verifier', () => {
     expect(result).toBe(path.join(tempRoot, 'wiggum.config.json'));
   });
 
+  test('detectSupportedRunnerConfigPath rejects unsupported ts config when no supported files exist', () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-config-unsupported-ts-');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.ts'), 'export default {};');
+
+    expect(() => detectSupportedRunnerConfigPath(tempRoot)).toThrow(
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.json, wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs',
+    );
+  });
+
+  test('detectSupportedRunnerConfigPath prefers supported config even when unsupported ts config exists', () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-config-supported-with-unsupported-');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.ts'), 'export default {};');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.cjs'), 'module.exports = {};');
+
+    const result = detectSupportedRunnerConfigPath(tempRoot);
+    expect(result).toBe(path.join(tempRoot, 'wiggum.config.cjs'));
+  });
+
   test('detectSupportedRunnerConfigPath rejects invalid rootDir values', () => {
     expect(() => detectSupportedRunnerConfigPath('   ')).toThrow(
       'rootDir must be a non-empty string path',
@@ -198,6 +216,21 @@ describe('runner coverage verifier', () => {
       configPath: path.resolve(tempRoot, 'wiggum.config.cjs'),
       packagesDir: path.resolve(tempRoot, 'packages'),
     });
+  });
+
+  test('resolveVerifierPathsFromEnv surfaces unsupported ts runner config files', () => {
+    const tempRoot = makeTempDir('verify-coverage-env-detect-unsupported-ts-');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.ts'), 'export default {};');
+
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {
+          WIGGUM_RUNNER_VERIFY_ROOT: tempRoot,
+        },
+      }),
+    ).toThrow(
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.json, wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs',
+    );
   });
 
   test('resolveVerifierPathsFromEnv rejects non-string fallbackRoot', () => {
