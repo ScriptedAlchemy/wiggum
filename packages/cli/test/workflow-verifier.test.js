@@ -101,6 +101,20 @@ describe('runner workflow coverage verifier', () => {
     ).not.toThrow();
   });
 
+  test('returns summary counts for current repository workflow and scripts', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const result = verifyRunnerWorkflowCoverage({
+      packageJsonContent,
+      workflowContent,
+      workflowPath: WORKFLOW_PATH,
+    });
+
+    expect(result).toEqual({
+      requiredScriptCount: 3,
+      requiredStepCount: 8,
+    });
+  });
+
   test('fails when a required workflow step is renamed away', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
@@ -385,7 +399,7 @@ describe('runner workflow coverage verifier', () => {
     });
 
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow.');
+    expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow');
   });
 
   test('workflow verifier CLI entrypoint reports prefixed error on invalid workflow', () => {

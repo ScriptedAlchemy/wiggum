@@ -215,6 +215,10 @@ function verifyPackageScriptsContent(packageJsonContent) {
       );
     }
   }
+
+  return {
+    requiredScriptCount: REQUIRED_PACKAGE_SCRIPTS.length,
+  };
 }
 
 function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
@@ -245,6 +249,10 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
       }
     }
   }
+
+  return {
+    requiredStepCount: REQUIRED_WORKFLOW_STEPS.length,
+  };
 }
 
 function ensureNonEmptyString(value, fieldName) {
@@ -265,20 +273,24 @@ export function verifyRunnerWorkflowCoverage({
   const normalizedPackageJsonContent = ensureNonEmptyString(packageJsonContent, 'packageJsonContent');
   const normalizedWorkflowContent = ensureNonEmptyString(workflowContent, 'workflowContent');
   const normalizedWorkflowPath = ensureNonEmptyString(workflowPath, 'workflowPath');
-  verifyPackageScriptsContent(normalizedPackageJsonContent);
-  verifyWorkflowContent(normalizedWorkflowContent, normalizedWorkflowPath);
+  const packageScriptResult = verifyPackageScriptsContent(normalizedPackageJsonContent);
+  const workflowResult = verifyWorkflowContent(normalizedWorkflowContent, normalizedWorkflowPath);
+  return {
+    ...packageScriptResult,
+    ...workflowResult,
+  };
 }
 
 function main() {
   const packageJsonContent = readUtf8(PACKAGE_JSON_PATH);
   const workflowContent = readUtf8(WORKFLOW_PATH);
-  verifyRunnerWorkflowCoverage({
+  const result = verifyRunnerWorkflowCoverage({
     packageJsonContent,
     workflowContent,
     workflowPath: WORKFLOW_PATH,
   });
   console.log(
-    '[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow.',
+    `[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow (${result.requiredScriptCount} scripts, ${result.requiredStepCount} steps).`,
   );
 }
 
