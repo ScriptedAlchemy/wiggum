@@ -10,10 +10,30 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '../../..');
 const CONFIG_PATH = path.join(ROOT, 'wiggum.config.json');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
-const MIN_EXPECTED_PROJECTS = Number.parseInt(
-  process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS ?? '4',
-  10,
-);
+
+export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS) {
+  if (rawValue === undefined) {
+    return 4;
+  }
+
+  const normalizedValue = String(rawValue).trim();
+  if (!/^\d+$/.test(normalizedValue)) {
+    throw new Error(
+      `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a positive integer, got "${rawValue}"`,
+    );
+  }
+
+  const parsedValue = Number.parseInt(normalizedValue, 10);
+  if (parsedValue < 1) {
+    throw new Error(
+      `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got ${parsedValue}`,
+    );
+  }
+
+  return parsedValue;
+}
+
+const MIN_EXPECTED_PROJECTS = parseMinimumExpectedProjects();
 
 export function listExpectedProjectRoots(packagesDir = PACKAGES_DIR, fileSystem = fs) {
   if (!fileSystem.existsSync(packagesDir)) {

@@ -4,11 +4,32 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   listExpectedProjectRoots,
+  parseMinimumExpectedProjects,
   verifyRunnerCoverage,
   verifyRunnerCoverageData,
 } from '../scripts/verify-runner-coverage.mjs';
 
 describe('runner coverage verifier', () => {
+  test('parseMinimumExpectedProjects returns default when value is undefined', () => {
+    expect(parseMinimumExpectedProjects(undefined)).toBe(4);
+  });
+
+  test('parseMinimumExpectedProjects accepts whitespace-padded integer values', () => {
+    expect(parseMinimumExpectedProjects(' 7 ')).toBe(7);
+  });
+
+  test('parseMinimumExpectedProjects rejects non-numeric values', () => {
+    expect(() => parseMinimumExpectedProjects('7abc')).toThrow(
+      'MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a positive integer',
+    );
+  });
+
+  test('parseMinimumExpectedProjects rejects zero', () => {
+    expect(() => parseMinimumExpectedProjects('0')).toThrow(
+      'MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got 0',
+    );
+  });
+
   test('returns summary when all expected projects are resolved', () => {
     const rootDir = '/repo';
     const expectedProjectRoots = [
