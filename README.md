@@ -133,6 +133,18 @@ The MCP server in `packages/mcp` exposes tools to search and fetch documentation
 
 CI runs on pushes and PRs against `main` and `develop` and validates build, tests, and a best‑effort type check on Node 18.x/20.x.
 
+Runner-specific CI guard scripts:
+
+- `pnpm run verify:runner:coverage`
+- `pnpm run verify:runner:workflow`
+
+These scripts also support path override environment variables for isolated fixture validation:
+
+- Coverage verifier: `WIGGUM_RUNNER_VERIFY_ROOT`, `WIGGUM_RUNNER_VERIFY_CONFIG_PATH`, `WIGGUM_RUNNER_VERIFY_PACKAGES_DIR`
+- Workflow verifier: `WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT`, `WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH`, `WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH`
+
+Whitespace-only override values are ignored and safely fall back to default repository paths.
+
 ## Release Management
 
 We use [Changesets](https://github.com/changesets/changesets) to coordinate releases across the workspace.
