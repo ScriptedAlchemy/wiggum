@@ -384,6 +384,32 @@ describe('Wiggum runner workspace graph', () => {
     );
   });
 
+  test('resolveRunnerWorkspace rejects unsafe inferImportMaxFiles option', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    let caughtError;
+    try {
+      await resolveWorkspaceDirect({
+        rootDir: root,
+        configPath: path.join(root, 'wiggum.config.json'),
+        inferImportMaxFiles: 9_007_199_254_740_992,
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+    expect(caughtError).toBeDefined();
+    expect(String(caughtError.message || caughtError)).toContain(
+      'inferImportMaxFiles must be a positive integer, got 9007199254740992',
+    );
+  });
+
   test('resolveRunnerWorkspace ignores inferImportMaxFiles when includeInferredImports is false', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
