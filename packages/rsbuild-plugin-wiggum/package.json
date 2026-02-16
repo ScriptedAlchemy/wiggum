@@ -53,7 +53,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "^1.2.5",
+    "@opencode-ai/sdk": "^1.2.6",
     "@wiggum/agent": "workspace:*",
     "clsx": "^2.1.1",
     "http-proxy-middleware": "^3.0.5"

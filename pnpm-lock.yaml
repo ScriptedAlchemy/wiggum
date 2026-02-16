@@ -18,8 +18,8 @@ importers:
   packages/agent:
     dependencies:
       '@opencode-ai/sdk':
-        specifier: ^1.2.5
-        version: 1.2.5
+        specifier: ^1.2.6
+        version: 1.2.6
     devDependencies:
       '@rslib/core':
         specifier: ^0.19.6
@@ -37,8 +37,8 @@ importers:
   packages/cli:
     dependencies:
       '@opencode-ai/sdk':
-        specifier: ^1.2.5
-        version: 1.2.5
+        specifier: ^1.2.6
+        version: 1.2.6
       '@wiggum/agent':
         specifier: workspace:*
         version: link:../agent
@@ -190,8 +190,8 @@ importers:
   packages/rsbuild-plugin-wiggum:
     dependencies:
       '@opencode-ai/sdk':
-        specifier: ^1.2.5
-        version: 1.2.5
+        specifier: ^1.2.6
+        version: 1.2.6
       '@wiggum/agent':
         specifier: workspace:*
         version: link:../agent
@@ -1971,8 +1971,8 @@ packages:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
 
-  /@opencode-ai/sdk@1.2.5:
-    resolution: {integrity: sha512-oFw08QNupBWuszpLa4HMRf/T+fDVqu8lbYSiqevdFTSH8Zih2cw/vPqLhjHgE6rPOSXyhvg46WivfSO7eNIpPw==}
+  /@opencode-ai/sdk@1.2.6:
+    resolution: {integrity: sha512-dWMF8Aku4h7fh8sw5tQ2FtbqRLbIFT8FcsukpxTird49ax7oUXP+gzqxM/VdxHjfksQvzLBjLZyMdDStc5g7xA==}
     dev: false
 
   /@parcel/watcher-android-arm64@2.5.6:
