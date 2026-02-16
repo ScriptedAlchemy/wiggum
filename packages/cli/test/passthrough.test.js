@@ -488,6 +488,26 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stderr).toContain('Missing value for --port');
     });
 
+    test('agent serve requires value for short -p alias', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(fakeOpenCodePath, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent serve -p', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Missing value for --port');
+    });
+
     test('agent serve requires value for --hostname', () => {
       const root = makeTempDir();
       const binDir = path.join(root, 'bin');
@@ -497,6 +517,26 @@ describe('Wiggum CLI Passthrough Tests', () => {
       fs.chmodSync(fakeOpenCodePath, 0o755);
 
       const result = runCLI('agent serve --hostname', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Missing value for --hostname');
+    });
+
+    test('agent serve requires value for short -H alias', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(fakeOpenCodePath, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent serve -H', {
         cwd: root,
         env: {
           ...process.env,
