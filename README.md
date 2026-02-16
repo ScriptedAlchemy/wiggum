@@ -98,6 +98,12 @@ For failed workspace runs, you can:
 - launch OpenCode directly with rich failure context using `--autofix`
 - note: `--autofix` applies to execution flows (`wiggum run ...` / passthrough commands), not `wiggum projects ...`
 
+`--autofix` is accepted in both leading and inline global forms for execution flows:
+- `wiggum --autofix run build`
+- `wiggum run build --autofix`
+
+Agent-mode note: `wiggum agent run ... --autofix` forwards the flag to OpenCode, while `wiggum --autofix agent run ...` consumes it as a Wiggum global.
+
 In CI/non-interactive terminals, `--autofix` falls back to printing the prompt instead of opening TUI.
 You can set default runner concurrency with `WIGGUM_RUNNER_PARALLEL=<positive integer>` (run mode only).
 

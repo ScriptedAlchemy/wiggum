@@ -97,6 +97,12 @@ wiggum run build --autofix
 `--autofix` is only supported for task execution flows (`wiggum run ...` / passthrough tool commands), not `wiggum projects ...`.
 Default runner concurrency can be configured with `WIGGUM_RUNNER_PARALLEL=<positive integer>` (applies to `wiggum run ...` execution mode).
 
+Global `--autofix` parsing rules:
+- `wiggum --autofix run build` and `wiggum run build --autofix` both enable autofix mode.
+- for `wiggum agent ...`, `--autofix` is forwarded only when it appears after the `agent` command token (for example `wiggum agent run session --autofix`).
+- if you place `--autofix` before `agent` (for example `wiggum --autofix agent run session`), it is consumed as a Wiggum global and not forwarded.
+- any `--autofix` after `--` is always forwarded to the underlying tool unchanged.
+
 For CI/non-interactive contexts, `--autofix` automatically falls back to prompt output instead of launching TUI.  
 You can force prompt-only behavior explicitly with:
 
@@ -151,7 +157,9 @@ Note: `wiggum agent` / `wiggum agent chat` require an interactive TTY terminal.
 `wiggum agent serve` validates port values (must be 1-65535).
 Hostname aliases: `--hostname <host>`, `--hostname=<host>`, `--host <host>`, or `--host=<host>`.
 You can also use short serve aliases: `-p <port>` / `-p=<port>` and `-H <hostname>` / `-H=<hostname>`.
-`--autofix` is treated as a Wiggum global only for runner/passthrough execution modes; when used with `wiggum agent run ...` it is forwarded as a normal OpenCode argument.
+`--autofix` handling with agent commands is positional:
+- `wiggum agent run ... --autofix` forwards `--autofix` to OpenCode.
+- `wiggum --autofix agent run ...` consumes `--autofix` as a Wiggum global.
 
 Examples:
 
