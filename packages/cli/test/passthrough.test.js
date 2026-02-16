@@ -378,6 +378,24 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('--hostname <host>');
     });
 
+    test('agent serve help ignores trailing invalid flags', () => {
+      const root = makeTempDir();
+      const emptyPathDir = path.join(root, 'empty-bin');
+      fs.mkdirSync(emptyPathDir, { recursive: true });
+
+      const result = runCLI('agent serve --help --mystery', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${path.dirname(process.execPath)}:${emptyPathDir}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Usage: wiggum agent serve');
+      expect(result.stderr).not.toContain('Unknown serve option');
+    });
+
     test('agent serve accepts --port= and --hostname= forms', () => {
       const root = makeTempDir();
       const binDir = path.join(root, 'bin');

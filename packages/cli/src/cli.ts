@@ -649,8 +649,9 @@ function parseAgentServeArgs(argsArr: string[]): ParsedAgentServeArgs {
   for (let i = 0; i < argsArr.length; i++) {
     const arg = argsArr[i];
     if (arg === '--help' || arg === '-h') {
-      parsed.help = true;
-      continue;
+      return {
+        help: true,
+      };
     }
     if (arg === '--port' || arg === '-p') {
       const value = argsArr[i + 1];
