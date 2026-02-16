@@ -298,7 +298,8 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('[runner] AI remediation prompt:');
     expect(result.stderr).toContain('Failure diagnostics by project:');
     expect(result.stderr).toContain('Project: @scope/app');
-    expect(result.stderr).toContain('ai stderr');
+    expect(result.stderr).toContain('Captured stdout:\nai stdout');
+    expect(result.stderr).toContain('Captured stderr:\nai stderr');
   });
 
   test('supports nested object project entries without temp files', () => {

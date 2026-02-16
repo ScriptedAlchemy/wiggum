@@ -834,7 +834,7 @@ Use "wiggum <command> --help" to see help for a specific command.
             await forwardCommand(mapping.tool, runArgs, mapping, {
               autofix: false,
               cwd: project.root,
-              captureOutput: autofix,
+              captureOutput: autofix || runnerFlags.aiPrompt,
             });
           } catch (error: unknown) {
             if (error instanceof CommandExecutionError) {
