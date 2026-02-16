@@ -83,6 +83,14 @@ const RUNNER_CONFIG_FILES = [
 const PROJECT_CONFIG_RE = /(?:^|\/)(?:rslib|rsbuild|rspack|rspress|rstest|rslint)\.config\.(?:mjs|js|cjs|mts|cts|ts)$/;
 const IMPORT_ARGUMENT_COMMENT_RE = '(?:\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n\\r]*)\\s*';
 const DEFAULT_MAX_INFERRED_IMPORT_SCAN_FILES = 400;
+const INFERRED_IMPORT_SOURCE_PATTERNS = [
+  'src/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+  'test/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+  'tests/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+  'spec/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+  'specs/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+  '__tests__/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
+];
 const IMPORT_RE =
   new RegExp(
     `(?:import\\s+(?:[^'"]+from\\s*)?|import\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|export\\s+[^'"]*from\\s*|require\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*)['"]([^'"]+)['"]\\s*\\)?`,
@@ -697,15 +705,7 @@ async function inferImportDependencies(
   if (packageNameToProject.size === 0) return;
 
   for (const project of projects) {
-    const sourcePattern = [
-      'src/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
-      'test/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
-      'tests/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
-      'spec/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
-      'specs/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
-      '__tests__/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}',
-    ];
-    const files = await fg(sourcePattern, {
+    const files = await fg(INFERRED_IMPORT_SOURCE_PATTERNS, {
       cwd: project.root,
       absolute: true,
       onlyFiles: true,
