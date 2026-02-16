@@ -341,6 +341,51 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('Command: opencode serve --port 4096 --hostname 127.0.0.1');
       expect(result.stdout).toContain('fake-opencode:serve --port 4096 --hostname 127.0.0.1');
     });
+
+    test('agent serve accepts --port= and --hostname= forms', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(
+        fakeOpenCodePath,
+        '#!/usr/bin/env bash\necho \"fake-opencode:$@\"\nexit 0\n',
+        { mode: 0o755 },
+      );
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent serve --port=4500 --hostname=0.0.0.0', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Command: opencode serve --port 4500 --hostname 0.0.0.0');
+      expect(result.stdout).toContain('fake-opencode:serve --port 4500 --hostname 0.0.0.0');
+    });
+
+    test('agent serve validates invalid port values', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(fakeOpenCodePath, '#!/usr/bin/env bash\nexit 0\n', { mode: 0o755 });
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent serve --port=99999', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Invalid --port value "99999"');
+    });
   });
 
   describe('Complex flag combinations', () => {

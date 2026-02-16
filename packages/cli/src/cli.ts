@@ -982,7 +982,13 @@ Global options:
       for (let i = 0; i < argsArr.length; i++) {
         const a = argsArr[i];
         if (a.startsWith('--')) {
-          const key = a.slice(2);
+          const valueSplit = a.slice(2).split('=');
+          const key = valueSplit[0];
+          const inlineValue = valueSplit.length > 1 ? valueSplit.slice(1).join('=') : undefined;
+          if (inlineValue !== undefined) {
+            flags[key] = inlineValue;
+            continue;
+          }
           const next = argsArr[i + 1];
           if (next && !next.startsWith('-')) {
             flags[key] = next;
@@ -1031,8 +1037,22 @@ Global options:
         case 'serve':
         case 'server': {
           const flags = parseFlags(commandArgs.slice(1));
-          const port = flags.port ? parseInt(flags.port as string) : undefined;
-          const hostname = (flags.hostname as string) || undefined;
+          if (flags.port === true) {
+            throw new Error('Missing value for --port');
+          }
+          if (flags.hostname === true) {
+            throw new Error('Missing value for --hostname');
+          }
+          const portRaw = typeof flags.port === 'string' ? flags.port : undefined;
+          let port: number | undefined;
+          if (portRaw !== undefined) {
+            const parsedPort = Number.parseInt(portRaw, 10);
+            if (!Number.isFinite(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+              throw new Error(`Invalid --port value "${portRaw}". Expected an integer between 1 and 65535.`);
+            }
+            port = parsedPort;
+          }
+          const hostname = typeof flags.hostname === 'string' ? flags.hostname : undefined;
           await runOpenCodeServer(port, hostname);
           break;
         }
