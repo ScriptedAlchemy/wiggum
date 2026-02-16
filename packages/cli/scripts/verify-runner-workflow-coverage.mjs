@@ -158,19 +158,27 @@ function normalizeInlineScalar(value) {
 
 function extractRunCommand(stepBlock) {
   const lines = stepBlock.split(/\r?\n/);
+  let runCount = 0;
+  let runCommand;
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed.startsWith('run:')) {
       continue;
     }
+    runCount += 1;
     const value = trimmed.slice('run:'.length).trim();
     if (value.length === 0 || value.startsWith('|') || value.startsWith('>')) {
-      return undefined;
+      continue;
     }
     const normalizedValue = normalizeInlineScalar(value);
-    return normalizedValue.length > 0 ? normalizedValue : undefined;
+    if (normalizedValue.length > 0 && runCommand === undefined) {
+      runCommand = normalizedValue;
+    }
   }
-  return undefined;
+  return {
+    runCommand,
+    runCount,
+  };
 }
 
 function verifyPackageScriptsContent(packageJsonContent) {
@@ -219,7 +227,10 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
       throw new Error(`Workflow ${workflowPath} contains duplicate required step "${requiredStep.name}"`);
     }
     const [stepBlock] = stepBlocks;
-    const runCommand = extractRunCommand(stepBlock);
+    const { runCommand, runCount } = extractRunCommand(stepBlock);
+    if (runCount !== 1) {
+      throw new Error(`Step "${requiredStep.name}" must declare exactly one run command`);
+    }
     if (runCommand !== requiredStep.requiredRunCommand) {
       throw new Error(
         `Step "${requiredStep.name}" must run "${requiredStep.requiredRunCommand}"`,
