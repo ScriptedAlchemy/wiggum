@@ -8,4 +8,4 @@ Follow-up hardening includes stricter verifier script input contracts (safe inte
 
 Additional runner graph hardening now broadens inferred dependency detection across static imports, dynamic imports, `require` calls, and export-from specifiers (including scoped and unscoped subpath forms, plus commented import argument lists) while supporting `.mts`/`.cts` source scanning and deterministic capped-file traversal. The `--no-infer-imports` control is now fully covered across `run`, `projects graph`, and `projects list` outputs.
 
-Inference scan behavior is now tunable via `WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES` (positive integer, default `400`) with explicit validation and mode-aware behavior across `run` and `projects` workflows.
+Inference scan behavior is now tunable via `WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES` (positive integer, default `400`) with explicit validation and mode-aware behavior across `run` and `projects` workflows (including fallback/ignore behavior when `--no-infer-imports` is enabled).
