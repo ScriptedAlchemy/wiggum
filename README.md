@@ -60,8 +60,29 @@ Common commands:
 - `wiggum doc …` → Rspress passthrough
 - `wiggum doctor …` → Rsdoctor passthrough
 - `wiggum agent …` → OpenCode integration (see package README for details)
+- `wiggum projects …` → list/graph workspace projects discovered from runner config
+- `wiggum run <task> …` → run any Rstack task across projects with graph-based ordering and concurrency
 
 Tip: run `wiggum --help` for a concise command list.
+
+### Runner config (workspace orchestration)
+
+Add a `wiggum.config.json` at your repo root to declare projects:
+
+```json
+{
+  "projects": ["packages/*"]
+}
+```
+
+Then use:
+
+```bash
+wiggum projects graph --json
+wiggum run build --parallel 4
+wiggum run test --project "@scope/*" --project "!@scope/legacy"
+wiggum run lint --dry-run --json
+```
 
 ## Chat Widget (Rsbuild plugin)
 

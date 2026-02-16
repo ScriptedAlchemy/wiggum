@@ -3,6 +3,7 @@
 `wiggum` is a tiny passthrough CLI for R* tools with an `agent` command that integrates the OpenCode AI assistant.
 
 - Passthrough commands: `build` (Rsbuild), `pack` (Rspack), `lint` (Rslint), `lib` (Rslib), `test` (Rstest), `doc` (Rspress), `doctor` (Rsdoctor)
+- Runner commands: `run` and `projects` for workspace orchestration with dependency graph ordering
 - Agent commands: `agent serve`, `agent chat`, `agent run`, `agent install`, `agent init`
 
 ## Install
@@ -38,6 +39,46 @@ Passthrough example (all flags go straight to the underlying tool):
 wiggum build dev --open
 wiggum test --watch
 wiggum lint src --autofix
+```
+
+### Workspace runner (project graph + orchestration)
+
+Wiggum can orchestrate tasks across many projects with an independently calculated project graph (no pnpm/Nx graph dependency).
+
+Create a root runner config:
+
+```json
+{
+  "projects": ["packages/*"]
+}
+```
+
+Inspect discovered projects:
+
+```bash
+wiggum projects list
+wiggum projects graph --json
+```
+
+Run a task across the workspace:
+
+```bash
+wiggum run build
+wiggum run test --project @scope/app
+wiggum run lint --parallel 4
+```
+
+Planning/debugging modes:
+
+```bash
+wiggum run build --dry-run
+wiggum run build --dry-run --json
+```
+
+`--project` supports wildcard and negation filters:
+
+```bash
+wiggum run build --project "@scope/*" --project "!@scope/legacy"
 ```
 
 ### Agent integration (OpenCode)

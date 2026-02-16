@@ -1,0 +1,10 @@
+{
+  "$schema": "https://wiggum.dev/config.schema.json",
+  "ignore": [
+    "**/dist/**",
+    "**/node_modules/**"
+  ],
+  "projects": [
+    "packages/*"
+  ]
+}

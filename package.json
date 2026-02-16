@@ -6,6 +6,9 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "test:runner": "pnpm -F @wiggum/cli test",
+    "verify:runner:coverage": "node ./packages/cli/scripts/verify-runner-coverage.mjs",
+    "verify:runner:workflow": "node ./packages/cli/scripts/verify-runner-workflow-coverage.mjs",
     "dev": "pnpm -r dev",
     "clean": "pnpm -r clean",
     "publint": "pnpm -r publint",
