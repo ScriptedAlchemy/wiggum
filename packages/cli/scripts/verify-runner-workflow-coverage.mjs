@@ -16,34 +16,72 @@ const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
   'verify:runner:coverage': /node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs/,
   'verify:runner:workflow': /node\s+\.\/packages\/cli\/scripts\/verify-runner-workflow-coverage\.mjs/,
 };
-const REQUIRED_WORKFLOW_RUNS = [
-  /name:\s*Build all packages[\s\S]*?run:\s*pnpm build/,
-  /name:\s*Run tests[\s\S]*?run:\s*pnpm test/,
-  /name:\s*Run runner-focused CLI tests[\s\S]*?run:\s*pnpm run test:runner/,
-  /name:\s*Verify runner project coverage[\s\S]*?run:\s*pnpm run verify:runner:coverage/,
-  /name:\s*Verify runner workflow coverage[\s\S]*?run:\s*pnpm run verify:runner:workflow/,
-  /name:\s*Build workspace \(required for lint commands\)[\s\S]*?run:\s*pnpm build/,
-  /name:\s*Run linting[\s\S]*?run:\s*pnpm -r --if-present run lint/,
-  /name:\s*Check types[\s\S]*?run:\s*pnpm -r exec tsc --noEmit/,
-];
-const FORBIDDEN_WORKFLOW_PATTERNS = [
-  /name:\s*Build all packages[\s\S]*?continue-on-error:\s*true/,
-  /name:\s*Build all packages[\s\S]*?run:\s*pnpm build\s*\|\|\s*true/,
-  /name:\s*Run tests[\s\S]*?continue-on-error:\s*true/,
-  /name:\s*Run tests[\s\S]*?run:\s*pnpm test\s*\|\|\s*true/,
-  /name:\s*Build workspace \(required for lint commands\)[\s\S]*?continue-on-error:\s*true/,
-  /name:\s*Build workspace \(required for lint commands\)[\s\S]*?run:\s*pnpm build\s*\|\|\s*true/,
-  /name:\s*Run linting[\s\S]*?continue-on-error:\s*true/,
-  /name:\s*Run linting[\s\S]*?run:\s*pnpm -r --if-present run lint\s*\|\|\s*true/,
-  /name:\s*Run runner-focused CLI tests[\s\S]*?continue-on-error:\s*true/,
-  /name:\s*Run runner-focused CLI tests[\s\S]*?run:\s*pnpm run test:runner\s*\|\|\s*true/,
-  /name:\s*Verify runner project coverage[\s\S]*?continue-on-error:\s*true/,
-  /name:\s*Verify runner project coverage[\s\S]*?run:\s*pnpm run verify:runner:coverage\s*\|\|\s*true/,
-  /name:\s*Verify runner workflow coverage[\s\S]*?continue-on-error:\s*true/,
-  /name:\s*Verify runner workflow coverage[\s\S]*?run:\s*pnpm run verify:runner:workflow\s*\|\|\s*true/,
-  /name:\s*Check types[\s\S]*?continue-on-error:\s*true/,
-  /name:\s*Check types[\s\S]*?run:\s*pnpm -r exec tsc --noEmit\s*\|\|\s*true/,
-  /name:\s*Run linting[\s\S]*?run:\s*pnpm -r run lint/,
+const REQUIRED_WORKFLOW_STEPS = [
+  {
+    name: 'Build all packages',
+    requiredRunPattern: /run:\s*pnpm build/,
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm build\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Run tests',
+    requiredRunPattern: /run:\s*pnpm test/,
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm test\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Run runner-focused CLI tests',
+    requiredRunPattern: /run:\s*pnpm run test:runner/,
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm run test:runner\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Verify runner project coverage',
+    requiredRunPattern: /run:\s*pnpm run verify:runner:coverage/,
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm run verify:runner:coverage\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Verify runner workflow coverage',
+    requiredRunPattern: /run:\s*pnpm run verify:runner:workflow/,
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm run verify:runner:workflow\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Build workspace (required for lint commands)',
+    requiredRunPattern: /run:\s*pnpm build/,
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm build\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Run linting',
+    requiredRunPattern: /run:\s*pnpm -r --if-present run lint/,
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm -r --if-present run lint\s*\|\|\s*true/,
+      /run:\s*pnpm -r run lint/,
+    ],
+  },
+  {
+    name: 'Check types',
+    requiredRunPattern: /run:\s*pnpm -r exec tsc --noEmit/,
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm -r exec tsc --noEmit\s*\|\|\s*true/,
+    ],
+  },
 ];
 
 function fail(message) {
@@ -57,6 +95,52 @@ function readUtf8(filePath) {
   } catch (error) {
     fail(`Failed to read ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+function getIndentWidth(line) {
+  const trimmedLength = line.trimStart().length;
+  return line.length - trimmedLength;
+}
+
+function extractStepName(line) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('- name:')) {
+    return undefined;
+  }
+  return trimmed.slice('- name:'.length).trim();
+}
+
+function extractStepBlock(workflow, stepName) {
+  const lines = workflow.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const parsedStepName = extractStepName(lines[i]);
+    if (parsedStepName !== stepName) {
+      continue;
+    }
+
+    const stepIndent = getIndentWidth(lines[i]);
+    let end = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      const line = lines[j];
+      const trimmed = line.trim();
+      if (trimmed.length === 0) {
+        continue;
+      }
+
+      const lineIndent = getIndentWidth(line);
+      if (extractStepName(line) && lineIndent === stepIndent) {
+        end = j;
+        break;
+      }
+      if (lineIndent < stepIndent) {
+        end = j;
+        break;
+      }
+    }
+
+    return lines.slice(i, end).join('\n');
+  }
+  return undefined;
 }
 
 function verifyPackageScripts() {
@@ -80,14 +164,24 @@ function verifyPackageScripts() {
 
 function verifyWorkflow() {
   const workflow = readUtf8(WORKFLOW_PATH);
-  for (const expectedPattern of REQUIRED_WORKFLOW_RUNS) {
-    if (!expectedPattern.test(workflow)) {
-      fail(`Workflow ${WORKFLOW_PATH} is missing run command matching ${expectedPattern}`);
+  for (const requiredStep of REQUIRED_WORKFLOW_STEPS) {
+    const stepBlock = extractStepBlock(workflow, requiredStep.name);
+    if (!stepBlock) {
+      fail(`Workflow ${WORKFLOW_PATH} is missing required step "${requiredStep.name}"`);
     }
-  }
-  for (const forbiddenPattern of FORBIDDEN_WORKFLOW_PATTERNS) {
-    if (forbiddenPattern.test(workflow)) {
-      fail(`Workflow ${WORKFLOW_PATH} contains forbidden pattern ${forbiddenPattern}`);
+
+    if (!requiredStep.requiredRunPattern.test(stepBlock)) {
+      fail(
+        `Step "${requiredStep.name}" is missing expected run command pattern ${requiredStep.requiredRunPattern}`,
+      );
+    }
+
+    for (const forbiddenPattern of requiredStep.forbiddenPatterns) {
+      if (forbiddenPattern.test(stepBlock)) {
+        fail(
+          `Step "${requiredStep.name}" contains forbidden pattern ${forbiddenPattern}`,
+        );
+      }
     }
   }
 }
