@@ -131,7 +131,7 @@ export async function runOpenCodeServer(port?: number, hostname?: string): Promi
   const child = spawnOpenCode(args, { config: mergedConfig });
 
   // Handle graceful shutdown
-  process.on('SIGINT', () => {
+  process.once('SIGINT', () => {
     console.log(chalk.yellow('\nStopping OpenCode server...'));
     child.kill('SIGINT');
     process.exit(0);

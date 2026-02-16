@@ -108,7 +108,7 @@ async function openAutofixSession(prompt: string): Promise<void> {
   const tui = await createWiggumOpencodeTui({ prompt });
 
   // Keep session alive until interrupted
-  process.on('SIGINT', () => {
+  process.once('SIGINT', () => {
     console.log(chalk.yellow('\nShutting down...'));
     tui.close();
     process.exit(0);
@@ -1061,7 +1061,7 @@ Global options:
           console.log(chalk.cyan('Starting OpenCode interactive terminal UI...'));
           console.log(chalk.gray('Press Ctrl+C to exit'));
           const tui = await createWiggumOpencodeTui();
-          process.on('SIGINT', () => {
+          process.once('SIGINT', () => {
             console.log(chalk.yellow('\nShutting down...'));
             tui.close();
             process.exit(0);
