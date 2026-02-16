@@ -531,7 +531,7 @@ describe('Wiggum runner workspace graph', () => {
     });
 
     const result = runCLI(
-      ['projects', 'list', '--root', root, '--ai-prompt', '--dry-run'],
+      ['projects', 'list', '--root', root, '--ai-prompt', '--dry-run', '--parallel', '2'],
       root,
     );
     expect(result.exitCode).toBe(1);
@@ -540,6 +540,7 @@ describe('Wiggum runner workspace graph', () => {
     );
     expect(result.stderr).toContain('--ai-prompt');
     expect(result.stderr).toContain('--dry-run');
+    expect(result.stderr).toContain('--parallel');
   });
 
   test('run rejects --ai-prompt with --dry-run', () => {
