@@ -15,22 +15,22 @@
     "lint:fix": "pnpm --filter @wiggum/cli build && wiggum lint --fix ."
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "@rsbuild/core": "^1.5.3",
-    "@rsbuild/plugin-type-check": "^1.2.4",
-    "@rslint/core": "^0.1.13",
-    "@rstest/core": "^0.3.2",
-    "@types/react": "^18.3.24",
+    "@playwright/test": "^1.58.2",
+    "@rsbuild/core": "^1.7.3",
+    "@rsbuild/plugin-type-check": "^1.3.3",
+    "@rslint/core": "^0.1.14",
+    "@rstest/core": "^0.3.4",
+    "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "@wiggum/cli": "workspace:*",
     "@wiggum/rsbuild-plugin-wiggum": "workspace:*",
-    "jsdom": "^27.0.0",
-    "playwright": "^1.55.0",
-    "publint": "^0.3.12",
-    "typescript": "^5.9.2"
+    "jsdom": "^27.4.0",
+    "playwright": "^1.58.2",
+    "publint": "^0.3.17",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@rsbuild/plugin-react": "^1.4.0",
+    "@rsbuild/plugin-react": "^1.4.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }

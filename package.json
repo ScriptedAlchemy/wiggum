@@ -26,8 +26,8 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@changesets/cli": "^2.29.7",
-    "@types/node": "^20.19.12"
+    "@changesets/cli": "^2.29.8",
+    "@types/node": "^20.19.33"
   },
   "engines": {
     "node": ">=14.0.0",

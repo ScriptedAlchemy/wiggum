@@ -47,16 +47,16 @@
   },
   "devDependencies": {
     "@rslib/core": "^0.12.4",
-    "@rspack/cli": "^1.5.4",
-    "@rstest/core": "^0.3.2",
-    "@types/node": "^20.19.12",
+    "@rspack/cli": "^1.7.6",
+    "@rstest/core": "^0.3.4",
+    "@types/node": "^20.19.33",
     "@types/which": "^3.0.4",
     "jest": "^29.7.0",
-    "publint": "^0.3.12",
-    "rspress": "^1.45.3",
+    "publint": "^0.3.17",
+    "rspress": "^1.47.1",
     "strip-ansi": "^7.1.2",
-    "tsx": "^4.15.7",
-    "typescript": "^5.9.2"
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"

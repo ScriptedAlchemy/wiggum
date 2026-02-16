@@ -29,8 +29,8 @@
   },
   "devDependencies": {
     "@rslib/core": "^0.12.4",
-    "@types/node": "^20.19.12",
-    "publint": "^0.3.12",
-    "typescript": "^5.9.2"
+    "@types/node": "^20.19.33",
+    "publint": "^0.3.17",
+    "typescript": "^5.9.3"
   }
 }
