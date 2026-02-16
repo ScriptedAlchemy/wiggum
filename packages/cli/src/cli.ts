@@ -632,9 +632,14 @@ Usage: wiggum agent serve [--port <1-65535>] [--hostname <host>]
 Options:
   --port <port>            Server port (must be 1-65535)
   -p <port>                Alias for --port
+  --port=<port>            Equals-form alias for --port
+  -p=<port>                Equals-form alias for --port
   --hostname <host>        Server hostname
+  --hostname=<host>        Equals-form server hostname
   --host <host>            Alias for --hostname
+  --host=<host>            Equals-form alias for --hostname
   -H <host>                Alias for --hostname
+  -H=<host>                Equals-form alias for --hostname
   --help, -h               Show serve-specific help
 `);
 }

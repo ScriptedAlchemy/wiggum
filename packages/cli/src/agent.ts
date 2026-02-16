@@ -195,10 +195,15 @@ ${chalk.yellow('Commands:')}
   
 ${chalk.yellow('Server Options:')}
   --port <port>       Server port (default: 3000)
+  --port=<port>       Equals-form alias for --port
   --hostname <host>   Server hostname (default: localhost)
+  --hostname=<host>   Equals-form server hostname
   --host <host>       Alias for --hostname
+  --host=<host>       Equals-form alias for --hostname
   -p <port>           Short alias for --port
+  -p=<port>           Equals-form alias for --port
   -H <host>           Short alias for --hostname
+  -H=<host>           Equals-form alias for --hostname
 
 ${chalk.yellow('Notes:')}
   Chat modes require an interactive terminal (TTY).
@@ -215,7 +220,9 @@ ${chalk.yellow('Examples:')}
   wiggum agent serve
   wiggum agent serve --port 4096
   wiggum agent server --port=4096 --hostname=0.0.0.0
+  wiggum agent serve --port=4096 --host=localhost
   wiggum agent serve -p 4096 -H localhost
+  wiggum agent serve -p=4096 -H=localhost
 
   ${chalk.gray('# Start interactive chat')}
   wiggum agent chat
