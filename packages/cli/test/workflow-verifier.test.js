@@ -1,4 +1,4 @@
-import { describe, test, expect } from '@rstest/core';
+import { describe, test, expect, afterEach } from '@rstest/core';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,6 +13,7 @@ const REPO_ROOT = path.resolve(__dirname, '../../..');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(REPO_ROOT, '.github/workflows/ci.yml');
 const WORKFLOW_VERIFIER_SCRIPT_PATH = path.resolve(__dirname, '../scripts/verify-runner-workflow-coverage.mjs');
+const tempFixtureRoots = new Set();
 
 function readCurrentInputs() {
   return {
@@ -33,6 +34,7 @@ function createWorkflowVerifierFixture({
   workflowContent,
 }) {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-verifier-fixture-'));
+  tempFixtureRoots.add(fixtureRoot);
   const workflowDir = path.join(fixtureRoot, '.github', 'workflows');
   const scriptDir = path.join(fixtureRoot, 'packages', 'cli', 'scripts');
   fs.mkdirSync(workflowDir, { recursive: true });
@@ -54,7 +56,15 @@ function cleanupWorkflowVerifierFixture(fixture) {
     return;
   }
   fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+  tempFixtureRoots.delete(fixture.rootDir);
 }
+
+afterEach(() => {
+  for (const fixtureRoot of tempFixtureRoots) {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+  tempFixtureRoots.clear();
+});
 
 describe('runner workflow coverage verifier', () => {
   test('rejects non-string packageJsonContent input', () => {
