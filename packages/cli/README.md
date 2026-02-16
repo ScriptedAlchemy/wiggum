@@ -67,6 +67,14 @@ Create a root runner config:
 }
 ```
 
+Supported runner config filenames are:
+- `wiggum.config.json`
+- `wiggum.config.mjs`
+- `wiggum.config.js`
+- `wiggum.config.cjs`
+
+TypeScript runner config variants (`wiggum.config.ts` / `.mts` / `.cts`) are not currently supported.
+
 Inspect discovered projects:
 
 ```bash
