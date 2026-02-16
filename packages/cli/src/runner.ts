@@ -4,7 +4,10 @@ import { pathToFileURL } from 'url';
 import fastGlob from 'fast-glob';
 
 const fg = fastGlob;
-const isDynamicPattern = (fastGlob as any).isDynamicPattern as (pattern: string) => boolean;
+type FastGlobWithHelpers = typeof fastGlob & {
+  isDynamicPattern: (pattern: string) => boolean;
+};
+const { isDynamicPattern } = fastGlob as FastGlobWithHelpers;
 
 export type RunnerConfigEntry = string | RunnerProjectEntry;
 
