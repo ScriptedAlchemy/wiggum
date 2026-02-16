@@ -15,6 +15,11 @@ const REQUIRED_WORKFLOW_RUNS = [
   /pnpm run test:runner/,
   /pnpm run verify:runner:coverage/,
   /pnpm run verify:runner:workflow/,
+  /name:\s*Check types[\s\S]*?run:\s*pnpm -r exec tsc --noEmit/,
+];
+const FORBIDDEN_WORKFLOW_PATTERNS = [
+  /name:\s*Check types[\s\S]*?continue-on-error:\s*true/,
+  /name:\s*Check types[\s\S]*?run:\s*pnpm -r exec tsc --noEmit\s*\|\|\s*true/,
 ];
 
 function fail(message) {
@@ -45,6 +50,11 @@ function verifyWorkflow() {
   for (const expectedPattern of REQUIRED_WORKFLOW_RUNS) {
     if (!expectedPattern.test(workflow)) {
       fail(`Workflow ${WORKFLOW_PATH} is missing run command matching ${expectedPattern}`);
+    }
+  }
+  for (const forbiddenPattern of FORBIDDEN_WORKFLOW_PATTERNS) {
+    if (forbiddenPattern.test(workflow)) {
+      fail(`Workflow ${WORKFLOW_PATH} contains forbidden pattern ${forbiddenPattern}`);
     }
   }
 }
