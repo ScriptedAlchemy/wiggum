@@ -597,6 +597,27 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Missing value for --project');
   });
 
+  test('run rejects invalid WIGGUM_RUNNER_PARALLEL env value', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run'],
+      root,
+      {
+        WIGGUM_RUNNER_PARALLEL: '2abc',
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_PARALLEL value "2abc"');
+  });
+
   test('projects rejects blank --project list values', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {

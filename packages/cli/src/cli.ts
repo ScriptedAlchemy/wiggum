@@ -413,11 +413,34 @@ function splitListValue(raw: string): string[] {
 }
 
 function parseRunnerFlags(args: string[]): RunnerFlags {
+  const parsePositiveIntegerFlag = (flagName: string, rawValue: string): number => {
+    if (!/^\d+$/.test(rawValue)) {
+      throw new Error(`Invalid ${flagName} value "${rawValue}"`);
+    }
+    const value = Number.parseInt(rawValue, 10);
+    if (!Number.isFinite(value) || value < 1) {
+      throw new Error(`Invalid ${flagName} value "${rawValue}"`);
+    }
+    return value;
+  };
+
+  const defaultParallel = (() => {
+    const rawValue = process.env.WIGGUM_RUNNER_PARALLEL;
+    if (rawValue === undefined || rawValue.trim().length === 0) {
+      return 4;
+    }
+    try {
+      return parsePositiveIntegerFlag('WIGGUM_RUNNER_PARALLEL', rawValue);
+    } catch {
+      throw new Error(
+        `Invalid WIGGUM_RUNNER_PARALLEL value "${rawValue}". Expected a positive integer.`,
+      );
+    }
+  })();
+
   const parsed: RunnerFlags = {
     projectFilters: [],
-    parallel: Number.isFinite(Number(process.env.WIGGUM_RUNNER_PARALLEL))
-      ? Math.max(1, Number(process.env.WIGGUM_RUNNER_PARALLEL))
-      : 4,
+    parallel: defaultParallel,
     dryRun: false,
     json: false,
     aiPrompt: false,
@@ -430,17 +453,6 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
     if (!parsed.runOnlyFlagsUsed.includes(flagName)) {
       parsed.runOnlyFlagsUsed.push(flagName);
     }
-  };
-
-  const parsePositiveIntegerFlag = (flagName: string, rawValue: string): number => {
-    if (!/^\d+$/.test(rawValue)) {
-      throw new Error(`Invalid ${flagName} value "${rawValue}"`);
-    }
-    const value = Number.parseInt(rawValue, 10);
-    if (!Number.isFinite(value) || value < 1) {
-      throw new Error(`Invalid ${flagName} value "${rawValue}"`);
-    }
-    return value;
   };
 
   const parseProjectFilterValues = (rawValue: string, flagName: string): string[] => {
@@ -633,6 +645,7 @@ Runner options:
 
 Notes:
   --ai-prompt and --autofix cannot be combined with --dry-run.
+  Default parallelism can be set via WIGGUM_RUNNER_PARALLEL=<positive integer>.
 
 Pass task arguments after "--" so they are forwarded to the underlying tool.
 `);

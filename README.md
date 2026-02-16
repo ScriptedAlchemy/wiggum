@@ -94,6 +94,7 @@ For failed workspace runs, you can:
 - launch OpenCode directly with rich failure context using `--autofix`
 
 In CI/non-interactive terminals, `--autofix` falls back to printing the prompt instead of opening TUI.
+You can set default runner concurrency with `WIGGUM_RUNNER_PARALLEL=<positive integer>`.
 
 If a tool argument overlaps with a Wiggum global flag, pass it after `--`:
 
