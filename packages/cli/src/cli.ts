@@ -624,6 +624,17 @@ Pass task arguments after "--" so they are forwarded to the underlying tool.
 `);
 }
 
+function printAgentServeHelp(): void {
+  console.log(`
+Usage: wiggum agent serve [--port <1-65535>] [--hostname <host>]
+
+Options:
+  --port <port>            Server port (must be 1-65535)
+  --hostname <host>        Server hostname
+  --help, -h               Show serve-specific help
+`);
+}
+
 // Main CLI execution
 async function main() {
   // Simple CLI argument parsing
@@ -1008,6 +1019,13 @@ Global options:
 
     // If no subcommand, default to launching TUI
     const effectiveSub = sub || 'chat';
+    const subFlags = parseFlags(commandArgs.slice(1));
+    const isServeMode = effectiveSub === 'serve' || effectiveSub === 'server';
+    const isServeHelp = isServeMode && (subFlags.help === true || subFlags.h === true);
+    if (isServeHelp) {
+      printAgentServeHelp();
+      process.exit(0);
+    }
     const requiresInteractiveTerminal = effectiveSub === 'chat' || effectiveSub === 'tui';
 
     if (requiresInteractiveTerminal && !hasInteractiveTerminal()) {
@@ -1040,6 +1058,12 @@ Global options:
         case 'serve':
         case 'server': {
           const flags = parseFlags(commandArgs.slice(1));
+          const unknownFlags = Object.keys(flags).filter(
+            (flag) => !['port', 'hostname', 'help', 'h'].includes(flag),
+          );
+          if (unknownFlags.length > 0) {
+            throw new Error(`Unknown serve option(s): ${unknownFlags.join(', ')}`);
+          }
           if (flags.port === true) {
             throw new Error('Missing value for --port');
           }
