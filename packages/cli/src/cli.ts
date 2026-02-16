@@ -10,6 +10,13 @@ import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { createWiggumOpencodeTui, checkOpenCodeBinary, installOpenCode, runOpenCodeServer, runOpenCodeCommand, createOpenCodeConfig, showAgentHelp } from './agent.js';
 import { getPackageManager as pmDetect, installPackageDev, getExecuteCommand, isPackageInstalled } from './pm.js';
+import {
+  resolveRunnerWorkspace,
+  ensureAcyclicGraph,
+  buildExecutionOrder,
+  projectSummaries,
+  type RunnerProject,
+} from './runner.js';
 
 // Types
 interface PackageInfo {
@@ -104,7 +111,13 @@ async function installPackage(packageName: string, packageManager: string): Prom
 }
 
 // Forward command to the appropriate tool
-async function forwardCommand(toolName: string, originalArgs: string[], packageInfo: PackageInfo, autofix: boolean = false): Promise<void> {
+async function forwardCommand(
+  toolName: string,
+  originalArgs: string[],
+  packageInfo: PackageInfo,
+  autofix: boolean = false,
+  cwd: string = process.cwd(),
+): Promise<void> {
   try {
     // First try to find the tool in PATH
     const toolPath = await which(toolName).catch(() => null);
@@ -115,7 +128,7 @@ async function forwardCommand(toolName: string, originalArgs: string[], packageI
       if (autofix) {
         try {
           const result = await execa(toolName, originalArgs, { 
-            cwd: process.cwd(),
+            cwd,
             reject: false
           });
           
@@ -132,7 +145,7 @@ async function forwardCommand(toolName: string, originalArgs: string[], packageI
       } else {
         await execa(toolName, originalArgs, { 
           stdio: 'inherit',
-          cwd: process.cwd()
+          cwd
         });
       }
     } else {
@@ -177,7 +190,7 @@ async function forwardCommand(toolName: string, originalArgs: string[], packageI
       if (autofix) {
         try {
           const result = await execa(execCommand.command, execCommand.args, { 
-            cwd: process.cwd(),
+            cwd,
             reject: false
           });
           
@@ -194,13 +207,12 @@ async function forwardCommand(toolName: string, originalArgs: string[], packageI
       } else {
         await execa(execCommand.command, execCommand.args, { 
           stdio: 'inherit',
-          cwd: process.cwd()
+          cwd
         });
       }
     }
   } catch (error: any) {
-    console.error(chalk.red(`Error executing ${toolName}:`), error.message);
-    process.exit(1);
+    throw new Error(`Error executing ${toolName}: ${error.message}`);
   }
 }
 
@@ -230,6 +242,176 @@ function getPackageVersion(): string {
     return packageJson.version;
   } catch {
     return '1.0.0';
+  }
+}
+
+interface RunnerFlags {
+  configPath?: string;
+  rootDir?: string;
+  projectFilters: string[];
+  parallel: number;
+  dryRun: boolean;
+  json: boolean;
+  includeInferredImports: boolean;
+  passthroughArgs: string[];
+}
+
+function splitListValue(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parseRunnerFlags(args: string[]): RunnerFlags {
+  const parsed: RunnerFlags = {
+    projectFilters: [],
+    parallel: Number.isFinite(Number(process.env.WIGGUM_RUNNER_PARALLEL))
+      ? Math.max(1, Number(process.env.WIGGUM_RUNNER_PARALLEL))
+      : 4,
+    dryRun: false,
+    json: false,
+    includeInferredImports: true,
+    passthroughArgs: [],
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--') {
+      parsed.passthroughArgs.push(...args.slice(i + 1));
+      break;
+    }
+    if (arg === '--project' || arg === '-p') {
+      const value = args[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new Error(`Missing value for ${arg}`);
+      }
+      parsed.projectFilters.push(...splitListValue(value));
+      i++;
+      continue;
+    }
+    if (arg.startsWith('--project=')) {
+      parsed.projectFilters.push(...splitListValue(arg.slice('--project='.length)));
+      continue;
+    }
+    if (arg === '--config') {
+      const value = args[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new Error('Missing value for --config');
+      }
+      parsed.configPath = value;
+      i++;
+      continue;
+    }
+    if (arg.startsWith('--config=')) {
+      parsed.configPath = arg.slice('--config='.length);
+      continue;
+    }
+    if (arg === '--root') {
+      const value = args[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new Error('Missing value for --root');
+      }
+      parsed.rootDir = value;
+      i++;
+      continue;
+    }
+    if (arg.startsWith('--root=')) {
+      parsed.rootDir = arg.slice('--root='.length);
+      continue;
+    }
+    if (arg === '--parallel' || arg === '--concurrency') {
+      const value = args[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new Error(`Missing value for ${arg}`);
+      }
+      const parsedNumber = Number.parseInt(value, 10);
+      if (!Number.isFinite(parsedNumber) || parsedNumber < 1) {
+        throw new Error(`Invalid ${arg} value "${value}"`);
+      }
+      parsed.parallel = parsedNumber;
+      i++;
+      continue;
+    }
+    if (arg.startsWith('--parallel=')) {
+      const value = Number.parseInt(arg.slice('--parallel='.length), 10);
+      if (!Number.isFinite(value) || value < 1) {
+        throw new Error(`Invalid --parallel value "${arg}"`);
+      }
+      parsed.parallel = value;
+      continue;
+    }
+    if (arg.startsWith('--concurrency=')) {
+      const value = Number.parseInt(arg.slice('--concurrency='.length), 10);
+      if (!Number.isFinite(value) || value < 1) {
+        throw new Error(`Invalid --concurrency value "${arg}"`);
+      }
+      parsed.parallel = value;
+      continue;
+    }
+    if (arg === '--dry-run') {
+      parsed.dryRun = true;
+      continue;
+    }
+    if (arg === '--json') {
+      parsed.json = true;
+      continue;
+    }
+    if (arg === '--no-infer-imports') {
+      parsed.includeInferredImports = false;
+      continue;
+    }
+
+    parsed.passthroughArgs.push(arg);
+  }
+
+  return parsed;
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) return;
+  const size = Math.max(1, Math.min(concurrency, items.length));
+  let cursor = 0;
+
+  const runners = Array.from({ length: size }, async () => {
+    while (cursor < items.length) {
+      const currentIndex = cursor;
+      cursor += 1;
+      await worker(items[currentIndex]!);
+    }
+  });
+
+  await Promise.all(runners);
+}
+
+function renderProjectList(
+  projects: RunnerProject[],
+  rootDir: string,
+  configPath?: string,
+): void {
+  if (configPath) {
+    console.log(chalk.gray(`Config: ${configPath}`));
+  }
+  console.log(chalk.cyan(`Resolved ${projects.length} project(s):`));
+  for (const summary of projectSummaries(projects, rootDir)) {
+    console.log(`- ${summary.name}`);
+    console.log(`  root: ${summary.root}`);
+    if (summary.config !== '(auto)') {
+      console.log(`  config: ${summary.config}`);
+    }
+    if (summary.dependencies.length > 0) {
+      console.log(`  dependencies: ${summary.dependencies.join(', ')}`);
+    }
+    if (summary.inferredDependencies.length > 0) {
+      console.log(`  inferred: ${summary.inferredDependencies.join(', ')}`);
+    }
+    if (summary.args.length > 0) {
+      console.log(`  args: ${summary.args.join(' ')}`);
+    }
   }
 }
 
@@ -264,6 +446,8 @@ Commands:
   test       Test with Rstest
   doc        Documentation with Rspress
   doctor     Analyze with Rsdoctor
+  run        Run a task across runner projects
+  projects   List or graph runner projects
   agent      OpenCode AI agent integration
 
 This is a passthrough CLI - all flags and options are forwarded to the underlying tools.
@@ -283,6 +467,203 @@ Use "wiggum <command> --help" to see help for a specific command.
     console.log('Usage: wiggum <command> [options]');
     console.log('Run "wiggum --help" for available commands.');
     process.exit(1);
+  }
+
+  if (command === 'projects') {
+    const subCommand = commandArgs[0] || 'list';
+    if (!['list', 'graph'].includes(subCommand)) {
+      console.error(chalk.red(`Unknown projects subcommand: ${subCommand}`));
+      console.log(chalk.yellow('Usage: wiggum projects [list|graph] [runner flags]'));
+      process.exit(1);
+    }
+
+    let runnerFlags: RunnerFlags;
+    try {
+      runnerFlags = parseRunnerFlags(commandArgs.slice(1));
+    } catch (error: any) {
+      console.error(chalk.red('Invalid runner flags:'), error.message);
+      process.exit(1);
+      return;
+    }
+
+    try {
+      const workspace = await resolveRunnerWorkspace({
+        rootDir: runnerFlags.rootDir,
+        configPath: runnerFlags.configPath,
+        projectFilters: runnerFlags.projectFilters,
+        includeDependenciesForFiltered: false,
+        includeInferredImports: runnerFlags.includeInferredImports,
+      });
+      if (runnerFlags.json) {
+        const payload =
+          subCommand === 'list'
+            ? {
+                rootDir: workspace.rootDir,
+                configPath: workspace.configPath,
+                projects: projectSummaries(workspace.projects, workspace.rootDir),
+              }
+            : {
+                rootDir: workspace.rootDir,
+                configPath: workspace.configPath,
+                graph: workspace.graph,
+                projects: projectSummaries(workspace.projects, workspace.rootDir),
+              };
+        console.log(JSON.stringify(payload, null, 2));
+        return;
+      }
+
+      if (subCommand === 'list') {
+        renderProjectList(workspace.projects, workspace.rootDir, workspace.configPath);
+      } else {
+        renderProjectList(workspace.projects, workspace.rootDir, workspace.configPath);
+        console.log(chalk.cyan('\nProject graph:'));
+        console.log(`- Topological order: ${workspace.graph.topologicalOrder.join(' -> ') || '(none)'}`);
+        console.log(
+          `- Concurrency levels: ${
+            workspace.graph.levels
+              .map((level, index) => `L${index + 1}[${level.join(', ')}]`)
+              .join(' ')
+          }`,
+        );
+        if (workspace.graph.cycles.length > 0) {
+          console.log(chalk.red(`- Cycles: ${workspace.graph.cycles.map((cycle) => cycle.join(' -> ')).join('; ')}`));
+        }
+      }
+      return;
+    } catch (error: any) {
+      console.error(chalk.red('Failed to resolve projects:'), error.message ?? error);
+      process.exit(1);
+      return;
+    }
+  }
+
+  if (command === 'run') {
+    const task = commandArgs[0];
+    if (!task) {
+      console.error(chalk.red('Missing task name.'));
+      console.log(chalk.yellow('Usage: wiggum run <task> [runner flags] [-- task args]'));
+      process.exit(1);
+    }
+
+    const mapping = COMMAND_MAPPING[task];
+    if (!mapping) {
+      console.error(chalk.red(`Unsupported runner task: ${task}`));
+      console.log(chalk.yellow(`Supported tasks: ${Object.keys(COMMAND_MAPPING).join(', ')}`));
+      process.exit(1);
+    }
+
+    let runnerFlags: RunnerFlags;
+    try {
+      runnerFlags = parseRunnerFlags(commandArgs.slice(1));
+      if (runnerFlags.json && !runnerFlags.dryRun) {
+        throw new Error('--json requires --dry-run for run mode');
+      }
+    } catch (error: any) {
+      console.error(chalk.red('Invalid runner flags:'), error.message);
+      process.exit(1);
+      return;
+    }
+
+    try {
+      const workspace = await resolveRunnerWorkspace({
+        rootDir: runnerFlags.rootDir,
+        configPath: runnerFlags.configPath,
+        projectFilters: runnerFlags.projectFilters,
+        includeDependenciesForFiltered: true,
+        includeInferredImports: runnerFlags.includeInferredImports,
+      });
+      ensureAcyclicGraph(workspace.graph);
+
+      const orderedProjects = buildExecutionOrder(workspace.projects, workspace.graph);
+      const plans = orderedProjects.map((project) => ({
+        project: project.name,
+        cwd: project.root,
+        tool: mapping.tool,
+        args: [...project.args, ...runnerFlags.passthroughArgs],
+      }));
+
+      if (runnerFlags.dryRun) {
+        if (runnerFlags.json) {
+          console.log(
+            JSON.stringify(
+              {
+                task,
+                rootDir: workspace.rootDir,
+                configPath: workspace.configPath,
+                graph: workspace.graph,
+                projects: projectSummaries(workspace.projects, workspace.rootDir),
+                plan: plans,
+              },
+              null,
+              2,
+            ),
+          );
+        } else {
+          console.log(chalk.cyan(`Dry run for task "${task}" across ${plans.length} project(s):`));
+          console.log(
+            chalk.gray(
+              `Levels: ${workspace.graph.levels
+                .map((level, index) => `L${index + 1}[${level.join(', ')}]`)
+                .join(' ')}`,
+            ),
+          );
+          for (const plan of plans) {
+            console.log(`- ${plan.project}: ${plan.tool} ${plan.args.join(' ')}`.trim());
+          }
+        }
+        return;
+      }
+
+      const byName = new Map(workspace.projects.map((project) => [project.name, project]));
+      const failures: Array<{ project: string; message: string }> = [];
+
+      for (const level of workspace.graph.levels) {
+        const levelProjects = level
+          .map((name) => byName.get(name))
+          .filter((project): project is RunnerProject => Boolean(project));
+        await runWithConcurrency(levelProjects, runnerFlags.parallel, async (project) => {
+          const runArgs = [...project.args, ...runnerFlags.passthroughArgs];
+          console.log(
+            chalk.cyan(
+              `[runner] ${task} -> ${project.name} (${project.root})`,
+            ),
+          );
+          try {
+            await forwardCommand(mapping.tool, runArgs, mapping, false, project.root);
+          } catch (error: any) {
+            failures.push({
+              project: project.name,
+              message: error?.message ?? String(error),
+            });
+          }
+        });
+        if (failures.length > 0) {
+          break;
+        }
+      }
+
+      if (failures.length > 0) {
+        const details = failures
+          .map((failure) => `${failure.project}: ${failure.message}`)
+          .join('\n');
+        if (autofix) {
+          await handleAutofixError(
+            mapping.tool,
+            runnerFlags.passthroughArgs,
+            '',
+            details,
+            1,
+          );
+        }
+        console.error(chalk.red(`[runner] ${failures.length} project(s) failed:\n${details}`));
+        process.exit(1);
+      }
+      return;
+    } catch (error: any) {
+      console.error(chalk.red('Runner failed:'), error.message ?? error);
+      process.exit(1);
+      return;
+    }
   }
 
   // Handle agent command - integrate agent subcommands directly
