@@ -1,6 +1,12 @@
 import { describe, test, expect } from '@rstest/core';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { verifyRunnerCoverageData } from '../scripts/verify-runner-coverage.mjs';
+import {
+  listExpectedProjectRoots,
+  verifyRunnerCoverage,
+  verifyRunnerCoverageData,
+} from '../scripts/verify-runner-coverage.mjs';
 
 describe('runner coverage verifier', () => {
   test('returns summary when all expected projects are resolved', () => {
@@ -63,5 +69,79 @@ describe('runner coverage verifier', () => {
         rootDir,
       }),
     ).toThrow('Runner config is missing 1 package project(s):\n- packages/agent');
+  });
+
+  test('lists expected package roots sorted and package-json filtered', () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-list-'));
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(packagesDir, { recursive: true });
+    fs.mkdirSync(path.join(packagesDir, 'zebra'));
+    fs.mkdirSync(path.join(packagesDir, 'alpha'));
+    fs.mkdirSync(path.join(packagesDir, 'docs'));
+    fs.writeFileSync(path.join(packagesDir, 'zebra', 'package.json'), '{}');
+    fs.writeFileSync(path.join(packagesDir, 'alpha', 'package.json'), '{}');
+    fs.writeFileSync(path.join(packagesDir, 'README.md'), 'not-a-package');
+
+    const result = listExpectedProjectRoots(packagesDir);
+    expect(result).toEqual([
+      path.resolve(path.join(packagesDir, 'alpha')),
+      path.resolve(path.join(packagesDir, 'zebra')),
+    ]);
+  });
+
+  test('verifyRunnerCoverage rejects when config file is missing', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-config-'));
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(packagesDir, { recursive: true });
+
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath: path.join(tempRoot, 'wiggum.config.json'),
+        packagesDir,
+        minExpectedProjects: 1,
+      }),
+    ).rejects.toThrow('Runner config not found');
+  });
+
+  test('verifyRunnerCoverage passes expected options to workspace resolver', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-resolve-'));
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    const resolverCalls = [];
+    const originalLog = console.log;
+    const logMessages = [];
+    console.log = (...args) => {
+      logMessages.push(args.join(' '));
+    };
+    try {
+      await verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath,
+        packagesDir,
+        minExpectedProjects: 1,
+        resolveWorkspace: async (options) => {
+          resolverCalls.push(options);
+          return {
+            projects: [{ root: path.join(packagesDir, 'cli') }],
+          };
+        },
+      });
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(resolverCalls).toHaveLength(1);
+    expect(resolverCalls[0]).toEqual({
+      rootDir: tempRoot,
+      configPath,
+      includeDependenciesForFiltered: false,
+      includeInferredImports: false,
+    });
+    expect(logMessages[0]).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
   });
 });
