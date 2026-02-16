@@ -1559,6 +1559,44 @@ describe('Wiggum runner workspace graph', () => {
     expect(appNode?.inferredDependencies).toEqual([]);
   });
 
+  test('projects list --no-infer-imports removes inferred dependency summaries', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/index.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+
+    const result = runCLI(
+      [
+        'projects',
+        'list',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--no-infer-imports',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    const appProject = payload.projects.find((project) => project.name === '@scope/app');
+    expect(appProject?.inferredDependencies).toEqual([]);
+  });
+
   test('projects rejects run-only flags', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
