@@ -45,6 +45,13 @@ wiggum lint src --autofix
 
 Wiggum can orchestrate tasks across many projects with an independently calculated project graph (no pnpm/Nx graph dependency).
 
+The graph/orchestration model is aligned with patterns used across Rstack tooling:
+- project discovery via config paths/globs/object entries (similar to Rstest/Rslib workspace patterns)
+- package-name dependency linking for local workspace edges
+- deterministic topological ordering + cycle detection
+- wildcard/negation project filtering
+- concurrency by dependency levels
+
 Create a root runner config:
 
 ```json
