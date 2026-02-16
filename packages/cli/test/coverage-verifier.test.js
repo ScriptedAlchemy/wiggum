@@ -776,4 +776,38 @@ describe('runner coverage verifier', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
   });
+
+  test('coverage verifier CLI supports absolute config and packages overrides', () => {
+    const fixture = createCoverageVerifierFixture({
+      createPackagesDir: false,
+    });
+    const customPackagesDir = path.join(fixture.rootDir, 'custom-packages-abs');
+    const customConfigDir = path.join(fixture.rootDir, 'configs-abs');
+    fs.mkdirSync(path.join(customPackagesDir, 'cli'), { recursive: true });
+    fs.mkdirSync(customConfigDir, { recursive: true });
+    const customConfigPath = path.join(customConfigDir, 'wiggum.custom.abs.json');
+    fs.writeFileSync(
+      customConfigPath,
+      '{"root":"..","projects":["custom-packages-abs/*"]}',
+    );
+    fs.writeFileSync(
+      path.join(customPackagesDir, 'cli', 'package.json'),
+      '{"name":"@fixture/cli-abs"}',
+    );
+
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: fixture.rootDir,
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: customConfigPath,
+        WIGGUM_RUNNER_VERIFY_PACKAGES_DIR: customPackagesDir,
+        MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS: '1',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
+  });
 });
