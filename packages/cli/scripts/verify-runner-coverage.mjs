@@ -15,18 +15,32 @@ function normalizeEnvPathOverride(value) {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT_OVERRIDE = normalizeEnvPathOverride(process.env.WIGGUM_RUNNER_VERIFY_ROOT);
-const CONFIG_PATH_OVERRIDE = normalizeEnvPathOverride(process.env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH);
-const PACKAGES_DIR_OVERRIDE = normalizeEnvPathOverride(process.env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR);
-const ROOT = ROOT_OVERRIDE
-  ? path.resolve(ROOT_OVERRIDE)
-  : path.resolve(__dirname, '../../..');
-const CONFIG_PATH = CONFIG_PATH_OVERRIDE
-  ? path.resolve(ROOT, CONFIG_PATH_OVERRIDE)
-  : path.join(ROOT, 'wiggum.config.json');
-const PACKAGES_DIR = PACKAGES_DIR_OVERRIDE
-  ? path.resolve(ROOT, PACKAGES_DIR_OVERRIDE)
-  : path.join(ROOT, 'packages');
+const DEFAULT_ROOT = path.resolve(__dirname, '../../..');
+
+export function resolveVerifierPathsFromEnv({
+  env = process.env,
+  fallbackRoot = DEFAULT_ROOT,
+} = {}) {
+  const rootOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_ROOT);
+  const configPathOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH);
+  const packagesDirOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR);
+
+  const rootDir = rootOverride
+    ? path.resolve(rootOverride)
+    : path.resolve(fallbackRoot);
+  const configPath = configPathOverride
+    ? path.resolve(rootDir, configPathOverride)
+    : path.join(rootDir, 'wiggum.config.json');
+  const packagesDir = packagesDirOverride
+    ? path.resolve(rootDir, packagesDirOverride)
+    : path.join(rootDir, 'packages');
+
+  return {
+    rootDir,
+    configPath,
+    packagesDir,
+  };
+}
 
 export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS) {
   if (rawValue === undefined) {
@@ -103,7 +117,10 @@ export function findDuplicatePaths(entries) {
   return Array.from(duplicates).sort((a, b) => a.localeCompare(b));
 }
 
-export function listExpectedProjectRoots(packagesDir = PACKAGES_DIR, fileSystem = fs) {
+export function listExpectedProjectRoots(
+  packagesDir = resolveVerifierPathsFromEnv().packagesDir,
+  fileSystem = fs,
+) {
   const normalizedFileSystem = ensureFileSystemContract(fileSystem);
   if (!normalizedFileSystem.existsSync(packagesDir)) {
     throw new Error(`Packages directory not found at ${packagesDir}`);
@@ -219,18 +236,28 @@ export function extractResolvedProjectRoots(workspace) {
   });
 }
 
-export async function verifyRunnerCoverage({
-  rootDir = ROOT,
-  configPath = CONFIG_PATH,
-  packagesDir = PACKAGES_DIR,
-  minExpectedProjects,
-  fileSystem = fs,
-  resolveWorkspace = resolveRunnerWorkspace,
-} = {}) {
+export async function verifyRunnerCoverage(options = {}) {
+  const {
+    rootDir,
+    configPath,
+    packagesDir,
+    minExpectedProjects,
+    fileSystem = fs,
+    resolveWorkspace = resolveRunnerWorkspace,
+  } = options;
+  const defaults = resolveVerifierPathsFromEnv();
   const normalizedFileSystem = ensureFileSystemContract(fileSystem);
-  const normalizedRootDir = resolvePathOption(rootDir, 'rootDir');
-  const normalizedConfigPath = resolvePathOption(configPath, 'configPath', normalizedRootDir);
-  const normalizedPackagesDir = resolvePathOption(packagesDir, 'packagesDir', normalizedRootDir);
+  const normalizedRootDir = resolvePathOption(rootDir ?? defaults.rootDir, 'rootDir');
+  const normalizedConfigPath = resolvePathOption(
+    configPath ?? defaults.configPath,
+    'configPath',
+    normalizedRootDir,
+  );
+  const normalizedPackagesDir = resolvePathOption(
+    packagesDir ?? defaults.packagesDir,
+    'packagesDir',
+    normalizedRootDir,
+  );
   if (typeof resolveWorkspace !== 'function') {
     throw new Error('resolveWorkspace must be a function');
   }

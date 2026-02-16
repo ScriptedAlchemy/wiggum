@@ -11,6 +11,7 @@ import {
   findDuplicatePaths,
   listExpectedProjectRoots,
   ensureNonEmptyPathString,
+  resolveVerifierPathsFromEnv,
   resolvePathOption,
   parseMinimumExpectedProjects,
   verifyRunnerCoverage,
@@ -87,6 +88,39 @@ describe('runner coverage verifier', () => {
     expect(() => parseMinimumExpectedProjects('0')).toThrow(
       'MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got 0',
     );
+  });
+
+  test('resolveVerifierPathsFromEnv resolves relative overrides from root', () => {
+    const result = resolveVerifierPathsFromEnv({
+      env: {
+        WIGGUM_RUNNER_VERIFY_ROOT: '/repo',
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: 'configs/wiggum.custom.json',
+        WIGGUM_RUNNER_VERIFY_PACKAGES_DIR: 'custom-packages',
+      },
+    });
+
+    expect(result).toEqual({
+      rootDir: path.resolve('/repo'),
+      configPath: path.resolve('/repo', 'configs/wiggum.custom.json'),
+      packagesDir: path.resolve('/repo', 'custom-packages'),
+    });
+  });
+
+  test('resolveVerifierPathsFromEnv ignores blank overrides and uses fallback root', () => {
+    const result = resolveVerifierPathsFromEnv({
+      env: {
+        WIGGUM_RUNNER_VERIFY_ROOT: '   ',
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: '',
+        WIGGUM_RUNNER_VERIFY_PACKAGES_DIR: ' ',
+      },
+      fallbackRoot: '/fallback/workspace',
+    });
+
+    expect(result).toEqual({
+      rootDir: path.resolve('/fallback/workspace'),
+      configPath: path.resolve('/fallback/workspace', 'wiggum.config.json'),
+      packagesDir: path.resolve('/fallback/workspace', 'packages'),
+    });
   });
 
   test('findDuplicatePaths returns sorted unique duplicates', () => {
