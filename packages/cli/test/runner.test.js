@@ -579,6 +579,42 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('--autofix cannot be used with --dry-run');
   });
 
+  test('run rejects empty --project= value', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--project=', '--dry-run'],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Missing value for --project');
+  });
+
+  test('projects rejects blank --project list values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--project', ', ,'],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Missing value for --project');
+  });
+
   test('run rejects partially numeric --parallel values', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {

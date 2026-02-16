@@ -443,6 +443,14 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
     return value;
   };
 
+  const parseProjectFilterValues = (rawValue: string, flagName: string): string[] => {
+    const values = splitListValue(rawValue);
+    if (values.length === 0) {
+      throw new Error(`Missing value for ${flagName}`);
+    }
+    return values;
+  };
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--') {
@@ -454,12 +462,14 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
       if (!value || value.startsWith('-')) {
         throw new Error(`Missing value for ${arg}`);
       }
-      parsed.projectFilters.push(...splitListValue(value));
+      parsed.projectFilters.push(...parseProjectFilterValues(value, arg));
       i++;
       continue;
     }
     if (arg.startsWith('--project=')) {
-      parsed.projectFilters.push(...splitListValue(arg.slice('--project='.length)));
+      parsed.projectFilters.push(
+        ...parseProjectFilterValues(arg.slice('--project='.length), '--project'),
+      );
       continue;
     }
     if (arg === '--config') {
