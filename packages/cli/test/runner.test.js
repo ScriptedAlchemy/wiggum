@@ -294,6 +294,18 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Unsupported runner task: deploy');
   });
 
+  test('run keeps unsupported positional error even with trailing help token', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', '--dry-run', 'deploy', 'help'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Unsupported runner task: deploy');
+  });
+
   test('run keeps missing task message when only options are provided', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {

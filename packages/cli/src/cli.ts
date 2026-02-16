@@ -1136,10 +1136,7 @@ Global options:
       printRunHelp();
       process.exit(1);
     }
-    if (hasHelpFlagBeforePassthrough(commandArgs)) {
-      printRunHelp();
-      process.exit(0);
-    }
+    const runHelpRequested = hasHelpFlagBeforePassthrough(commandArgs);
 
     let parsedRunArgs: {
       task?: string;
@@ -1148,10 +1145,19 @@ Global options:
     try {
       parsedRunArgs = parseRunCommandArgs(commandArgs);
     } catch (error: any) {
+      const errorMessage = error?.message ?? String(error);
+      if (runHelpRequested && errorMessage === 'Unsupported runner task: help') {
+        printRunHelp();
+        process.exit(0);
+      }
       console.error(chalk.red('Invalid run command:'), error.message ?? error);
       printRunHelp();
       process.exit(1);
       return;
+    }
+    if (runHelpRequested) {
+      printRunHelp();
+      process.exit(0);
     }
     const task = parsedRunArgs.task;
     if (!task) {
