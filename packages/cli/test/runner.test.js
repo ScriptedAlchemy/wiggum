@@ -93,6 +93,18 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Missing value for --project');
   });
 
+  test('projects does not treat -h as help when used as missing --config value', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', 'list', '--config', '-h'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Missing value for --config');
+  });
+
   test('projects does not treat passthrough --help as command help', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -152,6 +164,18 @@ describe('Wiggum runner workspace graph', () => {
     const result = runCLI(['run', 'build', '--project', '-h'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Missing value for --project');
+  });
+
+  test('run does not treat -h as help when used as missing --parallel value', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', 'build', '--parallel', '-h'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Missing value for --parallel');
   });
 
   test('projects list --json resolves a single implicit project', () => {
