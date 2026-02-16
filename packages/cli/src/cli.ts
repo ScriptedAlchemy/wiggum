@@ -631,6 +631,7 @@ Usage: wiggum agent serve [--port <1-65535>] [--hostname <host>]
 Options:
   --port <port>            Server port (must be 1-65535)
   --hostname <host>        Server hostname
+  --host <host>            Alias for --hostname
   --help, -h               Show serve-specific help
 `);
 }
@@ -684,11 +685,30 @@ function parseAgentServeArgs(argsArr: string[]): ParsedAgentServeArgs {
       i++;
       continue;
     }
+    if (arg === '--host') {
+      const value = argsArr[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new Error('Missing value for --hostname');
+      }
+      if (parsed.hostnameRaw !== undefined) {
+        throw new Error('Duplicate --hostname option provided.');
+      }
+      parsed.hostnameRaw = value;
+      i++;
+      continue;
+    }
     if (arg.startsWith('--hostname=')) {
       if (parsed.hostnameRaw !== undefined) {
         throw new Error('Duplicate --hostname option provided.');
       }
       parsed.hostnameRaw = arg.slice('--hostname='.length);
+      continue;
+    }
+    if (arg.startsWith('--host=')) {
+      if (parsed.hostnameRaw !== undefined) {
+        throw new Error('Duplicate --hostname option provided.');
+      }
+      parsed.hostnameRaw = arg.slice('--host='.length);
       continue;
     }
     if (arg.startsWith('-')) {

@@ -466,6 +466,31 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('fake-opencode:serve --port 4500 --hostname 0.0.0.0');
     });
 
+    test('agent serve accepts --host alias for hostname', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(
+        fakeOpenCodePath,
+        '#!/usr/bin/env bash\necho \"fake-opencode:$@\"\nexit 0\n',
+        { mode: 0o755 },
+      );
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent serve --port 4500 --host 127.0.0.1', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Command: opencode serve --port 4500 --hostname 127.0.0.1');
+      expect(result.stdout).toContain('fake-opencode:serve --port 4500 --hostname 127.0.0.1');
+    });
+
     test('agent serve accepts short aliases for port and hostname', () => {
       const root = makeTempDir();
       const binDir = path.join(root, 'bin');
@@ -711,6 +736,23 @@ describe('Wiggum CLI Passthrough Tests', () => {
       fs.mkdirSync(emptyPathDir, { recursive: true });
 
       const result = runCLI('agent serve -H localhost --hostname 0.0.0.0', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${path.dirname(process.execPath)}:${emptyPathDir}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Duplicate --hostname option provided.');
+    });
+
+    test('agent serve rejects duplicate hostname aliases', () => {
+      const root = makeTempDir();
+      const emptyPathDir = path.join(root, 'empty-bin');
+      fs.mkdirSync(emptyPathDir, { recursive: true });
+
+      const result = runCLI('agent serve --host localhost --hostname 0.0.0.0', {
         cwd: root,
         env: {
           ...process.env,

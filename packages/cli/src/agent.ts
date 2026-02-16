@@ -196,6 +196,7 @@ ${chalk.yellow('Commands:')}
 ${chalk.yellow('Server Options:')}
   --port <port>       Server port (default: 3000)
   --hostname <host>   Server hostname (default: localhost)
+  --host <host>       Alias for --hostname
   -p <port>           Short alias for --port
   -H <host>           Short alias for --hostname
 
