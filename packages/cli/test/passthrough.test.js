@@ -1,5 +1,7 @@
-import { expect, test, describe } from '@rstest/core';
+import { expect, test, describe, afterEach } from '@rstest/core';
 import { execSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -11,11 +13,12 @@ const __dirname = dirname(__filename);
 // Path to the CLI script
 const CLI_PATH = path.join(__dirname, '../bin/cli.js');
 const SEMVER_OR_RSPACK_VERSION = /^(?:\d+\.\d+\.\d+|rspack\/\d+\.\d+\.\d+(?:\s+.+)?)$/;
+const tempDirs = [];
 
 // Helper function to run CLI commands
 function runCLI(args, options = {}) {
   try {
-    const result = execSync(`node ${CLI_PATH} ${args}`, {
+    const result = execSync(`"${process.execPath}" "${CLI_PATH}" ${args}`, {
       encoding: 'utf8',
       timeout: 30000, // 30 second timeout
       env: {
@@ -36,6 +39,21 @@ function runCLI(args, options = {}) {
     };
   }
 }
+
+function makeTempDir() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wiggum-cli-test-'));
+  tempDirs.push(dir);
+  return dir;
+}
+
+afterEach(() => {
+  while (tempDirs.length > 0) {
+    const dir = tempDirs.pop();
+    if (dir) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
 
 describe('Wiggum CLI Passthrough Tests', () => {
   describe('--version flag passthrough', () => {
@@ -213,6 +231,48 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Wiggum Agent - OpenCode Integration');
       expect(result.stdout).toContain('wiggum agent [command] [options]');
+    });
+
+    test('agent run reports missing OpenCode binary', () => {
+      const root = makeTempDir();
+      const emptyPathDir = path.join(root, 'empty-bin');
+      fs.mkdirSync(emptyPathDir, { recursive: true });
+
+      const result = runCLI('agent run status', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${path.dirname(process.execPath)}:${emptyPathDir}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('OpenCode is not installed');
+    });
+
+    test('agent run forwards command to opencode binary', () => {
+      const root = makeTempDir();
+      const binDir = path.join(root, 'bin');
+      fs.mkdirSync(binDir, { recursive: true });
+      const fakeOpenCodePath = path.join(binDir, 'opencode');
+      fs.writeFileSync(
+        fakeOpenCodePath,
+        '#!/usr/bin/env bash\necho \"fake-opencode:$@\"\nexit 0\n',
+        { mode: 0o755 },
+      );
+      fs.chmodSync(fakeOpenCodePath, 0o755);
+
+      const result = runCLI('agent run status', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH || ''}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Running: opencode status');
+      expect(result.stdout).toContain('fake-opencode:status');
     });
   });
 
