@@ -14,6 +14,9 @@ describe('verifier path utility helpers', () => {
   test('normalizeEnvPathOverride trims values and returns undefined for blank strings', () => {
     expect(normalizeEnvPathOverride('  /repo/custom  ')).toBe('/repo/custom');
     expect(normalizeEnvPathOverride('   ')).toBeUndefined();
+    expect(() => normalizeEnvPathOverride(42)).toThrow(
+      'env override value must be a string when provided',
+    );
   });
 
   test('ensureEnvObject rejects null and arrays', () => {
@@ -52,5 +55,8 @@ describe('verifier path utility helpers', () => {
         'WIGGUM_RUNNER_VERIFY_ROOT',
       ),
     ).toBeUndefined();
+    expect(() =>
+      readEnvPathOverride({ CUSTOM_OVERRIDE: 5 }, 'CUSTOM_OVERRIDE'),
+    ).toThrow('CUSTOM_OVERRIDE must be a string when provided');
   });
 });

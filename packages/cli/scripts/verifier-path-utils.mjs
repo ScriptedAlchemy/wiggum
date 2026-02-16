@@ -2,6 +2,9 @@ export function normalizeEnvPathOverride(value) {
   if (value === undefined) {
     return undefined;
   }
+  if (typeof value !== 'string') {
+    throw new Error('env override value must be a string when provided');
+  }
   const normalizedValue = value.trim();
   return normalizedValue.length > 0 ? normalizedValue : undefined;
 }
