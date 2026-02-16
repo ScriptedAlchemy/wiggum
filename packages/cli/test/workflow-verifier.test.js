@@ -1,4 +1,5 @@
 import { describe, test, expect } from '@rstest/core';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +11,7 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const PACKAGE_JSON_PATH = path.join(REPO_ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(REPO_ROOT, '.github/workflows/ci.yml');
+const WORKFLOW_VERIFIER_SCRIPT_PATH = path.resolve(__dirname, '../scripts/verify-runner-workflow-coverage.mjs');
 
 function readCurrentInputs() {
   return {
@@ -344,5 +346,16 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).not.toThrow();
+  });
+
+  test('workflow verifier CLI entrypoint succeeds on current repository state', () => {
+    const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: process.env,
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow.');
   });
 });
