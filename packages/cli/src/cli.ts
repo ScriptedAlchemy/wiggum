@@ -582,7 +582,25 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
 function hasHelpFlagBeforePassthrough(args: string[]): boolean {
   const boundary = args.indexOf('--');
   const parseSlice = boundary === -1 ? args : args.slice(0, boundary);
-  return parseSlice.includes('--help') || parseSlice.includes('-h');
+  const flagsRequiringValue = new Set([
+    '--project',
+    '-p',
+    '--config',
+    '--root',
+    '--parallel',
+    '--concurrency',
+  ]);
+
+  for (let i = 0; i < parseSlice.length; i++) {
+    const arg = parseSlice[i];
+    if (arg === '--help' || arg === '-h') {
+      return true;
+    }
+    if (flagsRequiringValue.has(arg)) {
+      i += 1;
+    }
+  }
+  return false;
 }
 
 async function runWithConcurrency<T>(
