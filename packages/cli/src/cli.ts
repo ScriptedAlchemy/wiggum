@@ -622,6 +622,9 @@ function parseProjectsCommandArgs(args: string[]): {
       if (subCommand && subCommand !== arg) {
         throw new Error(`Conflicting projects subcommands: ${subCommand} and ${arg}`);
       }
+      if (subCommand && subCommand === arg) {
+        throw new Error(`Duplicate projects subcommand token: ${arg}`);
+      }
       subCommand = arg;
       subCommandIndex = i;
     }

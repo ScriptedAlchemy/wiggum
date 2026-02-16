@@ -105,6 +105,18 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Conflicting projects subcommands: list and graph');
   });
 
+  test('projects rejects duplicate subcommand tokens', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', '--json', 'graph', 'graph'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Duplicate projects subcommand token: graph');
+  });
+
   test('projects does not treat -h as help when used as missing --project value', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
@@ -250,6 +262,18 @@ describe('Wiggum runner workspace graph', () => {
     const result = runCLI(['run', 'build', '--dry-run', 'test'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Conflicting run tasks: build and test');
+  });
+
+  test('run rejects duplicate task tokens before passthrough', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['run', 'build', '--dry-run', 'build'], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Duplicate run task token: build');
   });
 
   test('run allows task-like passthrough args after delimiter', () => {
