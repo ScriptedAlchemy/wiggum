@@ -538,6 +538,71 @@ describe('runner coverage verifier', () => {
     }
   });
 
+  test('verifyRunnerCoverage uses runtime env path overrides when path options are omitted', async () => {
+    const tempRoot = makeTempDir('verify-coverage-env-paths-');
+    const customConfigDir = path.join(tempRoot, 'configs');
+    const customPackagesDir = path.join(tempRoot, 'custom-packages');
+    const customConfigPath = path.join(customConfigDir, 'wiggum.custom.json');
+    const customProjectRoot = path.join(customPackagesDir, 'cli');
+    fs.mkdirSync(customConfigDir, { recursive: true });
+    fs.mkdirSync(customProjectRoot, { recursive: true });
+    fs.writeFileSync(customConfigPath, '{"root":"..","projects":["custom-packages/*"]}');
+    fs.writeFileSync(path.join(customProjectRoot, 'package.json'), '{"name":"@wiggum/cli"}');
+
+    const originalRoot = process.env.WIGGUM_RUNNER_VERIFY_ROOT;
+    const originalConfigPath = process.env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH;
+    const originalPackagesDir = process.env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR;
+    const originalMinimum = process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
+    process.env.WIGGUM_RUNNER_VERIFY_ROOT = tempRoot;
+    process.env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH = 'configs/wiggum.custom.json';
+    process.env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR = 'custom-packages';
+    process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS = '1';
+    let resolverOptions;
+    try {
+      await expect(
+        verifyRunnerCoverage({
+          resolveWorkspace: async (options) => {
+            resolverOptions = options;
+            return {
+              projects: [{ root: customProjectRoot }],
+            };
+          },
+        }),
+      ).resolves.toEqual({
+        expectedCount: 1,
+        resolvedCount: 1,
+      });
+
+      expect(resolverOptions).toEqual({
+        rootDir: tempRoot,
+        configPath: customConfigPath,
+        includeDependenciesForFiltered: false,
+        includeInferredImports: false,
+      });
+    } finally {
+      if (originalRoot === undefined) {
+        delete process.env.WIGGUM_RUNNER_VERIFY_ROOT;
+      } else {
+        process.env.WIGGUM_RUNNER_VERIFY_ROOT = originalRoot;
+      }
+      if (originalConfigPath === undefined) {
+        delete process.env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH;
+      } else {
+        process.env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH = originalConfigPath;
+      }
+      if (originalPackagesDir === undefined) {
+        delete process.env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR;
+      } else {
+        process.env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR = originalPackagesDir;
+      }
+      if (originalMinimum === undefined) {
+        delete process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
+      } else {
+        process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS = originalMinimum;
+      }
+    }
+  });
+
   test('verifyRunnerCoverage rejects invalid env minimum when argument is omitted', async () => {
     const tempRoot = makeTempDir('verify-coverage-env-invalid-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
