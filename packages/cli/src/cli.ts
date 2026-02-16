@@ -635,6 +635,58 @@ Options:
 `);
 }
 
+interface ParsedAgentServeArgs {
+  help: boolean;
+  portRaw?: string;
+  hostnameRaw?: string;
+}
+
+function parseAgentServeArgs(argsArr: string[]): ParsedAgentServeArgs {
+  const parsed: ParsedAgentServeArgs = {
+    help: false,
+  };
+
+  for (let i = 0; i < argsArr.length; i++) {
+    const arg = argsArr[i];
+    if (arg === '--help' || arg === '-h') {
+      parsed.help = true;
+      continue;
+    }
+    if (arg === '--port' || arg === '-p') {
+      const value = argsArr[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new Error('Missing value for --port');
+      }
+      parsed.portRaw = value;
+      i++;
+      continue;
+    }
+    if (arg.startsWith('--port=')) {
+      parsed.portRaw = arg.slice('--port='.length);
+      continue;
+    }
+    if (arg === '--hostname' || arg === '-H') {
+      const value = argsArr[i + 1];
+      if (!value || value.startsWith('-')) {
+        throw new Error('Missing value for --hostname');
+      }
+      parsed.hostnameRaw = value;
+      i++;
+      continue;
+    }
+    if (arg.startsWith('--hostname=')) {
+      parsed.hostnameRaw = arg.slice('--hostname='.length);
+      continue;
+    }
+    if (arg.startsWith('-')) {
+      throw new Error(`Unknown serve option(s): ${arg.replace(/^-+/, '')}`);
+    }
+    throw new Error(`Unexpected serve argument: ${arg}`);
+  }
+
+  return parsed;
+}
+
 // Main CLI execution
 async function main() {
   // Simple CLI argument parsing
@@ -990,45 +1042,19 @@ Global options:
       process.exit(0);
     }
 
-    // Simple flag parser for agent subcommands
-    const parseFlags = (argsArr: string[]): Record<string, string | boolean> => {
-      const flags: Record<string, string | boolean> = {};
-      for (let i = 0; i < argsArr.length; i++) {
-        const a = argsArr[i];
-        if (a.startsWith('--')) {
-          const valueSplit = a.slice(2).split('=');
-          const key = valueSplit[0];
-          const inlineValue = valueSplit.length > 1 ? valueSplit.slice(1).join('=') : undefined;
-          if (inlineValue !== undefined) {
-            flags[key] = inlineValue;
-            continue;
-          }
-          const next = argsArr[i + 1];
-          if (next && !next.startsWith('-')) {
-            flags[key] = next;
-            i++;
-          } else {
-            flags[key] = true;
-          }
-        } else if (a.startsWith('-')) {
-          const key = a.slice(1);
-          const next = argsArr[i + 1];
-          if (next && !next.startsWith('-')) {
-            flags[key] = next;
-            i++;
-          } else {
-            flags[key] = true;
-          }
-        }
-      }
-      return flags;
-    };
-
     // If no subcommand, default to launching TUI
     const effectiveSub = sub || 'chat';
-    const subFlags = parseFlags(commandArgs.slice(1));
     const isServeMode = effectiveSub === 'serve' || effectiveSub === 'server';
-    const isServeHelp = isServeMode && (subFlags.help === true || subFlags.h === true);
+    let parsedServeArgs: ParsedAgentServeArgs | undefined;
+    if (isServeMode) {
+      try {
+        parsedServeArgs = parseAgentServeArgs(commandArgs.slice(1));
+      } catch (error: any) {
+        console.error(chalk.red('Error:'), error?.message || error);
+        process.exit(1);
+      }
+    }
+    const isServeHelp = parsedServeArgs?.help === true;
     if (isServeHelp) {
       printAgentServeHelp();
       process.exit(0);
@@ -1064,28 +1090,8 @@ Global options:
         }
         case 'serve':
         case 'server': {
-          const flags = parseFlags(commandArgs.slice(1));
-          const normalizedFlags: Record<string, string | boolean> = { ...flags };
-          if (normalizedFlags.port === undefined && normalizedFlags.p !== undefined) {
-            normalizedFlags.port = normalizedFlags.p;
-          }
-          if (normalizedFlags.hostname === undefined && normalizedFlags.H !== undefined) {
-            normalizedFlags.hostname = normalizedFlags.H;
-          }
-          const unknownFlags = Object.keys(flags).filter(
-            (flag) => !['port', 'hostname', 'help', 'h', 'p', 'H'].includes(flag),
-          );
-          if (unknownFlags.length > 0) {
-            throw new Error(`Unknown serve option(s): ${unknownFlags.join(', ')}`);
-          }
-          if (normalizedFlags.port === true) {
-            throw new Error('Missing value for --port');
-          }
-          if (normalizedFlags.hostname === true) {
-            throw new Error('Missing value for --hostname');
-          }
-          const portRaw =
-            typeof normalizedFlags.port === 'string' ? normalizedFlags.port : undefined;
+          const serveArgs = parsedServeArgs ?? parseAgentServeArgs(commandArgs.slice(1));
+          const portRaw = serveArgs.portRaw;
           let port: number | undefined;
           if (portRaw !== undefined) {
             const parsedPort = Number.parseInt(portRaw, 10);
@@ -1094,10 +1100,7 @@ Global options:
             }
             port = parsedPort;
           }
-          const hostnameRaw =
-            typeof normalizedFlags.hostname === 'string'
-              ? normalizedFlags.hostname
-              : undefined;
+          const hostnameRaw = serveArgs.hostnameRaw;
           if (hostnameRaw !== undefined && hostnameRaw.trim().length === 0) {
             throw new Error('Invalid --hostname value. Expected a non-empty hostname.');
           }
