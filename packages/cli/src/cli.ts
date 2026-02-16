@@ -614,6 +614,7 @@ Runner options:
   --dry-run                Print execution plan without running commands
   --json                   Emit JSON plan (requires --dry-run)
   --ai-prompt              Print AI remediation prompt on failure
+  --autofix                Launch OpenCode autofix flow on failures
   --no-infer-imports       Disable inferred import dependency edges
 
 Pass task arguments after "--" so they are forwarded to the underlying tool.
@@ -669,6 +670,8 @@ Commands:
 
 This is a passthrough CLI - all flags and options are forwarded to the underlying tools.
 Use "wiggum <command> --help" to see help for a specific command.
+Global options:
+  --autofix   Enable OpenCode autofix flow for command failures
 `);
     process.exit(0);
   }

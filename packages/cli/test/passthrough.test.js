@@ -210,6 +210,7 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('Usage: wiggum <command> [options]');
       expect(result.stdout).toContain('Commands:');
       expect(result.stdout).toContain('passthrough CLI');
+      expect(result.stdout).toContain('--autofix');
     });
 
     test('-h should show wiggum help', () => {

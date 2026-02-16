@@ -80,6 +80,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
     expect(result.stdout).toContain('Supported tasks:');
     expect(result.stdout).toContain('--ai-prompt');
+    expect(result.stdout).toContain('--autofix');
   });
 
   test('projects list --json resolves a single implicit project', () => {
