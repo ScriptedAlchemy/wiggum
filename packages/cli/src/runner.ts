@@ -81,7 +81,7 @@ const RUNNER_CONFIG_FILES = [
 
 const PROJECT_CONFIG_RE = /(?:^|\/)(?:rslib|rsbuild|rspack|rspress|rstest|rslint)\.config\.(?:mjs|js|cjs|mts|cts|ts)$/;
 const IMPORT_RE =
-  /(?:import\s+(?:[^'"]+from\s*)?|export\s+[^'"]*from\s*|require\(\s*)['"]([^'"]+)['"]\)?/g;
+  /(?:import\s+(?:[^'"]+from\s*)?|import\(\s*|export\s+[^'"]*from\s*|require\(\s*)['"]([^'"]+)['"]\s*\)?/g;
 
 type MutableProject = Omit<RunnerProject, 'dependencies' | 'inferredDependencies'> & {
   dependencies: Set<string>;

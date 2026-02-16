@@ -1183,6 +1183,50 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(true);
   });
 
+  test('includes inferred dependencies from dynamic import specifiers', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/a/src/index.ts'),
+      "export async function load() {\n  return import('@scope/b/runtime');\n}\n",
+    );
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--project',
+        '@scope/a',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/b',
+      to: '@scope/a',
+      reason: 'inferred-import',
+    });
+  });
+
   test('projects rejects run-only flags', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
