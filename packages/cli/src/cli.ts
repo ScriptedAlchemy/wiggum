@@ -464,6 +464,13 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
     return values;
   };
 
+  const parseRequiredOptionValue = (rawValue: string, flagName: string): string => {
+    if (rawValue.trim().length === 0) {
+      throw new Error(`Missing value for ${flagName}`);
+    }
+    return rawValue;
+  };
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--') {
@@ -490,12 +497,12 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
       if (!value || value.startsWith('-')) {
         throw new Error('Missing value for --config');
       }
-      parsed.configPath = value;
+      parsed.configPath = parseRequiredOptionValue(value, '--config');
       i++;
       continue;
     }
     if (arg.startsWith('--config=')) {
-      parsed.configPath = arg.slice('--config='.length);
+      parsed.configPath = parseRequiredOptionValue(arg.slice('--config='.length), '--config');
       continue;
     }
     if (arg === '--root') {
@@ -503,12 +510,12 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
       if (!value || value.startsWith('-')) {
         throw new Error('Missing value for --root');
       }
-      parsed.rootDir = value;
+      parsed.rootDir = parseRequiredOptionValue(value, '--root');
       i++;
       continue;
     }
     if (arg.startsWith('--root=')) {
-      parsed.rootDir = arg.slice('--root='.length);
+      parsed.rootDir = parseRequiredOptionValue(arg.slice('--root='.length), '--root');
       continue;
     }
     if (arg === '--parallel' || arg === '--concurrency') {
