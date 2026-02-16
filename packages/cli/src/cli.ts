@@ -494,6 +494,12 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
       );
       continue;
     }
+    if (arg.startsWith('-p=')) {
+      parsed.projectFilters.push(
+        ...parseProjectFilterValues(arg.slice('-p='.length), '-p'),
+      );
+      continue;
+    }
     if (arg === '--config') {
       const value = args[i + 1];
       if (!value || value.startsWith('-')) {
@@ -635,6 +641,7 @@ Runner options:
   --root <path>            Workspace root to resolve from
   --config <path>          Explicit runner config path
   --project <pattern>      Include/exclude projects (supports * and !negation)
+  -p <pattern>             Alias for --project (also supports -p=<pattern>)
   --json                   Emit machine-readable JSON output
   --no-infer-imports       Disable inferred import dependency edges
 `);
@@ -651,6 +658,7 @@ Runner options:
   --root <path>            Workspace root to resolve from
   --config <path>          Explicit runner config path
   --project <pattern>      Include/exclude projects (supports * and !negation)
+  -p <pattern>             Alias for --project (also supports -p=<pattern>)
   --parallel <count>       Max concurrent project runs per level
   --concurrency <count>    Alias for --parallel
   --dry-run                Print execution plan without running commands

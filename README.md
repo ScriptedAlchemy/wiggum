@@ -85,6 +85,7 @@ Then use:
 wiggum projects graph --json
 wiggum run build --parallel 4
 wiggum run test --project "@scope/*" --project "!@scope/legacy"
+wiggum run test -p="@scope/*,!@scope/legacy"
 wiggum run lint --dry-run --json
 wiggum run build --ai-prompt
 ```

@@ -66,6 +66,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
     expect(result.stdout).toContain('--project <pattern>');
+    expect(result.stdout).toContain('-p <pattern>');
   });
 
   test('projects list --help prints runner projects usage', () => {
@@ -93,6 +94,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('Supported tasks:');
     expect(result.stdout).toContain('--ai-prompt');
     expect(result.stdout).toContain('--autofix');
+    expect(result.stdout).toContain('-p <pattern>');
     expect(result.stdout).toContain('cannot be combined with --dry-run');
   });
 
@@ -291,6 +293,40 @@ describe('Wiggum runner workspace graph', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/c']);
     expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/a', '@scope/c']);
+  });
+
+  test('run supports short -p=<pattern> project filters', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '-p=@scope/a',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a']);
+    expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/a']);
   });
 
   test('run fails when graph has dependency cycles', () => {
