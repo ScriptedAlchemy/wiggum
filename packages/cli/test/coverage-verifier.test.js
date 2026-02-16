@@ -131,7 +131,31 @@ describe('runner coverage verifier', () => {
         minExpectedProjects: 1,
         rootDir: '/repo',
       }),
+    ).toThrow('expectedProjectRoots[1] must be a string path');
+  });
+
+  test('rejects whitespace-only project root entries', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: ['/repo/packages/cli', '   '],
+        resolvedProjectRoots: ['/repo/packages/cli'],
+        minExpectedProjects: 1,
+        rootDir: '/repo',
+      }),
     ).toThrow('expectedProjectRoots[1] must be a non-empty string path');
+  });
+
+  test('accepts whitespace-padded project root entries', () => {
+    const result = verifyRunnerCoverageData({
+      expectedProjectRoots: ['  /repo/packages/cli  '],
+      resolvedProjectRoots: ['/repo/packages/cli'],
+      minExpectedProjects: 1,
+      rootDir: '/repo',
+    });
+    expect(result).toEqual({
+      expectedCount: 1,
+      resolvedCount: 1,
+    });
   });
 
   test('rejects empty rootDir value', () => {

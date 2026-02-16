@@ -87,21 +87,29 @@ export function verifyRunnerCoverageData({
   if (!Array.isArray(resolvedProjectRoots)) {
     throw new Error('resolvedProjectRoots must be an array of project root paths');
   }
-  if (typeof rootDir !== 'string' || rootDir.length === 0) {
-    throw new Error('rootDir must be a non-empty string path');
-  }
+  const normalizedRootDir = path.resolve(ensureNonEmptyPathString(rootDir, 'rootDir'));
 
   const normalizedExpectedRoots = expectedProjectRoots.map((entry, index) => {
-    if (typeof entry !== 'string' || entry.length === 0) {
-      throw new Error(`expectedProjectRoots[${index}] must be a non-empty string path`);
+    try {
+      return path.resolve(ensureNonEmptyPathString(entry, `expectedProjectRoots[${index}]`));
+    } catch (error) {
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : `expectedProjectRoots[${index}] must be a non-empty string path`,
+      );
     }
-    return path.resolve(entry);
   });
   const normalizedResolvedRoots = resolvedProjectRoots.map((entry, index) => {
-    if (typeof entry !== 'string' || entry.length === 0) {
-      throw new Error(`resolvedProjectRoots[${index}] must be a non-empty string path`);
+    try {
+      return path.resolve(ensureNonEmptyPathString(entry, `resolvedProjectRoots[${index}]`));
+    } catch (error) {
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : `resolvedProjectRoots[${index}] must be a non-empty string path`,
+      );
     }
-    return path.resolve(entry);
   });
   const duplicateExpectedRoots = findDuplicatePaths(normalizedExpectedRoots);
   if (duplicateExpectedRoots.length > 0) {
@@ -134,7 +142,7 @@ export function verifyRunnerCoverageData({
   if (missing.length > 0) {
     throw new Error(
       `Runner config is missing ${missing.length} package project(s):\n${missing
-        .map((entry) => `- ${path.relative(rootDir, entry)}`)
+        .map((entry) => `- ${path.relative(normalizedRootDir, entry)}`)
         .join('\n')}`,
     );
   }
