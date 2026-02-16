@@ -91,9 +91,11 @@ wiggum run test -p="@scope/*,!@scope/legacy"
 wiggum run --dry-run --json build
 wiggum run lint --dry-run --json
 wiggum run build --ai-prompt
+wiggum projects graph --no-infer-imports --json
 ```
 
 Dependency edges are resolved from local package manifests and inferred local source specifiers (`import`, dynamic `import()`, `require`, and export-from forms), then executed in deterministic topological order.
+Use `--no-infer-imports` when you want ordering based strictly on manifest-declared workspace dependencies.
 
 For failed workspace runs, you can:
 - print a structured AI remediation prompt with `--ai-prompt`

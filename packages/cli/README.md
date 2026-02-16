@@ -90,6 +90,7 @@ wiggum run build --dry-run
 wiggum run build --dry-run --json
 wiggum run build --ai-prompt
 wiggum run build --autofix
+wiggum projects graph --no-infer-imports --json
 ```
 
 `--ai-prompt` prints a structured remediation prompt (project failures, graph context, command output) to stderr when a run fails.  
@@ -97,6 +98,7 @@ wiggum run build --autofix
 `--ai-prompt` and `--autofix` are runtime-only failure modes and cannot be used with `--dry-run`.
 `--autofix` is only supported for task execution flows (`wiggum run ...` / passthrough tool commands), not `wiggum projects ...`.
 Default runner concurrency can be configured with `WIGGUM_RUNNER_PARALLEL=<positive integer>` (applies to `wiggum run ...` execution mode).
+Use `--no-infer-imports` to disable source-import edge inference and rely only on manifest-declared local package edges.
 
 Global `--autofix` parsing rules:
 - `wiggum --autofix run build` and `wiggum run build --autofix` both enable autofix mode.
