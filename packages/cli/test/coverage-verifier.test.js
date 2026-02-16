@@ -78,6 +78,12 @@ describe('runner coverage verifier', () => {
     );
   });
 
+  test('parseMinimumExpectedProjects rejects non-string values', () => {
+    expect(() => parseMinimumExpectedProjects(7)).toThrow(
+      'MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a string when provided',
+    );
+  });
+
   test('parseMinimumExpectedProjects rejects values above max safe integer', () => {
     expect(() => parseMinimumExpectedProjects('9007199254740992')).toThrow(
       `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be <= ${Number.MAX_SAFE_INTEGER}`,

@@ -45,8 +45,13 @@ export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED
   if (rawValue === undefined) {
     return 4;
   }
+  if (typeof rawValue !== 'string') {
+    throw new Error(
+      `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a string when provided, got ${typeof rawValue}`,
+    );
+  }
 
-  const normalizedValue = String(rawValue).trim();
+  const normalizedValue = rawValue.trim();
   if (!/^\d+$/.test(normalizedValue)) {
     throw new Error(
       `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a positive integer, got "${rawValue}"`,
