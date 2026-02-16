@@ -110,6 +110,13 @@ function parseInferImportMaxFiles(
   return parsedValue;
 }
 
+function validateInferImportMaxFilesOption(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`inferImportMaxFiles must be a positive integer, got ${value}`);
+  }
+  return value;
+}
+
 type MutableProject = Omit<RunnerProject, 'dependencies' | 'inferredDependencies'> & {
   dependencies: Set<string>;
   inferredDependencies: Set<string>;
@@ -681,9 +688,7 @@ async function inferImportDependencies(
   projects: RunnerProject[],
   maxImportScanFiles: number,
 ): Promise<void> {
-  if (!Number.isSafeInteger(maxImportScanFiles) || maxImportScanFiles < 1) {
-    throw new Error(`inferImportDependencies requires maxImportScanFiles >= 1, got ${maxImportScanFiles}`);
-  }
+  validateInferImportMaxFilesOption(maxImportScanFiles);
   const packageNameToProject = new Map(
     projects
       .filter((project) => Boolean(project.packageName))
@@ -791,7 +796,9 @@ export async function resolveRunnerWorkspace(
   }
 
   if (options.includeInferredImports !== false) {
-    const maxImportScanFiles = options.inferImportMaxFiles ?? parseInferImportMaxFiles();
+    const maxImportScanFiles = options.inferImportMaxFiles === undefined
+      ? parseInferImportMaxFiles()
+      : validateInferImportMaxFilesOption(options.inferImportMaxFiles);
     await inferImportDependencies(projects, maxImportScanFiles);
   }
 
