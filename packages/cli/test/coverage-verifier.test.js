@@ -139,6 +139,24 @@ describe('runner coverage verifier', () => {
     });
   });
 
+  test('resolveVerifierPathsFromEnv rejects non-string fallbackRoot', () => {
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {},
+        fallbackRoot: null,
+      }),
+    ).toThrow('fallbackRoot must be a string path');
+  });
+
+  test('resolveVerifierPathsFromEnv rejects blank fallbackRoot', () => {
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {},
+        fallbackRoot: '   ',
+      }),
+    ).toThrow('fallbackRoot must be a non-empty string path');
+  });
+
   test('findDuplicatePaths returns sorted unique duplicates', () => {
     expect(
       findDuplicatePaths([

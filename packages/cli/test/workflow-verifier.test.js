@@ -176,6 +176,24 @@ describe('runner workflow coverage verifier', () => {
     });
   });
 
+  test('resolveWorkflowVerifierPathsFromEnv rejects non-string fallbackRoot', () => {
+    expect(() =>
+      resolveWorkflowVerifierPathsFromEnv({
+        env: {},
+        fallbackRoot: null,
+      }),
+    ).toThrow('fallbackRoot must be a string path');
+  });
+
+  test('resolveWorkflowVerifierPathsFromEnv rejects blank fallbackRoot', () => {
+    expect(() =>
+      resolveWorkflowVerifierPathsFromEnv({
+        env: {},
+        fallbackRoot: '   ',
+      }),
+    ).toThrow('fallbackRoot must be a non-empty string path');
+  });
+
   test('accepts the current repository workflow and scripts', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     expect(() =>

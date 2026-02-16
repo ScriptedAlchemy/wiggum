@@ -17,6 +17,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_ROOT = path.resolve(__dirname, '../../..');
 
+function ensureNonEmptyRootPath(value, fieldName) {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string path`);
+  }
+  const normalizedValue = value.trim();
+  if (normalizedValue.length === 0) {
+    throw new Error(`${fieldName} must be a non-empty string path`);
+  }
+  return normalizedValue;
+}
+
 export function resolveVerifierPathsFromEnv({
   env = process.env,
   fallbackRoot = DEFAULT_ROOT,
@@ -24,10 +35,11 @@ export function resolveVerifierPathsFromEnv({
   const rootOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_ROOT);
   const configPathOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_CONFIG_PATH);
   const packagesDirOverride = normalizeEnvPathOverride(env.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR);
+  const normalizedFallbackRoot = ensureNonEmptyRootPath(fallbackRoot, 'fallbackRoot');
 
   const rootDir = rootOverride
     ? path.resolve(rootOverride)
-    : path.resolve(fallbackRoot);
+    : path.resolve(normalizedFallbackRoot);
   const configPath = configPathOverride
     ? path.resolve(rootDir, configPathOverride)
     : path.join(rootDir, 'wiggum.config.json');
