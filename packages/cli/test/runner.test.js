@@ -377,16 +377,23 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(true);
   });
 
-  test('projects rejects run-only --ai-prompt flag', () => {
+  test('projects rejects run-only flags', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
       name: 'single-project',
       private: true,
     });
 
-    const result = runCLI(['projects', 'list', '--root', root, '--ai-prompt'], root);
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--ai-prompt', '--dry-run'],
+      root,
+    );
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('only supported for "wiggum run"');
+    expect(result.stderr).toContain(
+      'Run-only option(s) are not supported for "wiggum projects"',
+    );
+    expect(result.stderr).toContain('--ai-prompt');
+    expect(result.stderr).toContain('--dry-run');
   });
 
   test('run rejects --ai-prompt with --dry-run', () => {

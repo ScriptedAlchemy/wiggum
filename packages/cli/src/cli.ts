@@ -384,6 +384,7 @@ interface RunnerFlags {
   json: boolean;
   aiPrompt: boolean;
   includeInferredImports: boolean;
+  runOnlyFlagsUsed: string[];
   passthroughArgs: string[];
 }
 
@@ -404,7 +405,14 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
     json: false,
     aiPrompt: false,
     includeInferredImports: true,
+    runOnlyFlagsUsed: [],
     passthroughArgs: [],
+  };
+
+  const trackRunOnlyFlag = (flagName: string) => {
+    if (!parsed.runOnlyFlagsUsed.includes(flagName)) {
+      parsed.runOnlyFlagsUsed.push(flagName);
+    }
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -462,6 +470,7 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
         throw new Error(`Invalid ${arg} value "${value}"`);
       }
       parsed.parallel = parsedNumber;
+      trackRunOnlyFlag(arg);
       i++;
       continue;
     }
@@ -471,6 +480,7 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
         throw new Error(`Invalid --parallel value "${arg}"`);
       }
       parsed.parallel = value;
+      trackRunOnlyFlag('--parallel');
       continue;
     }
     if (arg.startsWith('--concurrency=')) {
@@ -479,10 +489,12 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
         throw new Error(`Invalid --concurrency value "${arg}"`);
       }
       parsed.parallel = value;
+      trackRunOnlyFlag('--concurrency');
       continue;
     }
     if (arg === '--dry-run') {
       parsed.dryRun = true;
+      trackRunOnlyFlag('--dry-run');
       continue;
     }
     if (arg === '--json') {
@@ -491,6 +503,7 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
     }
     if (arg === '--ai-prompt') {
       parsed.aiPrompt = true;
+      trackRunOnlyFlag('--ai-prompt');
       continue;
     }
     if (arg === '--no-infer-imports') {
@@ -678,8 +691,12 @@ Use "wiggum <command> --help" to see help for a specific command.
       printProjectsHelp();
       process.exit(1);
     }
-    if (runnerFlags.aiPrompt) {
-      console.error(chalk.red('The --ai-prompt flag is only supported for "wiggum run".'));
+    if (runnerFlags.runOnlyFlagsUsed.length > 0) {
+      console.error(
+        chalk.red(
+          `Run-only option(s) are not supported for "wiggum projects": ${runnerFlags.runOnlyFlagsUsed.join(', ')}`,
+        ),
+      );
       printProjectsHelp();
       process.exit(1);
     }
