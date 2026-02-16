@@ -64,6 +64,7 @@ Common commands:
 - `wiggum run <task> …` → run any Rstack task across projects with graph-based ordering and concurrency
 
 Tip: run `wiggum --help` for a concise command list.
+`wiggum agent` chat modes require an interactive terminal (TTY).
 
 ### Runner config (workspace orchestration)
 
@@ -90,6 +91,12 @@ For failed workspace runs, you can:
 - launch OpenCode directly with rich failure context using `--autofix`
 
 In CI/non-interactive terminals, `--autofix` falls back to printing the prompt instead of opening TUI.
+
+If a tool argument overlaps with a Wiggum global flag, pass it after `--`:
+
+```bash
+wiggum build -- --autofix
+```
 
 ## Chat Widget (Rsbuild plugin)
 

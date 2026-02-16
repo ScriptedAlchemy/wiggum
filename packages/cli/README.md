@@ -41,6 +41,12 @@ wiggum test --watch
 wiggum lint src --autofix
 ```
 
+Use `--` to force flags to be forwarded to underlying tools when they overlap with Wiggum globals:
+
+```bash
+wiggum build -- --autofix
+```
+
 ### Workspace runner (project graph + orchestration)
 
 Wiggum can orchestrate tasks across many projects with an independently calculated project graph (no pnpm/Nx graph dependency).
