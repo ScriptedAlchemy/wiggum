@@ -415,6 +415,9 @@ function splitListValue(raw: string): string[] {
 function parseRunnerFlags(args: string[]): RunnerFlags {
   const parsePositiveIntegerFlag = (flagName: string, rawValue: string): number => {
     const normalizedValue = rawValue.trim();
+    if (normalizedValue.length === 0) {
+      throw new Error(`Missing value for ${flagName}`);
+    }
     if (!/^\d+$/.test(normalizedValue)) {
       throw new Error(`Invalid ${flagName} value "${rawValue}"`);
     }
