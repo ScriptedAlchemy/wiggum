@@ -49,6 +49,13 @@ function createWorkflowVerifierFixture({
   };
 }
 
+function cleanupWorkflowVerifierFixture(fixture) {
+  if (!fixture || typeof fixture.rootDir !== 'string') {
+    return;
+  }
+  fs.rmSync(fixture.rootDir, { recursive: true, force: true });
+}
+
 describe('runner workflow coverage verifier', () => {
   test('rejects non-string packageJsonContent input', () => {
     const { workflowContent } = readCurrentInputs();
@@ -392,16 +399,19 @@ describe('runner workflow coverage verifier', () => {
       packageJsonContent,
       workflowContent: mutatedWorkflow,
     });
+    try {
+      const result = spawnSync(process.execPath, [fixture.scriptPath], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: process.env,
+      });
 
-    const result = spawnSync(process.execPath, [fixture.scriptPath], {
-      cwd: fixture.rootDir,
-      encoding: 'utf8',
-      env: process.env,
-    });
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
-    expect(result.stderr).toContain('is missing required step "Run tests"');
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+      expect(result.stderr).toContain('is missing required step "Run tests"');
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
   });
 
   test('workflow verifier CLI entrypoint reports prefixed error on rewired package script', () => {
@@ -413,15 +423,18 @@ describe('runner workflow coverage verifier', () => {
       packageJsonContent: mutatedPackageJson,
       workflowContent,
     });
+    try {
+      const result = spawnSync(process.execPath, [fixture.scriptPath], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: process.env,
+      });
 
-    const result = spawnSync(process.execPath, [fixture.scriptPath], {
-      cwd: fixture.rootDir,
-      encoding: 'utf8',
-      env: process.env,
-    });
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
-    expect(result.stderr).toContain('Package script "test:runner" does not match expected command pattern');
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+      expect(result.stderr).toContain('Package script "test:runner" does not match expected command pattern');
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
   });
 });
