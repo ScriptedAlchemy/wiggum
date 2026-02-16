@@ -429,8 +429,9 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
     if (rawValue === undefined || rawValue.trim().length === 0) {
       return 4;
     }
+    const normalizedValue = rawValue.trim();
     try {
-      return parsePositiveIntegerFlag('WIGGUM_RUNNER_PARALLEL', rawValue);
+      return parsePositiveIntegerFlag('WIGGUM_RUNNER_PARALLEL', normalizedValue);
     } catch {
       throw new Error(
         `Invalid WIGGUM_RUNNER_PARALLEL value "${rawValue}". Expected a positive integer.`,
