@@ -121,7 +121,10 @@ export function verifyRunnerCoverageData({
 
   const normalizedExpectedRoots = expectedProjectRoots.map((entry, index) => {
     try {
-      return path.resolve(ensureNonEmptyPathString(entry, `expectedProjectRoots[${index}]`));
+      return path.resolve(
+        normalizedRootDir,
+        ensureNonEmptyPathString(entry, `expectedProjectRoots[${index}]`),
+      );
     } catch (error) {
       throw new Error(
         error instanceof Error
@@ -132,7 +135,10 @@ export function verifyRunnerCoverageData({
   });
   const normalizedResolvedRoots = resolvedProjectRoots.map((entry, index) => {
     try {
-      return path.resolve(ensureNonEmptyPathString(entry, `resolvedProjectRoots[${index}]`));
+      return path.resolve(
+        normalizedRootDir,
+        ensureNonEmptyPathString(entry, `resolvedProjectRoots[${index}]`),
+      );
     } catch (error) {
       throw new Error(
         error instanceof Error

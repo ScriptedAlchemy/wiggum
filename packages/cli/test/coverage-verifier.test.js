@@ -197,6 +197,19 @@ describe('runner coverage verifier', () => {
     });
   });
 
+  test('resolves relative project roots against rootDir', () => {
+    const result = verifyRunnerCoverageData({
+      expectedProjectRoots: ['packages/cli'],
+      resolvedProjectRoots: ['packages/cli'],
+      minExpectedProjects: 1,
+      rootDir: '/repo',
+    });
+    expect(result).toEqual({
+      expectedCount: 1,
+      resolvedCount: 1,
+    });
+  });
+
   test('rejects empty rootDir value', () => {
     expect(() =>
       verifyRunnerCoverageData({
