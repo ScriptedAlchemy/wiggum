@@ -1863,6 +1863,29 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "0"');
   });
 
+  test('run rejects unsafe integer WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--json'],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '9007199254740992',
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Runner failed:');
+    expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES value "9007199254740992"');
+  });
+
   test('run ignores blank WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
