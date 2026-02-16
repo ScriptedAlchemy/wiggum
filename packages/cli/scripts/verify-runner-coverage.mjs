@@ -238,6 +238,8 @@ export async function verifyRunnerCoverage({
   console.log(
     `[verify-runner-coverage] Verified ${result.resolvedCount} projects covering ${result.expectedCount} package roots.`,
   );
+
+  return result;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

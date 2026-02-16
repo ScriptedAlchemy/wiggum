@@ -358,11 +358,12 @@ describe('runner coverage verifier', () => {
     const resolverCalls = [];
     const originalLog = console.log;
     const logMessages = [];
+    let result;
     console.log = (...args) => {
       logMessages.push(args.join(' '));
     };
     try {
-      await verifyRunnerCoverage({
+      result = await verifyRunnerCoverage({
         rootDir: tempRoot,
         configPath,
         packagesDir,
@@ -379,6 +380,10 @@ describe('runner coverage verifier', () => {
     }
 
     expect(resolverCalls).toHaveLength(1);
+    expect(result).toEqual({
+      expectedCount: 1,
+      resolvedCount: 1,
+    });
     expect(resolverCalls[0]).toEqual({
       rootDir: tempRoot,
       configPath,
@@ -446,7 +451,10 @@ describe('runner coverage verifier', () => {
             projects: [{ root: path.join(packagesDir, 'cli') }],
           }),
         }),
-      ).resolves.toBeUndefined();
+      ).resolves.toEqual({
+        expectedCount: 1,
+        resolvedCount: 1,
+      });
     } finally {
       if (originalValue === undefined) {
         delete process.env.MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS;
