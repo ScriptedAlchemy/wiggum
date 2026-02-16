@@ -29,7 +29,7 @@ function ensureNonEmptyRootPath(value, fieldName) {
 }
 
 function ensureEnvObject(value) {
-  if (!value || typeof value !== 'object') {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('env must be an object');
   }
   return value;

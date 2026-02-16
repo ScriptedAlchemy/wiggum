@@ -193,6 +193,14 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('env must be an object');
   });
 
+  test('resolveWorkflowVerifierPathsFromEnv rejects array env values', () => {
+    expect(() =>
+      resolveWorkflowVerifierPathsFromEnv({
+        env: [],
+      }),
+    ).toThrow('env must be an object');
+  });
+
   test('resolveWorkflowVerifierPathsFromEnv rejects blank fallbackRoot', () => {
     expect(() =>
       resolveWorkflowVerifierPathsFromEnv({
