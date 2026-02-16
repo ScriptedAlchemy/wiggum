@@ -2096,6 +2096,39 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(false);
   });
 
+  test('projects graph trims whitespace around WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'packages/app/src/000.no-import.ts'), 'export const noop = 1;\n');
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/001.with-import.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+
+    const result = runCLI(
+      ['projects', 'graph', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--json'],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '  1  ',
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(false);
+  });
+
   test('projects list rejects invalid WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
