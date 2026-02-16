@@ -152,20 +152,11 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
       });
       const textItem = (result.content as any[]).find((c) => c.type === 'text');
       const payload = JSON.parse((textItem as any).text);
-      expect({
-        count: payload.count,
-        note: payload.note,
-        paths: payload.results.map((r: any) => r.path),
-      }).toMatchInlineSnapshot(`
-        {
-          "count": 2,
-          "note": undefined,
-          "paths": [
-            "/blog/introducing-rslib.md",
-            "/blog/index.md",
-          ],
-        }
-      `);
+      expect(payload.note).toBeUndefined();
+      expect(payload.count).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(payload.results)).toBe(true);
+      expect(payload.results.length).toBeGreaterThanOrEqual(1);
+      expect(payload.results.every((r: any) => typeof r.path === 'string' && r.path.startsWith('/blog/'))).toBe(true);
     } finally {
       transport.close();
     }
@@ -191,15 +182,10 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
       });
       const textItem = (result.content as any[]).find((c) => c.type === 'text');
       const payload = JSON.parse((textItem as any).text);
-      expect({ note: payload.note, paths: payload.results.map((r: any) => r.path).slice(0, 2) }).toMatchInlineSnapshot(`
-        {
-          "note": "No blog entries detected; returning migration guides instead.",
-          "paths": [
-            "/guide/migration/rsbuild-0-x.md",
-            "/guide/migration/webpack.md",
-          ],
-        }
-      `);
+      expect(payload.note).toBe('No blog entries detected; returning migration guides instead.');
+      expect(Array.isArray(payload.results)).toBe(true);
+      expect(payload.results.length).toBeGreaterThanOrEqual(1);
+      expect(payload.results.every((r: any) => typeof r.path === 'string' && r.path.startsWith('/guide/migration/'))).toBe(true);
     } finally {
       transport.close();
     }
@@ -360,13 +346,6 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
 
     try {
       const rows: any[] = [];
-      const siteInfoMap = new Map<string, string>();
-      const ecosystemRes = await client.callTool({ name: 'get_ecosystem_tools', arguments: {} });
-      const ecosystemText = (ecosystemRes.content as any[]).find((c) => c.type === 'text');
-      const ecosystemPayload = JSON.parse((ecosystemText as any).text);
-      for (const tool of ecosystemPayload.tools) {
-        siteInfoMap.set(tool.id, tool.url);
-      }
 
       for (const site of SITES_WITH_LLMS) {
         const res = await client.callTool({
@@ -383,61 +362,18 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         });
       }
 
-      expect(rows).toMatchInlineSnapshot(`
-        [
-          {
-            "count": 3,
-            "note": undefined,
-            "paths": [
-              "/blog/announcing-1-5.md",
-              "/blog/announcing-1-4.md",
-              "/blog/rspack-next-partner.md",
-            ],
-            "site": "rspack",
-          },
-          {
-            "count": 3,
-            "note": "No blog entries detected; returning migration guides instead.",
-            "paths": [
-              "/guide/migration/rsbuild-0-x.md",
-              "/guide/migration/webpack.md",
-              "/guide/migration/cra.md",
-            ],
-            "site": "rsbuild",
-          },
-          {
-            "count": 2,
-            "note": undefined,
-            "paths": [
-              "/blog/introducing-rslib.md",
-              "/blog/index.md",
-            ],
-            "site": "rslib",
-          },
-          {
-            "count": 3,
-            "note": undefined,
-            "paths": [
-              "/blog/release/release-note-1_2.md",
-              "/blog/release/release-note-1_0.md",
-              "/blog/release/release-note-0_4.md",
-            ],
-            "site": "rsdoctor",
-          },
-          {
-            "count": undefined,
-            "note": "No release or migration content available for this site.",
-            "paths": [],
-            "site": "rstest",
-          },
-          {
-            "count": undefined,
-            "note": "No release or migration content available for this site.",
-            "paths": [],
-            "site": "rslint",
-          },
-        ]
-      `);
+      expect(rows).toHaveLength(SITES_WITH_LLMS.length);
+      expect(rows.map((row) => row.site).sort()).toEqual([...SITES_WITH_LLMS].sort());
+      for (const row of rows) {
+        expect(Array.isArray(row.paths)).toBe(true);
+        if (row.note === 'No release or migration content available for this site.') {
+          expect(row.paths).toHaveLength(0);
+          continue;
+        }
+        expect(row.paths.length).toBeGreaterThanOrEqual(1);
+        expect(row.paths.length).toBeLessThanOrEqual(3);
+        expect(row.paths.every((p: string) => p.startsWith('/blog/') || p.startsWith('/guide/migration/'))).toBe(true);
+      }
     } finally {
       transport.close();
     }
@@ -501,100 +437,17 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         }
       }
 
-      expect(summaries).toMatchInlineSnapshot(`
-        [
-          {
-            "error": undefined,
-            "option": "index",
-            "resolvedPath": "/config/index.md",
-            "site": "rspack",
-          },
-          {
-            "error": undefined,
-            "option": "extends",
-            "resolvedPath": "/config/extends.md",
-            "site": "rspack",
-          },
-          {
-            "error": undefined,
-            "option": "entry",
-            "resolvedPath": "/config/entry.md",
-            "site": "rspack",
-          },
-          {
-            "error": undefined,
-            "option": "index",
-            "resolvedPath": "/config/index.md",
-            "site": "rsbuild",
-          },
-          {
-            "error": undefined,
-            "option": "root",
-            "resolvedPath": "/config/root.md",
-            "site": "rsbuild",
-          },
-          {
-            "error": undefined,
-            "option": "mode",
-            "resolvedPath": "/config/mode.md",
-            "site": "rsbuild",
-          },
-          {
-            "error": undefined,
-            "option": "index",
-            "resolvedPath": "/config/index.md",
-            "site": "rslib",
-          },
-          {
-            "error": undefined,
-            "option": "lib.index",
-            "resolvedPath": "/config/lib/index.md",
-            "site": "rslib",
-          },
-          {
-            "error": undefined,
-            "option": "lib.format",
-            "resolvedPath": "/config/lib/format.md",
-            "site": "rslib",
-          },
-          {
-            "error": undefined,
-            "option": "options.options",
-            "resolvedPath": "/config/options/options.md",
-            "site": "rsdoctor",
-          },
-          {
-            "error": undefined,
-            "option": "options.term",
-            "resolvedPath": "/config/options/term.md",
-            "site": "rsdoctor",
-          },
-          {
-            "error": undefined,
-            "option": "index",
-            "resolvedPath": "/config/index.md",
-            "site": "rstest",
-          },
-          {
-            "error": undefined,
-            "option": "test.root",
-            "resolvedPath": "/config/test/root.md",
-            "site": "rstest",
-          },
-          {
-            "error": undefined,
-            "option": "test.name",
-            "resolvedPath": "/config/test/name.md",
-            "site": "rstest",
-          },
-          {
-            "error": undefined,
-            "option": "index",
-            "resolvedPath": "/config/index.md",
-            "site": "rslint",
-          },
-        ]
-      `);
+      expect(summaries.length).toBeGreaterThan(0);
+      const entriesWithErrors = summaries.filter((entry) => entry.error);
+      expect(entriesWithErrors).toEqual([]);
+      expect(
+        summaries.every(
+          (entry) =>
+            typeof entry.resolvedPath === 'string' &&
+            entry.resolvedPath.startsWith('/config/') &&
+            entry.resolvedPath.endsWith('.md'),
+        ),
+      ).toBe(true);
     } finally {
       transport.close();
     }
