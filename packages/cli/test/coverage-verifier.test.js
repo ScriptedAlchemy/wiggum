@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import {
+  detectSupportedRunnerConfigPath,
   ensureFileSystemContract,
   extractResolvedProjectRoots,
   findDuplicatePaths,
@@ -142,6 +143,47 @@ describe('runner coverage verifier', () => {
       rootDir: path.resolve('/fallback/workspace'),
       configPath: path.resolve('/fallback/workspace', 'wiggum.config.json'),
       packagesDir: path.resolve('/fallback/workspace', 'packages'),
+    });
+  });
+
+  test('detectSupportedRunnerConfigPath prefers existing supported config files', () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-config-');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.mjs'), 'export default {};');
+
+    const result = detectSupportedRunnerConfigPath(tempRoot);
+    expect(result).toBe(path.join(tempRoot, 'wiggum.config.mjs'));
+  });
+
+  test('detectSupportedRunnerConfigPath prefers json when multiple supported files exist', () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-config-order-');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.json'), '{}');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.mjs'), 'export default {};');
+
+    const result = detectSupportedRunnerConfigPath(tempRoot);
+    expect(result).toBe(path.join(tempRoot, 'wiggum.config.json'));
+  });
+
+  test('detectSupportedRunnerConfigPath falls back to json path when no supported files exist', () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-config-fallback-');
+
+    const result = detectSupportedRunnerConfigPath(tempRoot);
+    expect(result).toBe(path.join(tempRoot, 'wiggum.config.json'));
+  });
+
+  test('resolveVerifierPathsFromEnv auto-detects supported non-json config files', () => {
+    const tempRoot = makeTempDir('verify-coverage-env-detect-config-');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.cjs'), 'module.exports = {};');
+
+    const result = resolveVerifierPathsFromEnv({
+      env: {
+        WIGGUM_RUNNER_VERIFY_ROOT: tempRoot,
+      },
+    });
+
+    expect(result).toEqual({
+      rootDir: path.resolve(tempRoot),
+      configPath: path.resolve(tempRoot, 'wiggum.config.cjs'),
+      packagesDir: path.resolve(tempRoot, 'packages'),
     });
   });
 

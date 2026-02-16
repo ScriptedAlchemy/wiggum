@@ -13,23 +13,43 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_ROOT = path.resolve(__dirname, '../../..');
+const SUPPORTED_RUNNER_CONFIG_FILES = [
+  'wiggum.config.json',
+  'wiggum.config.mjs',
+  'wiggum.config.js',
+  'wiggum.config.cjs',
+];
+
+export function detectSupportedRunnerConfigPath(rootDir, fileSystem = fs) {
+  const normalizedRootDir = ensureNonEmptyRootPath(rootDir, 'rootDir');
+  const normalizedFileSystem = ensureFileSystemContract(fileSystem);
+  for (const configFileName of SUPPORTED_RUNNER_CONFIG_FILES) {
+    const candidatePath = path.join(normalizedRootDir, configFileName);
+    if (normalizedFileSystem.existsSync(candidatePath)) {
+      return candidatePath;
+    }
+  }
+  return path.join(normalizedRootDir, SUPPORTED_RUNNER_CONFIG_FILES[0]);
+}
 
 export function resolveVerifierPathsFromEnv({
   env = process.env,
   fallbackRoot = DEFAULT_ROOT,
+  fileSystem = fs,
 } = {}) {
   const normalizedEnv = ensureEnvObject(env);
   const rootOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_VERIFY_ROOT');
   const configPathOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_VERIFY_CONFIG_PATH');
   const packagesDirOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_VERIFY_PACKAGES_DIR');
   const normalizedFallbackRoot = ensureNonEmptyRootPath(fallbackRoot, 'fallbackRoot');
+  const normalizedFileSystem = ensureFileSystemContract(fileSystem);
 
   const rootDir = rootOverride
     ? path.resolve(rootOverride)
     : path.resolve(normalizedFallbackRoot);
   const configPath = configPathOverride
     ? path.resolve(rootDir, configPathOverride)
-    : path.join(rootDir, 'wiggum.config.json');
+    : detectSupportedRunnerConfigPath(rootDir, normalizedFileSystem);
   const packagesDir = packagesDirOverride
     ? path.resolve(rootDir, packagesDirOverride)
     : path.join(rootDir, 'packages');
@@ -249,8 +269,8 @@ export async function verifyRunnerCoverage(options = {}) {
     fileSystem = fs,
     resolveWorkspace = resolveRunnerWorkspace,
   } = options;
-  const defaults = resolveVerifierPathsFromEnv();
   const normalizedFileSystem = ensureFileSystemContract(fileSystem);
+  const defaults = resolveVerifierPathsFromEnv({ fileSystem: normalizedFileSystem });
   const normalizedRootDir = resolvePathOption(rootDir ?? defaults.rootDir, 'rootDir');
   const normalizedConfigPath = resolvePathOption(
     configPath ?? defaults.configPath,
