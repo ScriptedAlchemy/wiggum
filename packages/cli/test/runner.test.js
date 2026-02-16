@@ -95,6 +95,19 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
   });
 
+  test('projects graph --help prints runner projects usage', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'help-project',
+      private: true,
+    });
+
+    const result = runCLI(['projects', 'graph', '--help'], root);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
+    expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
+  });
+
   test('projects --json help prints runner projects usage', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'package.json'), {
