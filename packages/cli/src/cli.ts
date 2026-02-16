@@ -658,11 +658,17 @@ function parseAgentServeArgs(argsArr: string[]): ParsedAgentServeArgs {
       if (!value || value.startsWith('-')) {
         throw new Error('Missing value for --port');
       }
+      if (parsed.portRaw !== undefined) {
+        throw new Error('Duplicate --port option provided.');
+      }
       parsed.portRaw = value;
       i++;
       continue;
     }
     if (arg.startsWith('--port=')) {
+      if (parsed.portRaw !== undefined) {
+        throw new Error('Duplicate --port option provided.');
+      }
       parsed.portRaw = arg.slice('--port='.length);
       continue;
     }
@@ -671,11 +677,17 @@ function parseAgentServeArgs(argsArr: string[]): ParsedAgentServeArgs {
       if (!value || value.startsWith('-')) {
         throw new Error('Missing value for --hostname');
       }
+      if (parsed.hostnameRaw !== undefined) {
+        throw new Error('Duplicate --hostname option provided.');
+      }
       parsed.hostnameRaw = value;
       i++;
       continue;
     }
     if (arg.startsWith('--hostname=')) {
+      if (parsed.hostnameRaw !== undefined) {
+        throw new Error('Duplicate --hostname option provided.');
+      }
       parsed.hostnameRaw = arg.slice('--hostname='.length);
       continue;
     }

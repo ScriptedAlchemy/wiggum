@@ -625,6 +625,40 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain('Unknown serve option(s): mystery');
     });
+
+    test('agent serve rejects duplicate port options', () => {
+      const root = makeTempDir();
+      const emptyPathDir = path.join(root, 'empty-bin');
+      fs.mkdirSync(emptyPathDir, { recursive: true });
+
+      const result = runCLI('agent serve --port 3000 --port 4000', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${path.dirname(process.execPath)}:${emptyPathDir}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Duplicate --port option provided.');
+    });
+
+    test('agent serve rejects duplicate hostname options', () => {
+      const root = makeTempDir();
+      const emptyPathDir = path.join(root, 'empty-bin');
+      fs.mkdirSync(emptyPathDir, { recursive: true });
+
+      const result = runCLI('agent serve -H localhost --hostname 0.0.0.0', {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${path.dirname(process.execPath)}:${emptyPathDir}`,
+        },
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain('Duplicate --hostname option provided.');
+    });
   });
 
   describe('Complex flag combinations', () => {
