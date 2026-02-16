@@ -15,11 +15,13 @@ const REQUIRED_WORKFLOW_RUNS = [
   /pnpm run test:runner/,
   /pnpm run verify:runner:coverage/,
   /pnpm run verify:runner:workflow/,
+  /name:\s*Run linting[\s\S]*?run:\s*pnpm -r --if-present run lint/,
   /name:\s*Check types[\s\S]*?run:\s*pnpm -r exec tsc --noEmit/,
 ];
 const FORBIDDEN_WORKFLOW_PATTERNS = [
   /name:\s*Check types[\s\S]*?continue-on-error:\s*true/,
   /name:\s*Check types[\s\S]*?run:\s*pnpm -r exec tsc --noEmit\s*\|\|\s*true/,
+  /name:\s*Run linting[\s\S]*?run:\s*pnpm -r run lint/,
 ];
 
 function fail(message) {
