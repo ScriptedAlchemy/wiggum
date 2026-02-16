@@ -33,6 +33,19 @@ export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED
   return parsedValue;
 }
 
+export function findDuplicatePaths(entries) {
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const entry of entries) {
+    if (seen.has(entry)) {
+      duplicates.add(entry);
+    } else {
+      seen.add(entry);
+    }
+  }
+  return Array.from(duplicates).sort((a, b) => a.localeCompare(b));
+}
+
 export function listExpectedProjectRoots(packagesDir = PACKAGES_DIR, fileSystem = fs) {
   if (!fileSystem.existsSync(packagesDir)) {
     throw new Error(`Packages directory not found at ${packagesDir}`);
@@ -79,6 +92,22 @@ export function verifyRunnerCoverageData({
     }
     return path.resolve(entry);
   });
+  const duplicateExpectedRoots = findDuplicatePaths(normalizedExpectedRoots);
+  if (duplicateExpectedRoots.length > 0) {
+    throw new Error(
+      `expectedProjectRoots contains duplicate project root path(s):\n${duplicateExpectedRoots
+        .map((entry) => `- ${entry}`)
+        .join('\n')}`,
+    );
+  }
+  const duplicateResolvedRoots = findDuplicatePaths(normalizedResolvedRoots);
+  if (duplicateResolvedRoots.length > 0) {
+    throw new Error(
+      `resolvedProjectRoots contains duplicate project root path(s):\n${duplicateResolvedRoots
+        .map((entry) => `- ${entry}`)
+        .join('\n')}`,
+    );
+  }
 
   if (!Number.isFinite(minExpectedProjects) || minExpectedProjects < 1) {
     throw new Error(`MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got ${minExpectedProjects}`);

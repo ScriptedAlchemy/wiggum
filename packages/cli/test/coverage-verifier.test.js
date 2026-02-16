@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   extractResolvedProjectRoots,
+  findDuplicatePaths,
   listExpectedProjectRoots,
   parseMinimumExpectedProjects,
   verifyRunnerCoverage,
@@ -29,6 +30,21 @@ describe('runner coverage verifier', () => {
     expect(() => parseMinimumExpectedProjects('0')).toThrow(
       'MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got 0',
     );
+  });
+
+  test('findDuplicatePaths returns sorted unique duplicates', () => {
+    expect(
+      findDuplicatePaths([
+        '/repo/packages/cli',
+        '/repo/packages/agent',
+        '/repo/packages/cli',
+        '/repo/packages/demo',
+        '/repo/packages/agent',
+      ]),
+    ).toEqual([
+      '/repo/packages/agent',
+      '/repo/packages/cli',
+    ]);
   });
 
   test('extractResolvedProjectRoots rejects missing projects container', () => {
@@ -123,6 +139,28 @@ describe('runner coverage verifier', () => {
         rootDir: '/repo',
       }),
     ).toThrow('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1');
+  });
+
+  test('rejects duplicate expected project roots', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: ['/repo/packages/cli', '/repo/packages/cli'],
+        resolvedProjectRoots: ['/repo/packages/cli'],
+        minExpectedProjects: 1,
+        rootDir: '/repo',
+      }),
+    ).toThrow('expectedProjectRoots contains duplicate project root path(s):\n- /repo/packages/cli');
+  });
+
+  test('rejects duplicate resolved project roots', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: ['/repo/packages/cli'],
+        resolvedProjectRoots: ['/repo/packages/cli', '/repo/packages/cli'],
+        minExpectedProjects: 1,
+        rootDir: '/repo',
+      }),
+    ).toThrow('resolvedProjectRoots contains duplicate project root path(s):\n- /repo/packages/cli');
   });
 
   test('rejects when expected package roots are lower than minimum threshold', () => {
