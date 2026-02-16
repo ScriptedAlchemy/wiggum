@@ -1,12 +1,8 @@
 import chalk from 'chalk';
-import ora from 'ora';
 import { execa } from 'execa';
 import which from 'which';
-import { detect } from 'package-manager-detector';
-import { resolveCommand } from 'package-manager-detector/commands';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { createWiggumOpencodeTui, checkOpenCodeBinary, installOpenCode, runOpenCodeServer, runOpenCodeCommand, createOpenCodeConfig, showAgentHelp } from './agent.js';
 import { getPackageManager as pmDetect, installPackageDev, getExecuteCommand, isPackageInstalled } from './pm.js';

@@ -162,4 +162,79 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Circular project dependencies detected');
   });
+
+  test('supports nested object project entries without temp files', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: [
+        {
+          root: 'packages',
+          args: ['--mode', 'production'],
+          projects: ['*'],
+        },
+      ],
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+      dependencies: {
+        '@scope/a': 'workspace:*',
+      },
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--json'],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
+    expect(payload.plan[0].args).toContain('--mode');
+    expect(payload.plan[0].args).toContain('production');
+    expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/a', '@scope/b']);
+  });
+
+  test('includes inferred import dependencies for filtered runs', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/b/package.json'), {
+      name: '@scope/b',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/a/package.json'), {
+      name: '@scope/a',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/a/src/index.ts'),
+      "import '@scope/b';\nexport const value = 1;\n",
+    );
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--project',
+        '@scope/a',
+        '--dry-run',
+        '--json',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
+    expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(true);
+  });
 });

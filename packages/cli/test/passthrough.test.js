@@ -10,6 +10,7 @@ const __dirname = dirname(__filename);
 
 // Path to the CLI script
 const CLI_PATH = path.join(__dirname, '../bin/cli.js');
+const SEMVER_OR_RSPACK_VERSION = /^(?:\d+\.\d+\.\d+|rspack\/\d+\.\d+\.\d+(?:\s+.+)?)$/;
 
 // Helper function to run CLI commands
 function runCLI(args, options = {}) {
@@ -41,7 +42,7 @@ describe('Wiggum CLI Passthrough Tests', () => {
     test('pack --version should return rspack version', () => {
       const result = runCLI('pack --version');
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(result.stdout.trim()).toMatch(SEMVER_OR_RSPACK_VERSION);
     });
 
     test('doc --version should return rspress version', () => {
@@ -115,7 +116,7 @@ describe('Wiggum CLI Passthrough Tests', () => {
     test('pack -v should return rspack version', () => {
       const result = runCLI('pack -v');
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(result.stdout.trim()).toMatch(SEMVER_OR_RSPACK_VERSION);
     });
 
     test('doc -v should return rspress version', () => {
@@ -219,7 +220,7 @@ describe('Wiggum CLI Passthrough Tests', () => {
     test('pack --config webpack.config.js --version should forward all flags', () => {
       const result = runCLI('pack --config webpack.config.js --version');
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(result.stdout.trim()).toMatch(SEMVER_OR_RSPACK_VERSION);
     });
 
     test('should handle invalid commands gracefully', () => {

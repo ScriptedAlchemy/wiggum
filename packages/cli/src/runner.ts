@@ -80,7 +80,8 @@ const RUNNER_CONFIG_FILES = [
 ];
 
 const PROJECT_CONFIG_RE = /(?:^|\/)(?:rslib|rsbuild|rspack|rspress|rstest|rslint)\.config\.(?:mjs|js|cjs|mts|cts|ts)$/;
-const IMPORT_RE = /(?:import\s+[^'"]*from\s*|export\s+[^'"]*from\s*|require\(\s*)['"]([^'"]+)['"]\)?/g;
+const IMPORT_RE =
+  /(?:import\s+(?:[^'"]+from\s*)?|export\s+[^'"]*from\s*|require\(\s*)['"]([^'"]+)['"]\)?/g;
 
 type MutableProject = Omit<RunnerProject, 'dependencies' | 'inferredDependencies'> & {
   dependencies: Set<string>;
@@ -90,6 +91,7 @@ type MutableProject = Omit<RunnerProject, 'dependencies' | 'inferredDependencies
 type CollectContext = {
   dedupeByRoot: Map<string, MutableProject>;
   dedupeByName: Map<string, string>;
+  visitedConfigPaths: Set<string>;
 };
 
 function normalizePath(inputPath: string): string {
@@ -158,7 +160,7 @@ function includeDependencyClosure(allProjects: RunnerProject[], selectedProjects
     if (!current) continue;
     const project = byName.get(current);
     if (!project) continue;
-    for (const dependency of project.dependencies) {
+    for (const dependency of [...project.dependencies, ...project.inferredDependencies]) {
       if (!selected.has(dependency)) {
         selected.add(dependency);
         queue.push(dependency);
@@ -185,6 +187,16 @@ async function readJsonFile<T>(filePath: string): Promise<T> {
 
 function replaceRootToken(inputValue: string, rootDir: string): string {
   return inputValue.split('<rootDir>').join(rootDir);
+}
+
+function normalizeStringArray(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input.filter((value): value is string => typeof value === 'string');
+}
+
+function resolveFromRoot(rootDir: string, maybeRelativePath: string): string {
+  const replaced = replaceRootToken(maybeRelativePath, rootDir);
+  return normalizePath(path.isAbsolute(replaced) ? replaced : path.join(rootDir, replaced));
 }
 
 async function detectRunnerConfig(rootDir: string): Promise<string | undefined> {
@@ -333,117 +345,148 @@ async function collectProjectsFromConfig(
   ctx: CollectContext,
 ): Promise<void> {
   const absoluteConfigPath = normalizePath(configPath);
+  if (ctx.visitedConfigPaths.has(absoluteConfigPath)) return;
+  ctx.visitedConfigPaths.add(absoluteConfigPath);
+
   const configDir = path.dirname(absoluteConfigPath);
   const config = await readRunnerConfig(absoluteConfigPath);
-  const configRoot = config.root
-    ? normalizePath(path.join(configDir, replaceRootToken(config.root, configDir)))
-    : configDir;
-  const defaultsArgs = Array.isArray(config.defaults?.args)
-    ? config.defaults?.args.filter((arg): arg is string => typeof arg === 'string')
-    : [];
+  const configRoot = config.root ? resolveFromRoot(configDir, config.root) : configDir;
+  const defaultsArgs = normalizeStringArray(config.defaults?.args);
   const mergedArgs = [...inheritedArgs, ...defaultsArgs];
   const mergedIgnore = [
     ...inheritedIgnore,
-    ...(Array.isArray(config.ignore)
-      ? config.ignore.filter((entry): entry is string => typeof entry === 'string')
-      : []),
+    ...normalizeStringArray(config.ignore),
   ];
 
   const entries = Array.isArray(config.projects) ? config.projects : [configRoot];
   for (const entry of entries) {
-    if (typeof entry === 'string') {
-      const resolvedPaths = await resolveStringEntry(entry, configRoot, mergedIgnore);
-      for (const resolvedPath of resolvedPaths) {
-        const stat = await fsp.stat(resolvedPath);
-        if (stat.isDirectory()) {
-          const nestedConfig = await inferNestedConfigFromDirectory(resolvedPath);
-          if (nestedConfig) {
-            await collectProjectsFromConfig(nestedConfig, mergedArgs, mergedIgnore, ctx);
-            continue;
-          }
-          await addResolvedProject(ctx, resolvedPath, { inheritedArgs: mergedArgs });
-          continue;
-        }
-        if (isRunnerConfigFile(resolvedPath)) {
-          await collectProjectsFromConfig(resolvedPath, mergedArgs, mergedIgnore, ctx);
-          continue;
-        }
-        if (path.basename(resolvedPath) === 'package.json') {
-          await addResolvedProject(ctx, path.dirname(resolvedPath), {
-            inheritedArgs: mergedArgs,
-          });
-          continue;
-        }
-        if (isProjectConfigFile(resolvedPath)) {
-          await addResolvedProject(ctx, path.dirname(resolvedPath), {
-            inheritedArgs: mergedArgs,
-            configFile: resolvedPath,
-          });
-          continue;
-        }
-        throw new Error(
-          `Unsupported project file "${resolvedPath}" in ${absoluteConfigPath}.`
-        );
-      }
-      continue;
-    }
-
-    if (!entry || typeof entry !== 'object') {
-      throw new Error(`Invalid project entry in ${absoluteConfigPath}.`);
-    }
-
-    const objectRoot = entry.root
-      ? normalizePath(path.join(configRoot, replaceRootToken(entry.root, configRoot)))
-      : configRoot;
-    const objectIgnore = [
-      ...mergedIgnore,
-      ...(Array.isArray(entry.ignore)
-        ? entry.ignore.filter((item): item is string => typeof item === 'string')
-        : []),
-    ];
-    const localArgs = Array.isArray(entry.args)
-      ? entry.args.filter((item): item is string => typeof item === 'string')
-      : [];
-    if (Array.isArray(entry.projects) && entry.projects.length > 0) {
-      const nestedTempConfigPath = path.join(
-        objectRoot,
-        `.wiggum-runtime-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
-      );
-      const nestedConfig: RunnerConfig = {
-        root: objectRoot,
-        ignore: objectIgnore,
-        defaults: { args: [...mergedArgs, ...localArgs] },
-        projects: entry.projects,
-      };
-      await fsp.writeFile(nestedTempConfigPath, JSON.stringify(nestedConfig), 'utf8');
-      try {
-        await collectProjectsFromConfig(nestedTempConfigPath, [], [], ctx);
-      } finally {
-        try {
-          await fsp.unlink(nestedTempConfigPath);
-        } catch {
-          // ignore temp cleanup failures
-        }
-      }
-      continue;
-    }
-
-    const explicitConfig = entry.config
-      ? normalizePath(path.join(objectRoot, replaceRootToken(entry.config, objectRoot)))
-      : undefined;
-    if (explicitConfig && !(await pathExists(explicitConfig))) {
-      throw new Error(`Project config file not found: ${explicitConfig}`);
-    }
-    await addResolvedProject(ctx, objectRoot, {
-      explicitName: entry.name,
-      configFile: explicitConfig,
-      inheritedArgs: mergedArgs,
-      localArgs,
-    });
+    await processRunnerEntry(
+      entry,
+      {
+        baseRoot: configRoot,
+        inheritedArgs: mergedArgs,
+        inheritedIgnore: mergedIgnore,
+        sourceConfigPath: absoluteConfigPath,
+      },
+      ctx,
+    );
   }
 }
 
+async function processResolvedPath(
+  resolvedPath: string,
+  inheritedArgs: string[],
+  inheritedIgnore: string[],
+  sourceConfigPath: string,
+  ctx: CollectContext,
+): Promise<void> {
+  const stat = await fsp.stat(resolvedPath);
+  if (stat.isDirectory()) {
+    const nestedConfig = await inferNestedConfigFromDirectory(resolvedPath);
+    if (nestedConfig) {
+      await collectProjectsFromConfig(nestedConfig, inheritedArgs, inheritedIgnore, ctx);
+      return;
+    }
+    await addResolvedProject(ctx, resolvedPath, { inheritedArgs });
+    return;
+  }
+
+  if (isRunnerConfigFile(resolvedPath)) {
+    await collectProjectsFromConfig(resolvedPath, inheritedArgs, inheritedIgnore, ctx);
+    return;
+  }
+  if (path.basename(resolvedPath) === 'package.json') {
+    await addResolvedProject(ctx, path.dirname(resolvedPath), { inheritedArgs });
+    return;
+  }
+  if (isProjectConfigFile(resolvedPath)) {
+    await addResolvedProject(ctx, path.dirname(resolvedPath), {
+      inheritedArgs,
+      configFile: resolvedPath,
+    });
+    return;
+  }
+  throw new Error(`Unsupported project file "${resolvedPath}" in ${sourceConfigPath}.`);
+}
+
+async function processRunnerEntry(
+  entry: RunnerConfigEntry,
+  scope: {
+    baseRoot: string;
+    inheritedArgs: string[];
+    inheritedIgnore: string[];
+    sourceConfigPath: string;
+  },
+  ctx: CollectContext,
+): Promise<void> {
+  const { baseRoot, inheritedArgs, inheritedIgnore, sourceConfigPath } = scope;
+
+  if (typeof entry === 'string') {
+    const resolvedPaths = await resolveStringEntry(entry, baseRoot, inheritedIgnore);
+    for (const resolvedPath of resolvedPaths) {
+      await processResolvedPath(
+        resolvedPath,
+        inheritedArgs,
+        inheritedIgnore,
+        sourceConfigPath,
+        ctx,
+      );
+    }
+    return;
+  }
+
+  if (!entry || typeof entry !== 'object') {
+    throw new Error(`Invalid project entry in ${sourceConfigPath}.`);
+  }
+
+  const objectRoot = entry.root ? resolveFromRoot(baseRoot, entry.root) : baseRoot;
+  const mergedIgnore = [...inheritedIgnore, ...normalizeStringArray(entry.ignore)];
+  const localArgs = normalizeStringArray(entry.args);
+  const mergedArgs = [...inheritedArgs, ...localArgs];
+
+  if (Array.isArray(entry.projects) && entry.projects.length > 0) {
+    for (const nestedEntry of entry.projects) {
+      await processRunnerEntry(
+        nestedEntry,
+        {
+          baseRoot: objectRoot,
+          inheritedArgs: mergedArgs,
+          inheritedIgnore: mergedIgnore,
+          sourceConfigPath,
+        },
+        ctx,
+      );
+    }
+    return;
+  }
+
+  const explicitConfig = entry.config ? resolveFromRoot(objectRoot, entry.config) : undefined;
+  if (explicitConfig && !(await pathExists(explicitConfig))) {
+    throw new Error(`Project config file not found: ${explicitConfig}`);
+  }
+  if (explicitConfig && isRunnerConfigFile(explicitConfig)) {
+    await collectProjectsFromConfig(explicitConfig, mergedArgs, mergedIgnore, ctx);
+    return;
+  }
+
+  await addResolvedProject(ctx, objectRoot, {
+    explicitName: entry.name,
+    configFile: explicitConfig,
+    inheritedArgs,
+    localArgs,
+  });
+}
+
 function buildGraph(projects: RunnerProject[]): RunnerGraph {
+  const dependencyMap = new Map<string, string[]>(
+    projects.map((project) => [
+      project.name,
+      Array.from(new Set([...project.dependencies, ...project.inferredDependencies])).sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    ]),
+  );
+
   const nodes = projects
     .map((project) => ({
       name: project.name,
@@ -488,7 +531,7 @@ function buildGraph(projects: RunnerProject[]): RunnerGraph {
   const dependents = new Map<string, string[]>();
   const indegree = new Map<string, number>();
   for (const project of projects) {
-    indegree.set(project.name, project.dependencies.length + project.inferredDependencies.length);
+    indegree.set(project.name, dependencyMap.get(project.name)?.length ?? 0);
   }
   for (const edge of edges) {
     if (!byName.has(edge.from) || !byName.has(edge.to)) continue;
@@ -523,22 +566,77 @@ function buildGraph(projects: RunnerProject[]): RunnerGraph {
     ready = Array.from(new Set(next)).sort((a, b) => a.localeCompare(b));
   }
 
-  const cycles = topologicalOrder.length === projects.length
-    ? []
-    : [
-        Array.from(indegree.entries())
-          .filter(([, degree]) => degree > 0)
-          .map(([name]) => name)
-          .sort((a, b) => a.localeCompare(b)),
-      ];
+  const unresolved = new Set(
+    Array.from(indegree.entries())
+      .filter(([, degree]) => degree > 0)
+      .map(([name]) => name),
+  );
+  const cycles = unresolved.size === 0 ? [] : findCycles(dependencyMap, unresolved);
 
   return { nodes, edges, topologicalOrder, levels, cycles };
 }
 
-async function inferImportDependencies(
-  projects: RunnerProject[],
-  rootDir: string,
-): Promise<void> {
+function findCycles(dependencyMap: Map<string, string[]>, unresolved: Set<string>): string[][] {
+  const indexByNode = new Map<string, number>();
+  const lowLinkByNode = new Map<string, number>();
+  const stack: string[] = [];
+  const inStack = new Set<string>();
+  let index = 0;
+  const stronglyConnectedComponents: string[][] = [];
+
+  const strongConnect = (node: string) => {
+    indexByNode.set(node, index);
+    lowLinkByNode.set(node, index);
+    index += 1;
+    stack.push(node);
+    inStack.add(node);
+
+    const dependencies = dependencyMap.get(node) ?? [];
+    for (const dependency of dependencies) {
+      if (!unresolved.has(dependency)) continue;
+      if (!indexByNode.has(dependency)) {
+        strongConnect(dependency);
+        lowLinkByNode.set(
+          node,
+          Math.min(lowLinkByNode.get(node)!, lowLinkByNode.get(dependency)!),
+        );
+      } else if (inStack.has(dependency)) {
+        lowLinkByNode.set(
+          node,
+          Math.min(lowLinkByNode.get(node)!, indexByNode.get(dependency)!),
+        );
+      }
+    }
+
+    if (lowLinkByNode.get(node) === indexByNode.get(node)) {
+      const component: string[] = [];
+      while (stack.length > 0) {
+        const popped = stack.pop()!;
+        inStack.delete(popped);
+        component.push(popped);
+        if (popped === node) break;
+      }
+      stronglyConnectedComponents.push(component.sort((a, b) => a.localeCompare(b)));
+    }
+  };
+
+  for (const node of unresolved) {
+    if (!indexByNode.has(node)) {
+      strongConnect(node);
+    }
+  }
+
+  return stronglyConnectedComponents
+    .filter((component) => {
+      if (component.length > 1) return true;
+      const single = component[0];
+      const deps = dependencyMap.get(single) ?? [];
+      return deps.includes(single);
+    })
+    .sort((a, b) => a[0].localeCompare(b[0]));
+}
+
+async function inferImportDependencies(projects: RunnerProject[]): Promise<void> {
   const packageNameToProject = new Map(
     projects
       .filter((project) => Boolean(project.packageName))
@@ -586,21 +684,19 @@ async function inferImportDependencies(
     }
 
     for (const dep of seenDeps) {
-      if (!project.dependencies.includes(dep)) {
-        project.dependencies.push(dep);
+      if (
+        !project.dependencies.includes(dep) &&
+        !project.inferredDependencies.includes(dep)
+      ) {
         project.inferredDependencies.push(dep);
       }
     }
 
-    project.dependencies = Array.from(new Set(project.dependencies)).sort((a, b) =>
-      a.localeCompare(b)
-    );
     project.inferredDependencies = Array.from(new Set(project.inferredDependencies)).sort((a, b) =>
       a.localeCompare(b)
     );
   }
 
-  void rootDir;
 }
 
 export async function resolveRunnerWorkspace(
@@ -614,6 +710,7 @@ export async function resolveRunnerWorkspace(
   const ctx: CollectContext = {
     dedupeByRoot: new Map(),
     dedupeByName: new Map(),
+    visitedConfigPaths: new Set(),
   };
 
   if (configPath) {
@@ -646,7 +743,7 @@ export async function resolveRunnerWorkspace(
   }
 
   if (options.includeInferredImports !== false) {
-    await inferImportDependencies(projects, rootDir);
+    await inferImportDependencies(projects);
   }
 
   const projectFilters = options.projectFilters ?? [];
