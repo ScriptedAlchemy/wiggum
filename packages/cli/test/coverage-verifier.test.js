@@ -34,6 +34,12 @@ describe('runner coverage verifier', () => {
     );
   });
 
+  test('parseMinimumExpectedProjects rejects values above max safe integer', () => {
+    expect(() => parseMinimumExpectedProjects('9007199254740992')).toThrow(
+      `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be <= ${Number.MAX_SAFE_INTEGER}`,
+    );
+  });
+
   test('parseMinimumExpectedProjects rejects zero', () => {
     expect(() => parseMinimumExpectedProjects('0')).toThrow(
       'MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got 0',
@@ -193,6 +199,17 @@ describe('runner coverage verifier', () => {
         expectedProjectRoots: ['/repo/packages/cli'],
         resolvedProjectRoots: ['/repo/packages/cli'],
         minExpectedProjects: 1.5,
+        rootDir: '/repo',
+      }),
+    ).toThrow('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be an integer >= 1');
+  });
+
+  test('rejects unsafe integer minimum expected project count', () => {
+    expect(() =>
+      verifyRunnerCoverageData({
+        expectedProjectRoots: ['/repo/packages/cli'],
+        resolvedProjectRoots: ['/repo/packages/cli'],
+        minExpectedProjects: 9007199254740992,
         rootDir: '/repo',
       }),
     ).toThrow('MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be an integer >= 1');

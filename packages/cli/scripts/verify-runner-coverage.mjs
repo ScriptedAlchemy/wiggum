@@ -24,6 +24,11 @@ export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED
   }
 
   const parsedValue = Number.parseInt(normalizedValue, 10);
+  if (!Number.isSafeInteger(parsedValue)) {
+    throw new Error(
+      `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be <= ${Number.MAX_SAFE_INTEGER}, got "${rawValue}"`,
+    );
+  }
   if (parsedValue < 1) {
     throw new Error(
       `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got ${parsedValue}`,
@@ -128,7 +133,7 @@ export function verifyRunnerCoverageData({
     );
   }
 
-  if (!Number.isInteger(minExpectedProjects) || minExpectedProjects < 1) {
+  if (!Number.isSafeInteger(minExpectedProjects) || minExpectedProjects < 1) {
     throw new Error(`MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be an integer >= 1, got ${minExpectedProjects}`);
   }
   if (normalizedExpectedRoots.length < minExpectedProjects) {
