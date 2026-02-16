@@ -181,12 +181,12 @@ function extractRunCommand(stepBlock) {
   };
 }
 
-function verifyPackageScriptsContent(packageJsonContent) {
+function verifyPackageScriptsContent(packageJsonContent, packageJsonPath = PACKAGE_JSON_PATH) {
   let pkg;
   try {
     pkg = JSON.parse(packageJsonContent);
   } catch (error) {
-    throw new Error(`Failed to parse ${PACKAGE_JSON_PATH}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Failed to parse ${packageJsonPath}: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   const scriptsContainer = pkg.scripts ?? {};
@@ -267,13 +267,18 @@ function ensureNonEmptyString(value, fieldName) {
 
 export function verifyRunnerWorkflowCoverage({
   packageJsonContent,
+  packageJsonPath = PACKAGE_JSON_PATH,
   workflowContent,
   workflowPath = WORKFLOW_PATH,
 }) {
   const normalizedPackageJsonContent = ensureNonEmptyString(packageJsonContent, 'packageJsonContent');
+  const normalizedPackageJsonPath = ensureNonEmptyString(packageJsonPath, 'packageJsonPath');
   const normalizedWorkflowContent = ensureNonEmptyString(workflowContent, 'workflowContent');
   const normalizedWorkflowPath = ensureNonEmptyString(workflowPath, 'workflowPath');
-  const packageScriptResult = verifyPackageScriptsContent(normalizedPackageJsonContent);
+  const packageScriptResult = verifyPackageScriptsContent(
+    normalizedPackageJsonContent,
+    normalizedPackageJsonPath,
+  );
   const workflowResult = verifyWorkflowContent(normalizedWorkflowContent, normalizedWorkflowPath);
   return {
     ...packageScriptResult,
@@ -286,6 +291,7 @@ function main() {
   const workflowContent = readUtf8(WORKFLOW_PATH);
   const result = verifyRunnerWorkflowCoverage({
     packageJsonContent,
+    packageJsonPath: PACKAGE_JSON_PATH,
     workflowContent,
     workflowPath: WORKFLOW_PATH,
   });

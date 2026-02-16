@@ -90,6 +90,30 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('workflowPath must be a non-empty string');
   });
 
+  test('rejects blank packageJsonPath input', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        packageJsonPath: '   ',
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('packageJsonPath must be a non-empty string');
+  });
+
+  test('reports custom packageJsonPath when parsing package content fails', () => {
+    const { workflowContent } = readCurrentInputs();
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: '{ invalid json',
+        packageJsonPath: '/tmp/custom-package.json',
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Failed to parse /tmp/custom-package.json');
+  });
+
   test('accepts the current repository workflow and scripts', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     expect(() =>
@@ -469,6 +493,7 @@ describe('runner workflow coverage verifier', () => {
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
       expect(result.stderr).toContain('Failed to parse');
+      expect(result.stderr).toContain(path.join(fixture.rootDir, 'package.json'));
     } finally {
       cleanupWorkflowVerifierFixture(fixture);
     }
