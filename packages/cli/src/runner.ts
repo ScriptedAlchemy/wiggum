@@ -81,6 +81,7 @@ const RUNNER_CONFIG_FILES = [
 
 const PROJECT_CONFIG_RE = /(?:^|\/)(?:rslib|rsbuild|rspack|rspress|rstest|rslint)\.config\.(?:mjs|js|cjs|mts|cts|ts)$/;
 const IMPORT_ARGUMENT_COMMENT_RE = '(?:\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n\\r]*)\\s*';
+const MAX_INFERRED_IMPORT_SCAN_FILES = 400;
 const IMPORT_RE =
   new RegExp(
     `(?:import\\s+(?:[^'"]+from\\s*)?|import\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|export\\s+[^'"]*from\\s*|require\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*)['"]([^'"]+)['"]\\s*\\)?`,
@@ -676,8 +677,12 @@ async function inferImportDependencies(projects: RunnerProject[]): Promise<void>
       ignore: ['**/node_modules/**', '**/dist/**', '**/*.d.ts'],
       followSymbolicLinks: true,
     });
+    const filesToScan = [...files]
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, MAX_INFERRED_IMPORT_SCAN_FILES);
     const seenDeps = new Set<string>();
-    for (const file of files.slice(0, 400)) {
+    for (const file of filesToScan) {
+      IMPORT_RE.lastIndex = 0;
       let content: string;
       try {
         content = await fsp.readFile(file, 'utf8');
@@ -696,7 +701,6 @@ async function inferImportDependencies(projects: RunnerProject[]): Promise<void>
           seenDeps.add(dependencyProjectName);
         }
       }
-      IMPORT_RE.lastIndex = 0;
     }
 
     for (const dep of seenDeps) {
