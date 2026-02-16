@@ -1283,6 +1283,27 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_PARALLEL value "2abc"');
   });
 
+  test('run rejects unsafe-integer WIGGUM_RUNNER_PARALLEL env value', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run'],
+      root,
+      {
+        WIGGUM_RUNNER_PARALLEL: '9007199254740992',
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid WIGGUM_RUNNER_PARALLEL value "9007199254740992"');
+  });
+
   test('run accepts trimmed WIGGUM_RUNNER_PARALLEL env value', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -1458,6 +1479,34 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Invalid --parallel value "2abc"');
   });
 
+  test('run rejects unsafe-integer --parallel values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--parallel',
+        '9007199254740992',
+        '--dry-run',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid --parallel value "9007199254740992"');
+  });
+
   test('run rejects empty --parallel= value', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -1528,5 +1577,32 @@ describe('Wiggum runner workspace graph', () => {
     );
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Invalid --concurrency value "3xyz"');
+  });
+
+  test('run rejects unsafe-integer --concurrency= values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      [
+        'run',
+        'build',
+        '--root',
+        root,
+        '--config',
+        path.join(root, 'wiggum.config.json'),
+        '--concurrency=9007199254740992',
+        '--dry-run',
+      ],
+      root,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('Invalid --concurrency value "9007199254740992"');
   });
 });

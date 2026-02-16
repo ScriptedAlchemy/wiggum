@@ -422,7 +422,7 @@ function parseRunnerFlags(args: string[]): RunnerFlags {
       throw new Error(`Invalid ${flagName} value "${rawValue}"`);
     }
     const value = Number.parseInt(normalizedValue, 10);
-    if (!Number.isFinite(value) || value < 1) {
+    if (!Number.isSafeInteger(value) || value < 1) {
       throw new Error(`Invalid ${flagName} value "${rawValue}"`);
     }
     return value;
