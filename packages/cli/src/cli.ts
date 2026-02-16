@@ -958,28 +958,26 @@ async function main() {
   let filteredArgs = [...args];
   const passthroughBoundary = args.indexOf('--');
   const parseBoundary = passthroughBoundary === -1 ? args.length : passthroughBoundary;
-  const commandCandidate = args
-    .slice(0, parseBoundary)
-    .find((arg) => !arg.startsWith('-'));
-  const shouldExtractGlobalAutofix = commandCandidate !== 'agent';
+  const parseSlice = args.slice(0, parseBoundary);
+  const commandIndex = parseSlice.findIndex((arg) => !arg.startsWith('-'));
+  const commandCandidate = commandIndex >= 0 ? parseSlice[commandIndex] : undefined;
+  const filteredPrefix: string[] = [];
 
-  if (shouldExtractGlobalAutofix) {
-    const filteredPrefix: string[] = [];
-
-    for (let i = 0; i < parseBoundary; i++) {
-      const arg = args[i];
-      if (arg === '--autofix') {
-        autofix = true;
-        continue;
-      }
-      filteredPrefix.push(arg);
+  for (let i = 0; i < parseBoundary; i++) {
+    const arg = args[i];
+    const isBeforeCommandToken = commandIndex === -1 || i < commandIndex;
+    const shouldTreatAsGlobalAutofix = isBeforeCommandToken || commandCandidate !== 'agent';
+    if (arg === '--autofix' && shouldTreatAsGlobalAutofix) {
+      autofix = true;
+      continue;
     }
+    filteredPrefix.push(arg);
+  }
 
-    if (parseBoundary < args.length) {
-      filteredArgs = [...filteredPrefix, ...args.slice(parseBoundary)];
-    } else {
-      filteredArgs = filteredPrefix;
-    }
+  if (parseBoundary < args.length) {
+    filteredArgs = [...filteredPrefix, ...args.slice(parseBoundary)];
+  } else {
+    filteredArgs = filteredPrefix;
   }
   
   const command = filteredArgs[0];
