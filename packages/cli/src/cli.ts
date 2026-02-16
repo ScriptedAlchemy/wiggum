@@ -1011,7 +1011,14 @@ Global options:
             flags[key] = true;
           }
         } else if (a.startsWith('-')) {
-          flags[a.slice(1)] = true;
+          const key = a.slice(1);
+          const next = argsArr[i + 1];
+          if (next && !next.startsWith('-')) {
+            flags[key] = next;
+            i++;
+          } else {
+            flags[key] = true;
+          }
         }
       }
       return flags;
@@ -1058,19 +1065,27 @@ Global options:
         case 'serve':
         case 'server': {
           const flags = parseFlags(commandArgs.slice(1));
+          const normalizedFlags: Record<string, string | boolean> = { ...flags };
+          if (normalizedFlags.port === undefined && normalizedFlags.p !== undefined) {
+            normalizedFlags.port = normalizedFlags.p;
+          }
+          if (normalizedFlags.hostname === undefined && normalizedFlags.H !== undefined) {
+            normalizedFlags.hostname = normalizedFlags.H;
+          }
           const unknownFlags = Object.keys(flags).filter(
-            (flag) => !['port', 'hostname', 'help', 'h'].includes(flag),
+            (flag) => !['port', 'hostname', 'help', 'h', 'p', 'H'].includes(flag),
           );
           if (unknownFlags.length > 0) {
             throw new Error(`Unknown serve option(s): ${unknownFlags.join(', ')}`);
           }
-          if (flags.port === true) {
+          if (normalizedFlags.port === true) {
             throw new Error('Missing value for --port');
           }
-          if (flags.hostname === true) {
+          if (normalizedFlags.hostname === true) {
             throw new Error('Missing value for --hostname');
           }
-          const portRaw = typeof flags.port === 'string' ? flags.port : undefined;
+          const portRaw =
+            typeof normalizedFlags.port === 'string' ? normalizedFlags.port : undefined;
           let port: number | undefined;
           if (portRaw !== undefined) {
             const parsedPort = Number.parseInt(portRaw, 10);
@@ -1079,7 +1094,10 @@ Global options:
             }
             port = parsedPort;
           }
-          const hostnameRaw = typeof flags.hostname === 'string' ? flags.hostname : undefined;
+          const hostnameRaw =
+            typeof normalizedFlags.hostname === 'string'
+              ? normalizedFlags.hostname
+              : undefined;
           if (hostnameRaw !== undefined && hostnameRaw.trim().length === 0) {
             throw new Error('Invalid --hostname value. Expected a non-empty hostname.');
           }
