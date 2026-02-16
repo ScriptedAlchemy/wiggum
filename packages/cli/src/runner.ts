@@ -118,6 +118,20 @@ function wildcardToRegExp(pattern: string): RegExp {
   return new RegExp(`^${wildcarded}$`, 'i');
 }
 
+function packageNameFromSpecifier(specifier: string): string {
+  if (!specifier.includes('/')) {
+    return specifier;
+  }
+  if (specifier.startsWith('@')) {
+    const segments = specifier.split('/');
+    if (segments.length >= 2) {
+      return `${segments[0]}/${segments[1]}`;
+    }
+    return specifier;
+  }
+  return specifier.split('/')[0];
+}
+
 function applyProjectFilters(projects: RunnerProject[], filters: string[]): RunnerProject[] {
   if (filters.length === 0) return projects;
 
@@ -668,16 +682,11 @@ async function inferImportDependencies(projects: RunnerProject[]): Promise<void>
       while ((match = IMPORT_RE.exec(content)) !== null) {
         const specifier = match[1];
         if (!specifier || specifier.startsWith('.') || specifier.startsWith('/')) continue;
-        const directProject = packageNameToProject.get(specifier);
-        if (directProject && directProject !== project.name) {
-          seenDeps.add(directProject);
-          continue;
-        }
-        const scoped = Array.from(packageNameToProject.entries()).find(([pkgName]) =>
-          specifier.startsWith(`${pkgName}/`)
-        );
-        if (scoped && scoped[1] !== project.name) {
-          seenDeps.add(scoped[1]);
+        const projectPackageName = packageNameFromSpecifier(specifier);
+        const dependencyProjectName =
+          packageNameToProject.get(specifier) ?? packageNameToProject.get(projectPackageName);
+        if (dependencyProjectName && dependencyProjectName !== project.name) {
+          seenDeps.add(dependencyProjectName);
         }
       }
       IMPORT_RE.lastIndex = 0;
