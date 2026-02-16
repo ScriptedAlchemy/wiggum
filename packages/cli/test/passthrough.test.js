@@ -385,6 +385,8 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Usage: wiggum agent serve');
       expect(result.stdout).toContain('--port <port>');
+      expect(result.stdout).toContain('-p <port>');
+      expect(result.stdout).toContain('--host <host>');
     });
 
     test('agent serve -h does not require OpenCode binary', () => {
@@ -403,6 +405,7 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Usage: wiggum agent serve');
       expect(result.stdout).toContain('--hostname <host>');
+      expect(result.stdout).toContain('-H <host>');
     });
 
     test('agent server --help does not require OpenCode binary', () => {

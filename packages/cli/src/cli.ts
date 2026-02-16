@@ -627,11 +627,14 @@ Pass task arguments after "--" so they are forwarded to the underlying tool.
 function printAgentServeHelp(): void {
   console.log(`
 Usage: wiggum agent serve [--port <1-65535>] [--hostname <host>]
+       wiggum agent serve [-p <1-65535>] [-H <host>]
 
 Options:
   --port <port>            Server port (must be 1-65535)
+  -p <port>                Alias for --port
   --hostname <host>        Server hostname
   --host <host>            Alias for --hostname
+  -H <host>                Alias for --hostname
   --help, -h               Show serve-specific help
 `);
 }
