@@ -1993,6 +1993,44 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('deduplicates inferred dependencies across multiple source files', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'packages/app/tests'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/index.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, 'packages/app/tests/index.test.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+
+    const result = runCLI(
+      ['projects', 'graph', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--json'],
+      root,
+    );
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    const appNode = payload.graph.nodes.find((node) => node.name === '@scope/app');
+    expect(appNode?.inferredDependencies).toEqual(['@scope/shared']);
+    const inferredEdges = payload.graph.edges.filter(
+      (edge) => edge.from === '@scope/shared' && edge.to === '@scope/app' && edge.reason === 'inferred-import',
+    );
+    expect(inferredEdges).toHaveLength(1);
+  });
+
   test('run --no-infer-imports disables inferred dependency closure', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
