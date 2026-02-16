@@ -9,8 +9,19 @@ function normalizeEnvPathOverride(value) {
   if (value === undefined) {
     return undefined;
   }
-  const normalizedValue = String(value).trim();
+  const normalizedValue = value.trim();
   return normalizedValue.length > 0 ? normalizedValue : undefined;
+}
+
+function readEnvPathOverride(env, key) {
+  const value = env[key];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'string') {
+    throw new Error(`${key} must be a string when provided`);
+  }
+  return normalizeEnvPathOverride(value);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -40,9 +51,9 @@ export function resolveVerifierPathsFromEnv({
   fallbackRoot = DEFAULT_ROOT,
 } = {}) {
   const normalizedEnv = ensureEnvObject(env);
-  const rootOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_VERIFY_ROOT);
-  const configPathOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_VERIFY_CONFIG_PATH);
-  const packagesDirOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_VERIFY_PACKAGES_DIR);
+  const rootOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_VERIFY_ROOT');
+  const configPathOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_VERIFY_CONFIG_PATH');
+  const packagesDirOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_VERIFY_PACKAGES_DIR');
   const normalizedFallbackRoot = ensureNonEmptyRootPath(fallbackRoot, 'fallbackRoot');
 
   const rootDir = rootOverride

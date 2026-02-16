@@ -164,6 +164,16 @@ describe('runner coverage verifier', () => {
     ).toThrow('env must be an object');
   });
 
+  test('resolveVerifierPathsFromEnv rejects non-string override values', () => {
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {
+          WIGGUM_RUNNER_VERIFY_ROOT: 42,
+        },
+      }),
+    ).toThrow('WIGGUM_RUNNER_VERIFY_ROOT must be a string when provided');
+  });
+
   test('resolveVerifierPathsFromEnv rejects blank fallbackRoot', () => {
     expect(() =>
       resolveVerifierPathsFromEnv({

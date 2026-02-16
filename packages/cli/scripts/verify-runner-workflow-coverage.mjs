@@ -8,8 +8,19 @@ function normalizeEnvPathOverride(value) {
   if (value === undefined) {
     return undefined;
   }
-  const normalizedValue = String(value).trim();
+  const normalizedValue = value.trim();
   return normalizedValue.length > 0 ? normalizedValue : undefined;
+}
+
+function readEnvPathOverride(env, key) {
+  const value = env[key];
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'string') {
+    throw new Error(`${key} must be a string when provided`);
+  }
+  return normalizeEnvPathOverride(value);
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,9 +50,9 @@ export function resolveWorkflowVerifierPathsFromEnv({
   fallbackRoot = DEFAULT_ROOT,
 } = {}) {
   const normalizedEnv = ensureEnvObject(env);
-  const rootOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT);
-  const packageJsonPathOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH);
-  const workflowPathOverride = normalizeEnvPathOverride(normalizedEnv.WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH);
+  const rootOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT');
+  const packageJsonPathOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH');
+  const workflowPathOverride = readEnvPathOverride(normalizedEnv, 'WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH');
   const normalizedFallbackRoot = ensureNonEmptyRootPath(fallbackRoot, 'fallbackRoot');
 
   const rootDir = rootOverride
