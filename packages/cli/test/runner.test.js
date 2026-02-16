@@ -337,6 +337,41 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('Captured stderr:\nautofix stderr');
   });
 
+  test('run --autofix auto-falls back in non-interactive terminals', () => {
+    const root = makeTempWorkspace();
+    const binDir = path.join(root, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const fakeToolPath = path.join(binDir, 'rsbuild');
+    fs.writeFileSync(
+      fakeToolPath,
+      '#!/usr/bin/env bash\necho \"tty stdout\"\necho \"tty stderr\" 1>&2\nexit 2\n',
+      { mode: 0o755 },
+    );
+    fs.chmodSync(fakeToolPath, 0o755);
+
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--autofix'],
+      root,
+      {
+        PATH: `${binDir}:${process.env.PATH || ''}`,
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain(
+      '[autofix] Non-interactive terminal detected; printing prompt instead of launching TUI.',
+    );
+    expect(result.stdout).toContain('Captured stderr:\ntty stderr');
+  });
+
   test('supports nested object project entries without temp files', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
