@@ -2213,6 +2213,42 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(false);
   });
 
+  test('projects graph ignores blank WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/index.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+
+    const result = runCLI(
+      ['projects', 'graph', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--json'],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '   ',
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/shared',
+      to: '@scope/app',
+      reason: 'inferred-import',
+    });
+  });
+
   test('projects graph trims whitespace around WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -2384,6 +2420,39 @@ describe('Wiggum runner workspace graph', () => {
     const payload = JSON.parse(result.stdout);
     const appProject = payload.projects.find((project) => project.name === '@scope/app');
     expect(appProject?.inferredDependencies).toEqual([]);
+  });
+
+  test('projects list ignores blank WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES values', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, 'packages/app/src/index.ts'),
+      "import '@scope/shared/runtime';\nexport const value = 1;\n",
+    );
+
+    const result = runCLI(
+      ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--json'],
+      root,
+      {
+        WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES: '   ',
+      },
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    const appProject = payload.projects.find((project) => project.name === '@scope/app');
+    expect(appProject?.inferredDependencies).toEqual(['@scope/shared']);
   });
 
   test('projects rejects run-only flags', () => {
