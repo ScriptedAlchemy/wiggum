@@ -288,14 +288,30 @@ export async function verifyRunnerCoverage(options = {}) {
     resolveWorkspace = resolveRunnerWorkspace,
   } = options;
   const normalizedFileSystem = ensureFileSystemContract(fileSystem);
-  const defaults = resolveVerifierPathsFromEnv({ fileSystem: normalizedFileSystem });
-  const normalizedRootDir = resolvePathOption(rootDir ?? defaults.rootDir, 'rootDir');
-  const defaultConfigPath = rootDir !== undefined && configPath === undefined
-    ? detectSupportedRunnerConfigPath(normalizedRootDir, normalizedFileSystem)
-    : defaults.configPath;
-  const defaultPackagesDir = rootDir !== undefined && packagesDir === undefined
-    ? path.join(normalizedRootDir, 'packages')
-    : defaults.packagesDir;
+  let defaults;
+  const getDefaults = () => {
+    if (!defaults) {
+      defaults = resolveVerifierPathsFromEnv({ fileSystem: normalizedFileSystem });
+    }
+    return defaults;
+  };
+  const normalizedRootDir = rootDir === undefined
+    ? resolvePathOption(getDefaults().rootDir, 'rootDir')
+    : resolvePathOption(rootDir, 'rootDir');
+  const defaultConfigPath = configPath === undefined
+    ? (
+      rootDir !== undefined
+        ? detectSupportedRunnerConfigPath(normalizedRootDir, normalizedFileSystem)
+        : getDefaults().configPath
+    )
+    : undefined;
+  const defaultPackagesDir = packagesDir === undefined
+    ? (
+      rootDir !== undefined
+        ? path.join(normalizedRootDir, 'packages')
+        : getDefaults().packagesDir
+    )
+    : undefined;
   const normalizedConfigPath = resolvePathOption(
     configPath ?? defaultConfigPath,
     'configPath',
