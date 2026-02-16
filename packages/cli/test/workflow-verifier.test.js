@@ -26,6 +26,39 @@ function replaceOrThrow(content, searchValue, replacementValue) {
 }
 
 describe('runner workflow coverage verifier', () => {
+  test('rejects non-string packageJsonContent input', () => {
+    const { workflowContent } = readCurrentInputs();
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: null,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('packageJsonContent must be a string');
+  });
+
+  test('rejects blank workflowContent input', () => {
+    const { packageJsonContent } = readCurrentInputs();
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: '   ',
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('workflowContent must be a non-empty string');
+  });
+
+  test('rejects blank workflowPath input', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent,
+        workflowPath: '',
+      }),
+    ).toThrow('workflowPath must be a non-empty string');
+  });
+
   test('accepts the current repository workflow and scripts', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     expect(() =>

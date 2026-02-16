@@ -210,13 +210,26 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
   }
 }
 
+function ensureNonEmptyString(value, fieldName) {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+  if (value.trim().length === 0) {
+    throw new Error(`${fieldName} must be a non-empty string`);
+  }
+  return value;
+}
+
 export function verifyRunnerWorkflowCoverage({
   packageJsonContent,
   workflowContent,
   workflowPath = WORKFLOW_PATH,
 }) {
-  verifyPackageScriptsContent(packageJsonContent);
-  verifyWorkflowContent(workflowContent, workflowPath);
+  const normalizedPackageJsonContent = ensureNonEmptyString(packageJsonContent, 'packageJsonContent');
+  const normalizedWorkflowContent = ensureNonEmptyString(workflowContent, 'workflowContent');
+  const normalizedWorkflowPath = ensureNonEmptyString(workflowPath, 'workflowPath');
+  verifyPackageScriptsContent(normalizedPackageJsonContent);
+  verifyWorkflowContent(normalizedWorkflowContent, normalizedWorkflowPath);
 }
 
 function main() {
