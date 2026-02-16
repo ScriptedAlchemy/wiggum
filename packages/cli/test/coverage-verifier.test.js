@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  extractResolvedProjectRoots,
   listExpectedProjectRoots,
   parseMinimumExpectedProjects,
   verifyRunnerCoverage,
@@ -28,6 +29,20 @@ describe('runner coverage verifier', () => {
     expect(() => parseMinimumExpectedProjects('0')).toThrow(
       'MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be >= 1, got 0',
     );
+  });
+
+  test('extractResolvedProjectRoots rejects missing projects container', () => {
+    expect(() => extractResolvedProjectRoots({})).toThrow(
+      'resolveRunnerWorkspace must return an object with a projects array',
+    );
+  });
+
+  test('extractResolvedProjectRoots rejects invalid project root entries', () => {
+    expect(() =>
+      extractResolvedProjectRoots({
+        projects: [{ root: '/repo/packages/cli' }, { root: '' }],
+      }),
+    ).toThrow('resolveRunnerWorkspace returned invalid project root at index 1');
   });
 
   test('returns summary when all expected projects are resolved', () => {
@@ -225,5 +240,45 @@ describe('runner coverage verifier', () => {
       includeInferredImports: false,
     });
     expect(logMessages[0]).toContain('[verify-runner-coverage] Verified 1 projects covering 1 package roots.');
+  });
+
+  test('verifyRunnerCoverage rejects malformed resolver payload without projects array', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-bad-workspace-'));
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath,
+        packagesDir,
+        minExpectedProjects: 1,
+        resolveWorkspace: async () => ({}),
+      }),
+    ).rejects.toThrow('resolveRunnerWorkspace must return an object with a projects array');
+  });
+
+  test('verifyRunnerCoverage rejects malformed resolver project root entries', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'verify-coverage-bad-project-root-'));
+    const configPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(path.join(packagesDir, 'cli'), { recursive: true });
+    fs.writeFileSync(configPath, '{"projects":["packages/*"]}');
+    fs.writeFileSync(path.join(packagesDir, 'cli', 'package.json'), '{"name":"@wiggum/cli"}');
+
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath,
+        packagesDir,
+        minExpectedProjects: 1,
+        resolveWorkspace: async () => ({
+          projects: [{ root: path.join(packagesDir, 'cli') }, { root: '' }],
+        }),
+      }),
+    ).rejects.toThrow('resolveRunnerWorkspace returned invalid project root at index 1');
   });
 });

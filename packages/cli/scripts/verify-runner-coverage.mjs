@@ -107,6 +107,19 @@ export function verifyRunnerCoverageData({
   };
 }
 
+export function extractResolvedProjectRoots(workspace) {
+  if (!workspace || !Array.isArray(workspace.projects)) {
+    throw new Error('resolveRunnerWorkspace must return an object with a projects array');
+  }
+
+  return workspace.projects.map((project, index) => {
+    if (!project || typeof project.root !== 'string' || project.root.trim().length === 0) {
+      throw new Error(`resolveRunnerWorkspace returned invalid project root at index ${index}`);
+    }
+    return path.resolve(project.root);
+  });
+}
+
 export async function verifyRunnerCoverage({
   rootDir = ROOT,
   configPath = CONFIG_PATH,
@@ -126,7 +139,7 @@ export async function verifyRunnerCoverage({
     includeDependenciesForFiltered: false,
     includeInferredImports: false,
   });
-  const resolvedProjectRoots = workspace.projects.map((project) => path.resolve(project.root));
+  const resolvedProjectRoots = extractResolvedProjectRoots(workspace);
 
   const result = verifyRunnerCoverageData({
     expectedProjectRoots,
