@@ -302,6 +302,41 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stderr).toContain('Captured stderr:\nai stderr');
   });
 
+  test('run --autofix supports prompt-only mode without launching tui', () => {
+    const root = makeTempWorkspace();
+    const binDir = path.join(root, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const fakeToolPath = path.join(binDir, 'rsbuild');
+    fs.writeFileSync(
+      fakeToolPath,
+      '#!/usr/bin/env bash\necho \"autofix stdout\"\necho \"autofix stderr\" 1>&2\nexit 2\n',
+      { mode: 0o755 },
+    );
+    fs.chmodSync(fakeToolPath, 0o755);
+
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--autofix'],
+      root,
+      {
+        PATH: `${binDir}:${process.env.PATH || ''}`,
+        WIGGUM_AUTOFIX_MODE: 'prompt',
+      },
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain('[autofix] Prompt-only mode enabled.');
+    expect(result.stdout).toContain('Runner command failed: wiggum run build');
+    expect(result.stdout).toContain('Captured stderr:\nautofix stderr');
+  });
+
   test('supports nested object project entries without temp files', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {

@@ -78,6 +78,19 @@ const COMMAND_MAPPING: CommandMapping = {
 // isPackageInstalled moved to pm.ts
 
 async function openAutofixSession(prompt: string): Promise<void> {
+  const autofixMode = process.env.WIGGUM_AUTOFIX_MODE?.toLowerCase();
+  if (autofixMode === 'prompt' || autofixMode === 'print') {
+    console.log(chalk.yellow('[autofix] Prompt-only mode enabled.'));
+    console.log(prompt);
+    return;
+  }
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.log(chalk.yellow('[autofix] Non-interactive terminal detected; printing prompt instead of launching TUI.'));
+    console.log(prompt);
+    return;
+  }
+
   // Verify opencode exists
   try {
     await which('opencode');
