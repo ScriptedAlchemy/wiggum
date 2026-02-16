@@ -80,8 +80,12 @@ const RUNNER_CONFIG_FILES = [
 ];
 
 const PROJECT_CONFIG_RE = /(?:^|\/)(?:rslib|rsbuild|rspack|rspress|rstest|rslint)\.config\.(?:mjs|js|cjs|mts|cts|ts)$/;
+const IMPORT_ARGUMENT_COMMENT_RE = '(?:\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n\\r]*)\\s*';
 const IMPORT_RE =
-  /(?:import\s+(?:[^'"]+from\s*)?|import\(\s*(?:\/\*[\s\S]*?\*\/\s*)*|export\s+[^'"]*from\s*|require\(\s*(?:\/\*[\s\S]*?\*\/\s*)*)['"]([^'"]+)['"]\s*\)?/g;
+  new RegExp(
+    `(?:import\\s+(?:[^'"]+from\\s*)?|import\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|export\\s+[^'"]*from\\s*|require\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*)['"]([^'"]+)['"]\\s*\\)?`,
+    'g',
+  );
 
 type MutableProject = Omit<RunnerProject, 'dependencies' | 'inferredDependencies'> & {
   dependencies: Set<string>;
