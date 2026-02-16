@@ -97,6 +97,40 @@ describe('runner workflow coverage verifier', () => {
         workflowContent: mutatedWorkflow,
         workflowPath: WORKFLOW_PATH,
       }),
+    ).toThrow('Step "Run runner-focused CLI tests"');
+  });
+
+  test('fails when lint step drops --if-present safety flag', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm -r --if-present run lint',
+      'run: pnpm -r run lint',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Run linting"');
+  });
+
+  test('fails when check types step is marked continue-on-error', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Check types\n        run: pnpm -r exec tsc --noEmit',
+      '      - name: Check types\n        run: pnpm -r exec tsc --noEmit\n        continue-on-error: true',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
     ).toThrow('contains forbidden pattern');
   });
 });
