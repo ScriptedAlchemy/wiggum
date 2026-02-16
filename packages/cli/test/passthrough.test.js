@@ -227,6 +227,19 @@ describe('Wiggum CLI Passthrough Tests', () => {
       expect(result.stdout).toContain('wiggum v');
     });
 
+    test('--autofix --version should still show wiggum version', () => {
+      const result = runCLI('--autofix --version');
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('wiggum v');
+    });
+
+    test('--autofix --help should still show wiggum help', () => {
+      const result = runCLI('--autofix --help');
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain('Usage: wiggum <command> [options]');
+      expect(result.stdout).toContain('--autofix');
+    });
+
     test('agent --help should show agent command help', () => {
       const result = runCLI('agent --help');
       expect(result.exitCode).toBe(0);
