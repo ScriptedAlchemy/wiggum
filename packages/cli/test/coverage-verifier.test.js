@@ -184,6 +184,16 @@ describe('runner coverage verifier', () => {
     ).toThrow('WIGGUM_RUNNER_VERIFY_CONFIG_PATH must be a string when provided');
   });
 
+  test('resolveVerifierPathsFromEnv rejects non-string packages-dir override values', () => {
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {
+          WIGGUM_RUNNER_VERIFY_PACKAGES_DIR: 42,
+        },
+      }),
+    ).toThrow('WIGGUM_RUNNER_VERIFY_PACKAGES_DIR must be a string when provided');
+  });
+
   test('resolveVerifierPathsFromEnv rejects blank fallbackRoot', () => {
     expect(() =>
       resolveVerifierPathsFromEnv({
