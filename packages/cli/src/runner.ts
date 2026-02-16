@@ -79,6 +79,11 @@ const RUNNER_CONFIG_FILES = [
   'wiggum.config.cjs',
   'wiggum.config.json',
 ];
+const UNSUPPORTED_RUNNER_CONFIG_FILES = [
+  'wiggum.config.ts',
+  'wiggum.config.mts',
+  'wiggum.config.cts',
+];
 
 const PROJECT_CONFIG_RE = /(?:^|\/)(?:rslib|rsbuild|rspack|rspress|rstest|rslint)\.config\.(?:mjs|js|cjs|mts|cts|ts)$/;
 const IMPORT_ARGUMENT_COMMENT_RE = '(?:\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n\\r]*)\\s*';
@@ -148,6 +153,17 @@ function toDisplayPath(inputPath: string, rootDir: string): string {
 function isRunnerConfigFile(filePath: string): boolean {
   const base = path.basename(filePath);
   return RUNNER_CONFIG_FILES.includes(base);
+}
+
+function isUnsupportedRunnerConfigFile(filePath: string): boolean {
+  const base = path.basename(filePath);
+  return UNSUPPORTED_RUNNER_CONFIG_FILES.includes(base);
+}
+
+function unsupportedRunnerConfigError(filePath: string): Error {
+  return new Error(
+    `Unsupported runner config file "${path.basename(filePath)}". Use one of: ${RUNNER_CONFIG_FILES.join(', ')}`,
+  );
 }
 
 function isProjectConfigFile(filePath: string): boolean {
@@ -260,6 +276,12 @@ async function detectRunnerConfig(rootDir: string): Promise<string | undefined> 
     const filePath = path.join(rootDir, fileName);
     if (await pathExists(filePath)) return filePath;
   }
+  for (const fileName of UNSUPPORTED_RUNNER_CONFIG_FILES) {
+    const filePath = path.join(rootDir, fileName);
+    if (await pathExists(filePath)) {
+      throw unsupportedRunnerConfigError(filePath);
+    }
+  }
   return undefined;
 }
 
@@ -313,6 +335,12 @@ async function inferNestedConfigFromDirectory(projectPath: string): Promise<stri
   for (const candidate of RUNNER_CONFIG_FILES) {
     const filePath = path.join(projectPath, candidate);
     if (await pathExists(filePath)) return filePath;
+  }
+  for (const candidate of UNSUPPORTED_RUNNER_CONFIG_FILES) {
+    const filePath = path.join(projectPath, candidate);
+    if (await pathExists(filePath)) {
+      throw unsupportedRunnerConfigError(filePath);
+    }
   }
   return undefined;
 }
@@ -451,6 +479,9 @@ async function processResolvedPath(
     await collectProjectsFromConfig(resolvedPath, inheritedArgs, inheritedIgnore, ctx);
     return;
   }
+  if (isUnsupportedRunnerConfigFile(resolvedPath)) {
+    throw unsupportedRunnerConfigError(resolvedPath);
+  }
   if (path.basename(resolvedPath) === 'package.json') {
     await addResolvedProject(ctx, path.dirname(resolvedPath), { inheritedArgs });
     return;
@@ -519,6 +550,9 @@ async function processRunnerEntry(
   const explicitConfig = entry.config ? resolveFromRoot(objectRoot, entry.config) : undefined;
   if (explicitConfig && !(await pathExists(explicitConfig))) {
     throw new Error(`Project config file not found: ${explicitConfig}`);
+  }
+  if (explicitConfig && isUnsupportedRunnerConfigFile(explicitConfig)) {
+    throw unsupportedRunnerConfigError(explicitConfig);
   }
   if (explicitConfig && isRunnerConfigFile(explicitConfig)) {
     await collectProjectsFromConfig(explicitConfig, mergedArgs, mergedIgnore, ctx);
@@ -763,6 +797,9 @@ export async function resolveRunnerWorkspace(
   const configPath = options.configPath
     ? normalizePath(path.isAbsolute(options.configPath) ? options.configPath : path.join(rootDir, options.configPath))
     : await detectRunnerConfig(rootDir);
+  if (configPath && isUnsupportedRunnerConfigFile(configPath)) {
+    throw unsupportedRunnerConfigError(configPath);
+  }
 
   const ctx: CollectContext = {
     dedupeByRoot: new Map(),

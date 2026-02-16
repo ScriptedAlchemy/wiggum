@@ -336,6 +336,67 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/app']);
   });
 
+  test('resolveRunnerWorkspace rejects unsupported wiggum.config.ts path', async () => {
+    const root = makeTempWorkspace();
+    fs.writeFileSync(
+      path.join(root, 'wiggum.config.ts'),
+      "export default { projects: ['packages/*'] };\n",
+    );
+
+    let caughtError;
+    try {
+      await resolveWorkspaceDirect({
+        rootDir: root,
+        configPath: path.join(root, 'wiggum.config.ts'),
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(String(caughtError.message || caughtError)).toContain(
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
+  test('projects list reports unsupported auto-detected wiggum.config.ts', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'package.json'), {
+      name: 'unsupported-config-workspace',
+      private: true,
+    });
+    fs.writeFileSync(
+      path.join(root, 'wiggum.config.ts'),
+      "export default { projects: ['packages/*'] };\n",
+    );
+
+    const result = runCLI(['projects', 'list', '--root', root], root);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
+  test('projects list prefers supported runner config over unsupported ts variant', () => {
+    const root = makeTempWorkspace();
+    fs.writeFileSync(
+      path.join(root, 'wiggum.config.ts'),
+      "export default { projects: ['broken/**'] };\n",
+    );
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+    });
+
+    const result = runCLI(['projects', 'list', '--root', root, '--json'], root);
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app']);
+  });
+
   test('resolveRunnerWorkspace supports inferImportMaxFiles option', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
