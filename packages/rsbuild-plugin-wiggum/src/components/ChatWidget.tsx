@@ -586,9 +586,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       if (onInspectElement) {
         try { onInspectElement(info); } catch (err) { console.warn('onInspectElement error:', err); }
       }
-      // Also log for convenience
-      // eslint-disable-next-line no-console
-      console.log('[Wiggum] Inspector selected:', info);
       // Optional: drop a message into the chat
       try {
         const summary = `Selected: ${info.componentName || info.tag || 'unknown'}\nSelector: ${info.selector || info.domPath || info.tag}${info.componentPath?.length ? `\nPath: ${info.componentPath.join(' > ')}` : ''}${info.id ? `\n#${info.id}` : ''}${info.classes?.length ? `\n.${info.classes.join('.')}` : ''}`;
