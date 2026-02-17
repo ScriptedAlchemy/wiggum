@@ -37,6 +37,14 @@ export function getDefaultWiggumConfig() {
  * - Ignores `undefined` values from the override
  */
 export function deepMerge<T>(base: T, override: Partial<T> | undefined): T {
+  return deepMergeUnknown(base, override) as T;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function deepMergeUnknown(base: unknown, override: unknown): unknown {
   if (override === undefined) return base;
 
   // Arrays: concatenate when both are arrays
@@ -52,38 +60,26 @@ export function deepMerge<T>(base: T, override: Partial<T> | undefined): T {
         out.push(item);
       }
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (out as any) as T;
+    return out;
   }
 
   // Objects: merge per-key
-  if (
-    base !== null &&
-    typeof base === 'object' &&
-    !Array.isArray(base) &&
-    override !== null &&
-    typeof override === 'object' &&
-    !Array.isArray(override)
-  ) {
-    const out: Record<string, unknown> = { ...(base as Record<string, unknown>) };
-    const o = override as Record<string, unknown>;
-    const keys = new Set([...Object.keys(out), ...Object.keys(o)]);
+  if (isPlainObject(base) && isPlainObject(override)) {
+    const out: Record<string, unknown> = { ...base };
+    const keys = new Set([...Object.keys(out), ...Object.keys(override)]);
     for (const key of keys) {
-      const bv = (out as any)[key];
-      const ov = (o as any)[key];
+      const bv = out[key];
+      const ov = override[key];
       if (ov === undefined) {
-        // ignore undefined from override
-        (out as any)[key] = bv;
         continue;
       }
-      (out as any)[key] = deepMerge(bv, ov);
+      out[key] = deepMergeUnknown(bv, ov);
     }
-    return (out as unknown) as T;
+    return out;
   }
 
   // Primitive or mismatched types: use override when defined
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (override as any) ?? base;
+  return override;
 }
 
 function makeStableKey(value: unknown): string {
@@ -152,8 +148,11 @@ export async function buildMergedConfig(options?: { fetchEnv?: () => ReturnType<
     const result = await (options?.fetchEnv ? options.fetchEnv() : fetchOpencodeEnv());
     server = result.server;
 
-    const userCfg = result.config as any;
-    const providers = result.providers as any[];
+    const userCfg: Partial<Config> | undefined =
+      result.config && typeof result.config === 'object'
+        ? (result.config as Partial<Config>)
+        : undefined;
+    const providers = Array.isArray(result.providers) ? result.providers : [];
 
     const preferred = pickPreferredModel(
       providers.map((p) => ({ id: p.id, models: p.models ?? {} }))
@@ -161,13 +160,13 @@ export async function buildMergedConfig(options?: { fetchEnv?: () => ReturnType<
 
     let merged = deepMerge(base, userCfg);
 
-    if (!(merged as any).model && preferred) {
-      (merged as any).model = preferred;
+    if (!merged.model && preferred) {
+      merged.model = preferred;
     }
 
     merged.agent = merged.agent || {};
     if (!merged.agent['wiggum-assistant']) {
-      merged.agent['wiggum-assistant'] = (base.agent as any)['wiggum-assistant'];
+      merged.agent['wiggum-assistant'] = base.agent?.['wiggum-assistant'];
     }
 
     return merged;
