@@ -160,6 +160,7 @@ Runner-specific CI guard scripts:
 
 - `pnpm run verify:runner:coverage`
 - `pnpm run verify:runner:workflow`
+- `pnpm run verify:runner:all`
 
 These scripts also support path override environment variables for isolated fixture validation:
 
