@@ -573,6 +573,53 @@ describe('Wiggum runner workspace graph', () => {
     expect(String(caughtError.message || caughtError)).toContain('"beta-app"');
   });
 
+  test('resolveRunnerWorkspace duplicate package-name guard still applies when import inference is disabled', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: [
+        {
+          name: 'alpha-app',
+          root: 'packages/alpha',
+        },
+        {
+          name: 'beta-app',
+          root: 'packages/beta',
+        },
+      ],
+    });
+    writeJson(path.join(root, 'packages/alpha/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+      dependencies: {
+        react: '^19.0.0',
+      },
+    });
+    writeJson(path.join(root, 'packages/beta/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+      dependencies: {
+        react: '^19.0.0',
+      },
+    });
+
+    let caughtError;
+    try {
+      await resolveWorkspaceDirect({
+        rootDir: root,
+        configPath: path.join(root, 'wiggum.config.json'),
+        includeInferredImports: false,
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeDefined();
+    expect(String(caughtError.message || caughtError)).toContain(
+      'Duplicate package name "@scope/shared" across projects "alpha-app"',
+    );
+    expect(String(caughtError.message || caughtError)).toContain('"beta-app"');
+  });
+
   test('projects list reports duplicate package names across explicit project entries', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
