@@ -74,7 +74,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         expect(Array.isArray(payload.results)).toBe(true);
         expect(payload.totalResults).toBe(0);
       } finally {
-        transport.close();
+        await transport.close();
       }
   }, 60000);
 
@@ -119,7 +119,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ]
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -160,7 +160,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         }
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -194,7 +194,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ),
       ).toBe(true);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -227,7 +227,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ),
       ).toBe(true);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -258,7 +258,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         }
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -299,7 +299,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ]
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -332,7 +332,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         }
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -363,7 +363,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         }
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -413,7 +413,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         expect(row.paths.every((p: string) => p.startsWith('/blog/') || p.startsWith('/guide/migration/'))).toBe(true);
       }
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 90000);
 
@@ -495,7 +495,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ),
       ).toBe(true);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 120000);
 
@@ -630,7 +630,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ]
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -665,7 +665,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ]
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -750,7 +750,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         }
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -779,7 +779,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         }
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -844,7 +844,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ]
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -872,7 +872,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
       expect(text.length).toBeGreaterThan(50);
       expect(text.includes('.md')).toBe(true);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -928,7 +928,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         ]
       `);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -948,7 +948,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
       expect(payload.contentType).toBe('markdown');
       expect(payload.url).toContain('introduction.md');
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 
@@ -973,7 +973,7 @@ describe('WiggumMCPServer MCP tools (real calls)', () => {
         pages.some((page) => isJsonRecord(page) && (asString(page.path)?.endsWith('.md') ?? false)),
       ).toBe(true);
     } finally {
-      transport.close();
+      await transport.close();
     }
   }, 60000);
 });
