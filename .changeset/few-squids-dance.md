@@ -13,3 +13,5 @@ Inference scan behavior is now tunable via `WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES
 Runner config resolution now fails fast with deterministic diagnostics when unsupported TypeScript config variants (`wiggum.config.ts`, `.mts`, `.cts`) are used, while still preferring supported config files (`wiggum.config.json`, `.mjs`, `.js`, `.cjs`) when both are present.
 
 Runner coverage verifier defaults are now aligned with runtime runner behavior by auto-detecting supported config files in runner precedence order, scoping defaults correctly to explicit verifier roots, and failing fast for unsupported TypeScript config overrides with explicit diagnostics.
+
+Workflow verification has also been hardened to guard CI contract drift more aggressively: required package scripts now include `lint`, `typecheck`, and `ci:validate`, required workflow steps include publint + demo e2e gates, and tests now enforce deterministic per-job step ordering (with explicit job-scoped diagnostics) so accidental step reordering or fallback rewrites are caught immediately.
