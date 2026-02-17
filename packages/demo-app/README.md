@@ -1,4 +1,4 @@
-# Rsbuild project
+# Wiggum demo app
 
 ## Setup
 
@@ -16,6 +16,8 @@ Start the dev server, and the app will be available at [http://localhost:3000](h
 pnpm dev
 ```
 
+This demo includes `@wiggum/rsbuild-plugin-wiggum`, so the floating widget is injected automatically in development.
+
 Build the app for production:
 
 ```bash
@@ -27,6 +29,26 @@ Preview the production build locally:
 ```bash
 pnpm preview
 ```
+
+## Testing
+
+Run unit tests:
+
+```bash
+pnpm test
+```
+
+Run Playwright e2e tests:
+
+```bash
+# one-time browser install
+pnpm exec playwright install chromium
+
+# run e2e
+pnpm test:e2e
+```
+
+The e2e suite includes coverage for the browser widget API (`window.WiggumChatWidget.open/close/isOpen`).
 
 ## Learn more
 
