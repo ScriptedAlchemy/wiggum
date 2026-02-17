@@ -729,6 +729,23 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('missing required content: build-and-test setup steps must remain in deterministic order');
   });
 
+  test('fails when build-and-test setup step appears multiple times', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Setup pnpm\n        uses: pnpm/action-setup@v2\n          \n      - name: Setup Node.js ${{ matrix.node-version }}',
+      '      - name: Setup pnpm\n        uses: pnpm/action-setup@v2\n\n      - name: Setup pnpm\n        uses: pnpm/action-setup@v2\n          \n      - name: Setup Node.js ${{ matrix.node-version }}',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: build-and-test setup steps must appear exactly once');
+  });
+
   test('fails when lint setup-node action drifts from v4', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
@@ -761,6 +778,23 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('missing required content: lint setup steps must remain in deterministic order');
+  });
+
+  test('fails when lint setup step appears multiple times', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Setup pnpm\n        uses: pnpm/action-setup@v2\n          \n      - name: Setup Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: 20.x\n          cache: \'pnpm\'',
+      '      - name: Setup pnpm\n        uses: pnpm/action-setup@v2\n\n      - name: Setup pnpm\n        uses: pnpm/action-setup@v2\n          \n      - name: Setup Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: 20.x\n          cache: \'pnpm\'',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: lint setup steps must appear exactly once');
   });
 
   test('fails when build-and-test job no longer targets ubuntu-latest', () => {

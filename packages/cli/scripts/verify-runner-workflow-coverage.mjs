@@ -333,6 +333,17 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
       ]),
   },
   {
+    description: 'build-and-test setup steps must appear exactly once',
+    requiredJob: 'build-and-test',
+    verify: (jobContent) =>
+      jobHasUniqueNamedSteps(jobContent, [
+        'Checkout repository',
+        'Setup pnpm',
+        'Setup Node.js ${{ matrix.node-version }}',
+        'Install dependencies',
+      ]),
+  },
+  {
     description: 'lint job must target ubuntu-latest',
     requiredJob: 'lint',
     pattern: /^\s*runs-on:\s*ubuntu-latest\b/m,
@@ -362,6 +373,17 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
     requiredJob: 'lint',
     verify: (jobContent) =>
       jobHasStepOrder(jobContent, [
+        'Checkout repository',
+        'Setup pnpm',
+        'Setup Node.js',
+        'Install dependencies',
+      ]),
+  },
+  {
+    description: 'lint setup steps must appear exactly once',
+    requiredJob: 'lint',
+    verify: (jobContent) =>
+      jobHasUniqueNamedSteps(jobContent, [
         'Checkout repository',
         'Setup pnpm',
         'Setup Node.js',
@@ -568,6 +590,13 @@ function jobHasStepOrder(jobContent, expectedOrder) {
     previousIndex = currentIndex;
   }
   return true;
+}
+
+function jobHasUniqueNamedSteps(jobContent, requiredStepNames) {
+  const stepNames = extractStepNamesFromBlock(jobContent);
+  return requiredStepNames.every(
+    (requiredStepName) => stepNames.filter((stepName) => stepName === requiredStepName).length === 1,
+  );
 }
 
 function isYamlTruthy(value) {
