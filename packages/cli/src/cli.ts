@@ -152,6 +152,13 @@ function truncateForPrompt(input: string, maxLength: number): string {
   return `${input.slice(0, maxLength)}\n... (${omitted} chars omitted)`;
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
 async function handleRunnerAutofixError(
   task: string,
   runnerArgs: string[],
@@ -1069,13 +1076,13 @@ Global options:
     };
     try {
       parsedProjectsArgs = parseProjectsCommandArgs(commandArgs);
-    } catch (error: any) {
-      const errorMessage = error?.message ?? String(error);
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       if (projectsHelpRequested && errorMessage === 'Unknown projects subcommand: help') {
         printProjectsHelp();
         process.exit(0);
       }
-      console.error(chalk.red('Invalid projects command:'), error.message ?? error);
+      console.error(chalk.red('Invalid projects command:'), errorMessage);
       printProjectsHelp();
       process.exit(1);
       return;
@@ -1091,8 +1098,8 @@ Global options:
       runnerFlags = parseRunnerFlags(parsedProjectsArgs.runnerArgs, {
         useParallelEnv: false,
       });
-    } catch (error: any) {
-      console.error(chalk.red('Invalid runner flags:'), error.message);
+    } catch (error: unknown) {
+      console.error(chalk.red('Invalid runner flags:'), getErrorMessage(error));
       process.exit(1);
       return;
     }
@@ -1162,8 +1169,8 @@ Global options:
         }
       }
       return;
-    } catch (error: any) {
-      console.error(chalk.red('Failed to resolve projects:'), error.message ?? error);
+    } catch (error: unknown) {
+      console.error(chalk.red('Failed to resolve projects:'), getErrorMessage(error));
       process.exit(1);
       return;
     }
@@ -1188,13 +1195,13 @@ Global options:
     };
     try {
       parsedRunArgs = parseRunCommandArgs(commandArgs);
-    } catch (error: any) {
-      const errorMessage = error?.message ?? String(error);
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
       if (runHelpRequested && errorMessage === 'Unsupported runner task: help') {
         printRunHelp();
         process.exit(0);
       }
-      console.error(chalk.red('Invalid run command:'), error.message ?? error);
+      console.error(chalk.red('Invalid run command:'), errorMessage);
       printRunHelp();
       process.exit(1);
       return;
@@ -1231,8 +1238,8 @@ Global options:
       if (autofix && runnerFlags.dryRun) {
         throw new Error('--autofix cannot be used with --dry-run');
       }
-    } catch (error: any) {
-      console.error(chalk.red('Invalid runner flags:'), error.message);
+    } catch (error: unknown) {
+      console.error(chalk.red('Invalid runner flags:'), getErrorMessage(error));
       process.exit(1);
       return;
     }
@@ -1378,8 +1385,8 @@ Global options:
         process.exit(1);
       }
       return;
-    } catch (error: any) {
-      console.error(chalk.red('Runner failed:'), error.message ?? error);
+    } catch (error: unknown) {
+      console.error(chalk.red('Runner failed:'), getErrorMessage(error));
       process.exit(1);
       return;
     }
@@ -1402,8 +1409,8 @@ Global options:
     if (isServeMode) {
       try {
         parsedServeArgs = parseAgentServeArgs(commandArgs.slice(1));
-      } catch (error: any) {
-        console.error(chalk.red('Error:'), error?.message || error);
+      } catch (error: unknown) {
+        console.error(chalk.red('Error:'), getErrorMessage(error));
         process.exit(1);
       }
     }
@@ -1492,8 +1499,8 @@ Global options:
           break;
         }
       }
-    } catch (error: any) {
-      console.error(chalk.red('Error:'), error.message || error);
+    } catch (error: unknown) {
+      console.error(chalk.red('Error:'), getErrorMessage(error));
       process.exit(1);
     }
 
@@ -1504,8 +1511,8 @@ Global options:
   if (COMMAND_MAPPING[command]) {
     try {
       await handleUnifiedCommand(command, commandArgs, autofix);
-    } catch (error: any) {
-      console.error(chalk.red('Error:'), error.message);
+    } catch (error: unknown) {
+      console.error(chalk.red('Error:'), getErrorMessage(error));
       process.exit(1);
     }
   } else {
@@ -1516,7 +1523,7 @@ Global options:
 }
 
 // Run the CLI
-main().catch(error => {
-  console.error(chalk.red('Fatal error:'), error);
+main().catch((error: unknown) => {
+  console.error(chalk.red('Fatal error:'), getErrorMessage(error));
   process.exit(1);
 });
