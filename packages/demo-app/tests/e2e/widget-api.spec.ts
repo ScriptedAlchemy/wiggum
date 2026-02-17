@@ -67,6 +67,16 @@ test.describe('Widget manager browser API', () => {
     expect(afterDestroy.isOpen).toBe(false);
 
     await page.evaluate(() => {
+      window.WiggumChatWidget?.close();
+    });
+    const afterCloseWithoutInit = await page.evaluate(() => ({
+      hasRoot: document.getElementById('wiggum-chat-widget-root') !== null,
+      isOpen: window.WiggumChatWidget?.isOpen() ?? null,
+    }));
+    expect(afterCloseWithoutInit.hasRoot).toBe(false);
+    expect(afterCloseWithoutInit.isOpen).toBe(false);
+
+    await page.evaluate(() => {
       window.WiggumChatWidget?.open();
     });
     await page.waitForFunction(() => document.getElementById('wiggum-chat-widget-root') !== null);
