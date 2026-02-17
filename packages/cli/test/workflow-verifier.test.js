@@ -435,6 +435,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Missing required package scripts: test:demo:e2e');
   });
 
+  test('fails when full demo e2e package script command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts['test:demo:e2e'] = 'pnpm --filter ./packages/demo-app test:e2e -- --grep widget-api';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "test:demo:e2e" does not match expected command pattern');
+  });
+
   test('fails when Playwright setup package script command is rewired', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const parsedPackage = JSON.parse(packageJsonContent);
