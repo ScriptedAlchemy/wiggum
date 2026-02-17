@@ -200,6 +200,22 @@ function extractStepName(line) {
   return unquotedName.length > 0 ? unquotedName : undefined;
 }
 
+function getEnclosingJobName(lines, lineIndex) {
+  for (let i = lineIndex; i >= 0; i--) {
+    const line = lines[i];
+    const match = line.match(/^\s{2}([A-Za-z0-9_-]+):\s*$/);
+    if (!match) {
+      continue;
+    }
+    const [, key] = match;
+    if (key === 'jobs') {
+      return undefined;
+    }
+    return key;
+  }
+  return undefined;
+}
+
 function extractStepBlocks(workflow, stepName) {
   const lines = workflow.split(/\r?\n/);
   const blocks = [];
@@ -229,7 +245,11 @@ function extractStepBlocks(workflow, stepName) {
       }
     }
 
-    blocks.push(lines.slice(i, end).join('\n'));
+    blocks.push({
+      content: lines.slice(i, end).join('\n'),
+      startLine: i + 1,
+      jobName: getEnclosingJobName(lines, i),
+    });
   }
   return blocks;
 }
@@ -313,6 +333,7 @@ function verifyPackageScriptsContent(packageJsonContent, packageJsonPath = PACKA
 }
 
 function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
+  const previousStepByJob = new Map();
   for (const requiredStep of REQUIRED_WORKFLOW_STEPS) {
     const stepBlocks = extractStepBlocks(workflow, requiredStep.name);
     if (stepBlocks.length === 0) {
@@ -322,7 +343,18 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
       throw new Error(`Workflow ${workflowPath} contains duplicate required step "${requiredStep.name}"`);
     }
     const [stepBlock] = stepBlocks;
-    const { runCommand, runCount } = extractRunCommand(stepBlock);
+    const stepJobName = stepBlock.jobName ?? '__unknown_job__';
+    const previousStep = previousStepByJob.get(stepJobName);
+    if (previousStep && stepBlock.startLine <= previousStep.startLine) {
+      throw new Error(
+        `Step "${requiredStep.name}" must appear after "${previousStep.name}" in workflow order`,
+      );
+    }
+    previousStepByJob.set(stepJobName, {
+      name: requiredStep.name,
+      startLine: stepBlock.startLine,
+    });
+    const { runCommand, runCount } = extractRunCommand(stepBlock.content);
     if (runCount !== 1) {
       throw new Error(`Step "${requiredStep.name}" must declare exactly one run command`);
     }
@@ -337,7 +369,7 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
     }
 
     for (const forbiddenPattern of requiredStep.forbiddenPatterns) {
-      if (forbiddenPattern.test(stepBlock)) {
+      if (forbiddenPattern.test(stepBlock.content)) {
         throw new Error(
           `Step "${requiredStep.name}" contains forbidden pattern ${forbiddenPattern}`,
         );

@@ -325,6 +325,23 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('is missing required step "Run full demo app e2e suite"');
   });
 
+  test('fails when required workflow step order is inverted', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Run widget API e2e smoke\n        run: pnpm run test:demo:widget-api\n\n      - name: Run full demo app e2e suite\n        run: pnpm run test:demo:e2e',
+      '      - name: Run full demo app e2e suite\n        run: pnpm run test:demo:e2e\n\n      - name: Run widget API e2e smoke\n        run: pnpm run test:demo:widget-api',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Run full demo app e2e suite" must appear after "Run widget API e2e smoke" in workflow order');
+  });
+
   test('fails when publint workflow step is renamed away', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
