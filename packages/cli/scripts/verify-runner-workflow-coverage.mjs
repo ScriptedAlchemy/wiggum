@@ -346,8 +346,9 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
     const stepJobName = stepBlock.jobName ?? '__unknown_job__';
     const previousStep = previousStepByJob.get(stepJobName);
     if (previousStep && stepBlock.startLine <= previousStep.startLine) {
+      const jobLabel = stepBlock.jobName ?? 'unknown';
       throw new Error(
-        `Step "${requiredStep.name}" must appear after "${previousStep.name}" in workflow order`,
+        `Step "${requiredStep.name}" must appear after "${previousStep.name}" in workflow order within job "${jobLabel}"`,
       );
     }
     previousStepByJob.set(stepJobName, {

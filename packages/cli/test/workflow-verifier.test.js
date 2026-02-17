@@ -339,7 +339,7 @@ describe('runner workflow coverage verifier', () => {
         workflowContent: mutatedWorkflow,
         workflowPath: WORKFLOW_PATH,
       }),
-    ).toThrow('Step "Run full demo app e2e suite" must appear after "Run widget API e2e smoke" in workflow order');
+    ).toThrow('Step "Run full demo app e2e suite" must appear after "Run widget API e2e smoke" in workflow order within job "build-and-test"');
   });
 
   test('fails when lint job required step order is inverted', () => {
@@ -356,7 +356,7 @@ describe('runner workflow coverage verifier', () => {
         workflowContent: mutatedWorkflow,
         workflowPath: WORKFLOW_PATH,
       }),
-    ).toThrow('Step "Run publint" must appear after "Run linting" in workflow order');
+    ).toThrow('Step "Run publint" must appear after "Run linting" in workflow order within job "lint"');
   });
 
   test('fails when publint workflow step is renamed away', () => {
