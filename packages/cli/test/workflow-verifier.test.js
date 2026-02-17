@@ -10,6 +10,7 @@ import {
   REQUIRED_WORKFLOW_CONTENT_PATTERNS,
   REQUIRED_WORKFLOW_STEPS,
   resolveWorkflowVerifierPathsFromEnv,
+  validateRequiredWorkflowStepContracts,
   validateRequiredWorkflowContentContracts,
   verifyRunnerWorkflowCoverage,
 } from '../scripts/verify-runner-workflow-coverage.mjs';
@@ -73,6 +74,53 @@ afterEach(() => {
 });
 
 describe('runner workflow coverage verifier', () => {
+  test('validateRequiredWorkflowStepContracts accepts current step definitions', () => {
+    expect(() => validateRequiredWorkflowStepContracts()).not.toThrow();
+  });
+
+  test('validateRequiredWorkflowStepContracts rejects steps without required command', () => {
+    expect(() =>
+      validateRequiredWorkflowStepContracts([
+        {
+          name: 'invalid-step-without-command',
+          requiredJob: 'build-and-test',
+          forbiddenPatterns: [/abc/],
+        },
+      ]),
+    ).toThrow('must include a non-empty requiredRunCommand');
+  });
+
+  test('validateRequiredWorkflowStepContracts rejects steps with non-regex forbidden patterns', () => {
+    expect(() =>
+      validateRequiredWorkflowStepContracts([
+        {
+          name: 'invalid-step-with-string-forbidden-pattern',
+          requiredRunCommand: 'pnpm build',
+          forbiddenPatterns: ['continue-on-error: true'],
+        },
+      ]),
+    ).toThrow('has non-regex forbidden pattern');
+  });
+
+  test('validateRequiredWorkflowStepContracts rejects duplicate required step contract in same job', () => {
+    expect(() =>
+      validateRequiredWorkflowStepContracts([
+        {
+          name: 'Install dependencies',
+          requiredJob: 'build-and-test',
+          requiredRunCommand: 'pnpm install --frozen-lockfile',
+          forbiddenPatterns: [/continue-on-error/],
+        },
+        {
+          name: 'Install dependencies',
+          requiredJob: 'build-and-test',
+          requiredRunCommand: 'pnpm install --frozen-lockfile',
+          forbiddenPatterns: [/run:\s*pnpm/],
+        },
+      ]),
+    ).toThrow('Duplicate required workflow step contract "Install dependencies" in job "build-and-test"');
+  });
+
   test('validateRequiredWorkflowContentContracts accepts current contract definitions', () => {
     expect(() => validateRequiredWorkflowContentContracts()).not.toThrow();
   });

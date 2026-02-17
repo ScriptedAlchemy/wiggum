@@ -198,6 +198,53 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
 ];
 
+export function validateRequiredWorkflowStepContracts(
+  requiredSteps = REQUIRED_WORKFLOW_STEPS,
+) {
+  if (!Array.isArray(requiredSteps)) {
+    throw new Error('Required workflow steps must be an array');
+  }
+
+  const seenStepKeys = new Set();
+  for (let index = 0; index < requiredSteps.length; index += 1) {
+    const step = requiredSteps[index];
+    if (!step || typeof step !== 'object') {
+      throw new Error(`Required workflow step at index ${index} must be an object`);
+    }
+    if (typeof step.name !== 'string' || step.name.trim().length === 0) {
+      throw new Error(`Required workflow step at index ${index} must include a non-empty name`);
+    }
+    if (
+      step.requiredJob !== undefined
+      && (typeof step.requiredJob !== 'string' || step.requiredJob.trim().length === 0)
+    ) {
+      throw new Error(`Required workflow step "${step.name}" has invalid requiredJob value`);
+    }
+    if (typeof step.requiredRunCommand !== 'string' || step.requiredRunCommand.trim().length === 0) {
+      throw new Error(
+        `Required workflow step "${step.name}" must include a non-empty requiredRunCommand`,
+      );
+    }
+    if (!Array.isArray(step.forbiddenPatterns)) {
+      throw new Error(`Required workflow step "${step.name}" must include forbiddenPatterns array`);
+    }
+    for (const forbiddenPattern of step.forbiddenPatterns) {
+      if (!(forbiddenPattern instanceof RegExp)) {
+        throw new Error(
+          `Required workflow step "${step.name}" has non-regex forbidden pattern`,
+        );
+      }
+    }
+
+    const stepKey = `${step.requiredJob ?? '__any_job__'}::${step.name}`;
+    if (seenStepKeys.has(stepKey)) {
+      const stepScope = step.requiredJob ? ` in job "${step.requiredJob}"` : '';
+      throw new Error(`Duplicate required workflow step contract "${step.name}"${stepScope}`);
+    }
+    seenStepKeys.add(stepKey);
+  }
+}
+
 export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   {
     description: 'build-and-test job must target ubuntu-latest',
@@ -695,6 +742,7 @@ function verifyPackageScriptsContent(packageJsonContent, packageJsonPath = PACKA
 }
 
 function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
+  validateRequiredWorkflowStepContracts();
   validateRequiredWorkflowContentContracts();
   const previousStepByJob = new Map();
   for (const requiredStep of REQUIRED_WORKFLOW_STEPS) {
