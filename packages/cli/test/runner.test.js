@@ -1960,6 +1960,52 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace links local manifest dependencies for npm/workspace aliases with hyphen and numeric package names', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared-hyphen/package.json'), {
+      name: '@scope/shared-hyphen',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/shared-v2/package.json'), {
+      name: '@scope/shared-v2',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'hyphen-alias': 'npm:@scope/shared-hyphen@workspace:*',
+      },
+      devDependencies: {
+        'numeric-alias': 'workspace:@scope/shared-v2@*',
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual([
+      '@scope/shared-hyphen',
+      '@scope/shared-v2',
+    ]);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-hyphen',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-v2',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace resolves local links from bundleDependencies and bundledDependencies arrays', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
