@@ -1897,7 +1897,7 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
-  test('resolveRunnerWorkspace ignores workspace protocol wildcards without explicit alias targets', async () => {
+  test('resolveRunnerWorkspace ignores workspace/npm alias specifiers without explicit package alias targets', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
       projects: ['packages/*'],
@@ -1911,6 +1911,12 @@ describe('Wiggum runner workspace graph', () => {
       version: '1.0.0',
       dependencies: {
         'shared-alias': 'workspace:*',
+      },
+      devDependencies: {
+        'shared-alias-dev': 'workspace:packages/shared',
+      },
+      optionalDependencies: {
+        'shared-alias-optional': 'npm:packages/shared@1.0.0',
       },
     });
 

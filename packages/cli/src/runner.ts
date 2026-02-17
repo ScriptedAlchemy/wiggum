@@ -342,17 +342,24 @@ function parseAliasTargetPackageName(aliasBody: string): string | undefined {
     return undefined;
   }
 
+  let candidatePackageName: string;
   if (aliasBody.startsWith('@')) {
     const scopeSeparatorIndex = aliasBody.indexOf('/');
     if (scopeSeparatorIndex <= 1) {
       return undefined;
     }
     const versionSeparatorIndex = aliasBody.indexOf('@', scopeSeparatorIndex + 1);
-    return versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
+    candidatePackageName = versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
+  } else {
+    const versionSeparatorIndex = aliasBody.indexOf('@');
+    candidatePackageName = versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
   }
 
-  const versionSeparatorIndex = aliasBody.indexOf('@');
-  return versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
+  if (!/^(?:@[^/\s]+\/[^/\s]+|[^@/\s][^/\s]*)$/.test(candidatePackageName)) {
+    return undefined;
+  }
+
+  return candidatePackageName;
 }
 
 function parseNpmAliasDependencyTarget(specifier: string): string | undefined {
