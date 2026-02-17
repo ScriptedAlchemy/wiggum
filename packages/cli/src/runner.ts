@@ -382,13 +382,87 @@ function parseWorkspaceAliasDependencyTarget(specifier: string): string | undefi
   return parseAliasTargetPackageName(aliasBody);
 }
 
-function collectDependencyPackageNames(field: Record<string, string>): string[] {
+async function readPackageNameFromPath(
+  dependencyPath: string,
+  packageNameCache: Map<string, string | undefined>,
+): Promise<string | undefined> {
+  const normalizedDependencyPath = normalizePath(dependencyPath);
+  if (packageNameCache.has(normalizedDependencyPath)) {
+    return packageNameCache.get(normalizedDependencyPath);
+  }
+
+  const packageJsonPath = path.basename(normalizedDependencyPath) === 'package.json'
+    ? normalizedDependencyPath
+    : path.join(normalizedDependencyPath, 'package.json');
+  if (!(await pathExists(packageJsonPath))) {
+    packageNameCache.set(normalizedDependencyPath, undefined);
+    return undefined;
+  }
+
+  try {
+    const pkg = await readJsonFile<{ name?: string }>(packageJsonPath);
+    const packageName = typeof pkg.name === 'string' && pkg.name.trim().length > 0
+      ? pkg.name.trim()
+      : undefined;
+    packageNameCache.set(normalizedDependencyPath, packageName);
+    return packageName;
+  } catch {
+    packageNameCache.set(normalizedDependencyPath, undefined);
+    return undefined;
+  }
+}
+
+async function parseLocalPathDependencyTarget(
+  projectRoot: string,
+  specifier: string,
+  packageNameCache: Map<string, string | undefined>,
+): Promise<string | undefined> {
+  const trimmedSpecifier = specifier.trim();
+  let rawPath: string | undefined;
+
+  if (trimmedSpecifier.startsWith('file:')) {
+    rawPath = trimmedSpecifier.slice('file:'.length).trim();
+  } else if (trimmedSpecifier.startsWith('link:')) {
+    rawPath = trimmedSpecifier.slice('link:'.length).trim();
+  } else if (trimmedSpecifier.startsWith('workspace:')) {
+    const workspaceBody = trimmedSpecifier.slice('workspace:'.length).trim();
+    if (workspaceBody.startsWith('./') || workspaceBody.startsWith('../') || workspaceBody.startsWith('/')) {
+      rawPath = workspaceBody;
+    }
+  }
+
+  if (!rawPath) {
+    return undefined;
+  }
+
+  const hashIndex = rawPath.indexOf('#');
+  const queryIndex = rawPath.indexOf('?');
+  const suffixCutoff = [hashIndex, queryIndex]
+    .filter((index) => index >= 0)
+    .reduce((min, index) => Math.min(min, index), Number.POSITIVE_INFINITY);
+  const cleanedPath = (Number.isFinite(suffixCutoff) ? rawPath.slice(0, suffixCutoff) : rawPath).trim();
+  if (cleanedPath.length === 0) {
+    return undefined;
+  }
+
+  const absolutePath = path.isAbsolute(cleanedPath)
+    ? normalizePath(cleanedPath)
+    : normalizePath(path.join(projectRoot, cleanedPath));
+  return readPackageNameFromPath(absolutePath, packageNameCache);
+}
+
+async function collectDependencyPackageNames(
+  field: Record<string, string>,
+  projectRoot: string,
+  packageNameCache: Map<string, string | undefined>,
+): Promise<string[]> {
   const dependencyPackageNames = new Set<string>();
   for (const [dependencyName, dependencySpecifier] of Object.entries(field)) {
     dependencyPackageNames.add(dependencyName);
     const aliasTargets = [
       parseNpmAliasDependencyTarget(dependencySpecifier),
       parseWorkspaceAliasDependencyTarget(dependencySpecifier),
+      await parseLocalPathDependencyTarget(projectRoot, dependencySpecifier, packageNameCache),
     ];
     for (const aliasTargetPackageName of aliasTargets) {
       if (!aliasTargetPackageName) {
@@ -435,13 +509,19 @@ async function readPackageInfo(projectRoot: string): Promise<{
       pkg.peerDependencies ?? {},
       pkg.optionalDependencies ?? {},
     ];
+    const packageNameCache = new Map<string, string | undefined>();
+    const packageNamesFromFields = (
+      await Promise.all(
+        fields.map((field) => collectDependencyPackageNames(field, projectRoot, packageNameCache)),
+      )
+    ).flat();
     const bundledDependencyPackageNames = [
       ...collectBundledDependencyPackageNames(pkg.bundleDependencies),
       ...collectBundledDependencyPackageNames(pkg.bundledDependencies),
     ];
     const dependencyPackageNames = Array.from(
       new Set([
-        ...fields.flatMap((field) => collectDependencyPackageNames(field)),
+        ...packageNamesFromFields,
         ...bundledDependencyPackageNames,
       ]),
     );
