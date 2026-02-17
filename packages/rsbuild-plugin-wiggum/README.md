@@ -84,6 +84,7 @@ window.WiggumChatWidget?.destroy();
 ```
 
 - `open()` and `close()` toggle the current widget UI state.
+- `open()` also auto-initializes the widget if it has not mounted yet.
 - `isOpen()` reports whether the chat panel is currently expanded in the DOM.
 - `init()` is idempotent; repeated calls do not create duplicate widgets.
 
