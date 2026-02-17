@@ -642,6 +642,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Package script "ci:validate" does not match expected command pattern');
   });
 
+  test('fails when ci:validate package script omits lint stage', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts['ci:validate'] = 'pnpm build && pnpm test && pnpm run verify:runner:all && pnpm run publint && pnpm run test:demo:e2e && pnpm run typecheck';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "ci:validate" does not match expected command pattern');
+  });
+
   test('fails when typecheck package script is missing', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const parsedPackage = JSON.parse(packageJsonContent);
