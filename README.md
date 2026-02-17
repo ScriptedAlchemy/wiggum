@@ -150,7 +150,7 @@ The MCP server in `packages/mcp` exposes tools to search and fetch documentation
 - Build everything: `pnpm build`
 - Test everything: `pnpm test`
 - Type check (best‑effort): `pnpm -r exec tsc --noEmit`
-- Run widget-browser API e2e smoke: `pnpm --filter ./packages/demo-app test:e2e:widget-api`
+- Run widget-browser API e2e smoke: `pnpm run test:demo:widget-api`
 
 CI runs on pushes and PRs against `main` and `develop` and validates build, tests, and a best‑effort type check on Node 18.x/20.x.
 
