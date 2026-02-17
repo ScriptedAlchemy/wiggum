@@ -5,6 +5,18 @@
   "description": "Wiggum CLI: passthrough for R* tools + OpenCode agent",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js",
+      "default": "./dist/cli.js"
+    },
+    "./runner": {
+      "types": "./dist/runner.d.ts",
+      "import": "./dist/runner.js",
+      "default": "./dist/runner.js"
+    }
+  },
   "bin": {
     "wiggum": "./bin/cli.js"
   },
