@@ -19,7 +19,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'WIGGUM_CHAT_WIDGET_DISABLE_BACKEND=1 pnpm exec wiggum build dev',
+    command: 'pnpm exec wiggum build dev',
+    env: {
+      ...process.env,
+      WIGGUM_CHAT_WIDGET_DISABLE_BACKEND: '1',
+    },
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
