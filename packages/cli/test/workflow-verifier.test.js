@@ -461,6 +461,27 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Step "Run publint" must appear after "Run linting" in workflow order within job "lint"');
   });
 
+  test('fails when required workflow step is moved into the wrong job', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      replaceOrThrow(
+        workflowContent,
+        '      - name: Check types\n        run: pnpm run typecheck',
+        '      - name: Run publint\n        run: pnpm run publint',
+      ),
+      '      - name: Run linting\n        run: pnpm run lint\n\n      - name: Run publint\n        run: pnpm run publint',
+      '      - name: Run linting\n        run: pnpm run lint\n\n      - name: Check types\n        run: pnpm run typecheck',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Run publint" must be defined in job "lint" (found in "build-and-test")');
+  });
+
   test('fails when publint workflow step is renamed away', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
@@ -1000,7 +1021,7 @@ describe('runner workflow coverage verifier', () => {
     ).not.toThrow();
   });
 
-  test('accepts valid required step ordering when CI jobs are reordered', () => {
+  test('fails when required job identities are swapped', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const swappedJobsWorkflow = replaceOrThrow(
       replaceOrThrow(
@@ -1022,7 +1043,7 @@ describe('runner workflow coverage verifier', () => {
         workflowContent: swappedJobsWorkflow,
         workflowPath: WORKFLOW_PATH,
       }),
-    ).not.toThrow();
+    ).toThrow('Step "Build all packages" must be defined in job "build-and-test" (found in "lint")');
   });
 
   test('accepts required step names with inline comments', () => {

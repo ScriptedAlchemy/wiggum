@@ -70,6 +70,7 @@ export const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
 export const REQUIRED_WORKFLOW_STEPS = [
   {
     name: 'Build all packages',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm build',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -78,6 +79,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run tests',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm test',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -86,6 +88,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Install Playwright Chromium (demo widget smoke)',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm run setup:demo:playwright',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -94,6 +97,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run widget API e2e smoke',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm run test:demo:widget-api',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -102,6 +106,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run full demo app e2e suite',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm run test:demo:e2e',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -110,6 +115,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run runner-focused CLI tests',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm run test:runner',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -118,6 +124,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Verify runner project coverage',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm run verify:runner:coverage',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -126,6 +133,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Verify runner workflow coverage',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm run verify:runner:workflow',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -134,6 +142,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Build workspace (required for lint commands)',
+    requiredJob: 'lint',
     requiredRunCommand: 'pnpm build',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -142,6 +151,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run linting',
+    requiredJob: 'lint',
     requiredRunCommand: 'pnpm run lint',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -152,6 +162,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run publint',
+    requiredJob: 'lint',
     requiredRunCommand: 'pnpm run publint',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -160,6 +171,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Check types',
+    requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm run typecheck',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
@@ -373,6 +385,12 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
       throw new Error(`Workflow ${workflowPath} contains duplicate required step "${requiredStep.name}"`);
     }
     const [stepBlock] = stepBlocks;
+    if (requiredStep.requiredJob && stepBlock.jobName !== requiredStep.requiredJob) {
+      const detectedJob = stepBlock.jobName ?? 'unknown';
+      throw new Error(
+        `Step "${requiredStep.name}" must be defined in job "${requiredStep.requiredJob}" (found in "${detectedJob}")`,
+      );
+    }
     const stepJobName = stepBlock.jobName ?? '__unknown_job__';
     const previousStep = previousStepByJob.get(stepJobName);
     if (previousStep && stepBlock.startLine <= previousStep.startLine) {
