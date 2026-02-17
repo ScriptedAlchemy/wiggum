@@ -289,6 +289,23 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('is missing required step "Run tests"');
   });
 
+  test('fails when widget API smoke workflow step is renamed away', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '- name: Run widget API e2e smoke',
+      '- name: Run widget browser smoke',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('is missing required step "Run widget API e2e smoke"');
+  });
+
   test('fails when a required workflow step is duplicated', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const duplicateStep = '\n      - name: Run tests\n        run: pnpm test\n';
@@ -316,6 +333,21 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('Package script "test:runner" does not match expected command pattern');
+  });
+
+  test('fails when widget API smoke package script is missing', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    delete parsedPackage.scripts['test:demo:widget-api'];
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Missing required package scripts: test:demo:widget-api');
   });
 
   test('fails when required package script adds trailing command arguments', () => {
