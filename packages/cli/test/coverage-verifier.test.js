@@ -1343,6 +1343,33 @@ describe('runner coverage verifier', () => {
     );
   });
 
+  test('coverage verifier CLI reports unsupported overridden cts config path in error output', () => {
+    const fixture = createCoverageVerifierFixture({
+      configContent: '{"projects":["packages/*"]}',
+      createPackagesDir: true,
+      packageNames: ['cli'],
+    });
+    const unsupportedConfigPath = path.join(fixture.rootDir, 'configs', 'wiggum.config.cts');
+    fs.mkdirSync(path.dirname(unsupportedConfigPath), { recursive: true });
+    fs.writeFileSync(unsupportedConfigPath, 'export default {};');
+
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: fixture.rootDir,
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: unsupportedConfigPath,
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-coverage]');
+    expect(result.stderr).toContain(
+      'Unsupported runner config file "wiggum.config.cts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
   test('coverage verifier CLI reports overridden missing packages path in error output', () => {
     const fixture = createCoverageVerifierFixture({
       configContent: '{"projects":["packages/*"]}',
