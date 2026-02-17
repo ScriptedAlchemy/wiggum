@@ -52,6 +52,10 @@ pnpm test:e2e
 
 # run only widget API coverage
 pnpm test:e2e:widget-api
+
+# or from monorepo root
+pnpm run test:demo:e2e
+pnpm run test:demo:widget-api
 ```
 
 The e2e suite includes coverage for the browser widget API (`window.WiggumChatWidget.open/close/isOpen`).
