@@ -325,6 +325,40 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('missing required content: lint job must target ubuntu-latest');
   });
 
+  test('fails when build-and-test checkout action drifts from v4', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Checkout repository\n        uses: actions/checkout@v4',
+      '      - name: Checkout repository\n        uses: actions/checkout@v3',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: build-and-test checkout step must use actions/checkout@v4');
+  });
+
+  test('fails when lint setup-pnpm action drifts from v2', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '  lint:\n    runs-on: ubuntu-latest\n    \n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        \n      - name: Setup pnpm\n        uses: pnpm/action-setup@v2',
+      '  lint:\n    runs-on: ubuntu-latest\n    \n    steps:\n      - name: Checkout repository\n        uses: actions/checkout@v4\n        \n      - name: Setup pnpm\n        uses: pnpm/action-setup@v1',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: lint setup-pnpm step must use pnpm/action-setup@v2');
+  });
+
   test('fails when build-and-test job no longer targets ubuntu-latest', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(

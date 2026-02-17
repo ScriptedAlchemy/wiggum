@@ -201,11 +201,33 @@ export const REQUIRED_WORKFLOW_STEPS = [
 const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   {
     description: 'build-and-test job must target ubuntu-latest',
+    requiredJob: 'build-and-test',
     pattern: /build-and-test:\s*\n\s*runs-on:\s*ubuntu-latest/,
   },
   {
+    description: 'build-and-test checkout step must use actions/checkout@v4',
+    requiredJob: 'build-and-test',
+    pattern: /- name:\s*Checkout repository\s*\n\s*uses:\s*actions\/checkout@v4/,
+  },
+  {
+    description: 'build-and-test setup-pnpm step must use pnpm/action-setup@v2',
+    requiredJob: 'build-and-test',
+    pattern: /- name:\s*Setup pnpm\s*\n\s*uses:\s*pnpm\/action-setup@v2/,
+  },
+  {
     description: 'lint job must target ubuntu-latest',
+    requiredJob: 'lint',
     pattern: /lint:\s*\n\s*runs-on:\s*ubuntu-latest/,
+  },
+  {
+    description: 'lint checkout step must use actions/checkout@v4',
+    requiredJob: 'lint',
+    pattern: /- name:\s*Checkout repository\s*\n\s*uses:\s*actions\/checkout@v4/,
+  },
+  {
+    description: 'lint setup-pnpm step must use pnpm/action-setup@v2',
+    requiredJob: 'lint',
+    pattern: /- name:\s*Setup pnpm\s*\n\s*uses:\s*pnpm\/action-setup@v2/,
   },
   {
     description: 'push trigger branches must include main and develop',
@@ -217,19 +239,23 @@ const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   },
   {
     description: 'build-and-test node matrix must run on 20.x',
+    requiredJob: 'build-and-test',
     pattern: /matrix:\s*\n\s*node-version:\s*\[\s*20\.x\s*\]/,
   },
   {
     description: 'build-and-test setup-node must enable pnpm cache',
-    pattern: /build-and-test:\s*\n[\s\S]*?- name:\s*Setup Node\.js \$\{\{ matrix\.node-version \}\}\s*\n\s*uses:\s*actions\/setup-node@v4\s*\n\s*with:\s*\n\s*node-version:\s*\$\{\{ matrix\.node-version \}\}\s*\n\s*cache:\s*['"]pnpm['"]/,
+    requiredJob: 'build-and-test',
+    pattern: /- name:\s*Setup Node\.js \$\{\{ matrix\.node-version \}\}\s*\n\s*uses:\s*actions\/setup-node@v4\s*\n\s*with:\s*\n\s*node-version:\s*\$\{\{ matrix\.node-version \}\}\s*\n\s*cache:\s*['"]pnpm['"]/,
   },
   {
     description: 'lint job node setup must run on 20.x',
-    pattern: /lint:\s*\n[\s\S]*?- name:\s*Setup Node\.js[\s\S]*?node-version:\s*20\.x/,
+    requiredJob: 'lint',
+    pattern: /- name:\s*Setup Node\.js[\s\S]*?node-version:\s*20\.x/,
   },
   {
     description: 'lint setup-node must enable pnpm cache',
-    pattern: /lint:\s*\n[\s\S]*?- name:\s*Setup Node\.js\s*\n\s*uses:\s*actions\/setup-node@v4\s*\n\s*with:\s*\n\s*node-version:\s*20\.x\s*\n\s*cache:\s*['"]pnpm['"]/,
+    requiredJob: 'lint',
+    pattern: /- name:\s*Setup Node\.js\s*\n\s*uses:\s*actions\/setup-node@v4\s*\n\s*with:\s*\n\s*node-version:\s*20\.x\s*\n\s*cache:\s*['"]pnpm['"]/,
   },
 ];
 
@@ -320,6 +346,25 @@ function extractStepBlocks(workflow, stepName) {
     });
   }
   return blocks;
+}
+
+function extractJobBlock(workflow, jobName) {
+  const lines = workflow.split(/\r?\n/);
+  const jobHeader = `  ${jobName}:`;
+  const startIndex = lines.findIndex((line) => line.trimEnd() === jobHeader);
+  if (startIndex === -1) {
+    return undefined;
+  }
+
+  let endIndex = lines.length;
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    if (/^\s{2}[A-Za-z0-9_-]+:\s*$/.test(lines[i])) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  return lines.slice(startIndex, endIndex).join('\n');
 }
 
 function normalizeInlineScalar(value) {
@@ -460,7 +505,10 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
   }
 
   for (const requiredPattern of REQUIRED_WORKFLOW_CONTENT_PATTERNS) {
-    if (!requiredPattern.pattern.test(workflow)) {
+    const targetContent = requiredPattern.requiredJob
+      ? extractJobBlock(workflow, requiredPattern.requiredJob)
+      : workflow;
+    if (!targetContent || !requiredPattern.pattern.test(targetContent)) {
       throw new Error(
         `Workflow ${workflowPath} missing required content: ${requiredPattern.description}`,
       );
