@@ -1286,6 +1286,27 @@ describe('runner workflow coverage verifier', () => {
     ).not.toThrow();
   });
 
+  test('accepts required workflow job identifiers when quoted', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      replaceOrThrow(
+        workflowContent,
+        '  build-and-test:',
+        '  "build-and-test":',
+      ),
+      '  lint:',
+      '  \'lint\':',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
   test('fails when required job identities are swapped', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const swappedJobsWorkflow = replaceOrThrow(

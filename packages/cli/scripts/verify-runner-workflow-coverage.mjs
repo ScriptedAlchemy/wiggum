@@ -202,7 +202,7 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   {
     description: 'build-and-test job must target ubuntu-latest',
     requiredJob: 'build-and-test',
-    pattern: /build-and-test:\s*\n\s*runs-on:\s*ubuntu-latest/,
+    pattern: /^\s*runs-on:\s*ubuntu-latest\b/m,
   },
   {
     description: 'build-and-test job must not enable continue-on-error',
@@ -227,7 +227,7 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   {
     description: 'lint job must target ubuntu-latest',
     requiredJob: 'lint',
-    pattern: /lint:\s*\n\s*runs-on:\s*ubuntu-latest/,
+    pattern: /^\s*runs-on:\s*ubuntu-latest\b/m,
   },
   {
     description: 'lint job must not enable continue-on-error',
@@ -318,16 +318,16 @@ function extractStepName(line) {
 
 function getEnclosingJobName(lines, lineIndex) {
   for (let i = lineIndex; i >= 0; i--) {
-    const line = lines[i];
-    const match = line.match(/^\s{2}([A-Za-z0-9_-]+):\s*$/);
-    if (!match) {
+    const entry = parseYamlMappingEntry(lines[i]);
+    if (!entry) {
       continue;
     }
-    const [, key] = match;
-    if (key === 'jobs') {
+    if (entry.indent === 0 && entry.key === 'jobs') {
       return undefined;
     }
-    return key;
+    if (entry.indent === 2) {
+      return entry.key;
+    }
   }
   return undefined;
 }
@@ -372,15 +372,18 @@ function extractStepBlocks(workflow, stepName) {
 
 function extractJobBlock(workflow, jobName) {
   const lines = workflow.split(/\r?\n/);
-  const jobHeader = `  ${jobName}:`;
-  const startIndex = lines.findIndex((line) => line.trimEnd() === jobHeader);
+  const startIndex = lines.findIndex((line) => {
+    const entry = parseYamlMappingEntry(line);
+    return Boolean(entry && entry.indent === 2 && entry.key === jobName);
+  });
   if (startIndex === -1) {
     return undefined;
   }
 
   let endIndex = lines.length;
   for (let i = startIndex + 1; i < lines.length; i++) {
-    if (/^\s{2}[A-Za-z0-9_-]+:\s*$/.test(lines[i])) {
+    const entry = parseYamlMappingEntry(lines[i]);
+    if (entry && entry.indent === 2) {
       endIndex = i;
       break;
     }
