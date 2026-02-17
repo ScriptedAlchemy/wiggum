@@ -2037,6 +2037,54 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('run --dry-run honors manifest dependency order for local path protocol dependencies', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared-file/package.json'), {
+      name: '@scope/shared-file',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/shared-link/package.json'), {
+      name: '@scope/shared-link',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'shared-file': 'file:../shared-file',
+      },
+      devDependencies: {
+        'shared-link': 'link:../shared-link',
+      },
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--json'],
+      root,
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan.map((entry) => entry.project)).toEqual([
+      '@scope/shared-file',
+      '@scope/shared-link',
+      '@scope/app',
+    ]);
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/shared-file',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/shared-link',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace ignores missing local path dependency targets', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
