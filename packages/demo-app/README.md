@@ -44,6 +44,9 @@ Run Playwright e2e tests:
 # one-time browser install
 pnpm exec playwright install chromium
 
+# or from monorepo root
+pnpm run setup:demo:playwright
+
 # run e2e
 pnpm test:e2e
 
