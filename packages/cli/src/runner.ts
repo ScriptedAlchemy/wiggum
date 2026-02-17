@@ -428,7 +428,13 @@ async function parseLocalPathDependencyTarget(
     rawPath = trimmedSpecifier.slice('portal:'.length).trim();
   } else if (trimmedSpecifier.startsWith('workspace:')) {
     const workspaceBody = trimmedSpecifier.slice('workspace:'.length).trim();
-    if (workspaceBody.startsWith('./') || workspaceBody.startsWith('../') || workspaceBody.startsWith('/')) {
+    if (workspaceBody.startsWith('file:')) {
+      rawPath = workspaceBody.slice('file:'.length).trim();
+    } else if (workspaceBody.startsWith('link:')) {
+      rawPath = workspaceBody.slice('link:'.length).trim();
+    } else if (workspaceBody.startsWith('portal:')) {
+      rawPath = workspaceBody.slice('portal:'.length).trim();
+    } else if (workspaceBody.startsWith('./') || workspaceBody.startsWith('../') || workspaceBody.startsWith('/')) {
       rawPath = workspaceBody;
     }
   }
