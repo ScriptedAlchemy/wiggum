@@ -451,6 +451,23 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('missing required content: lint job must not enable continue-on-error');
   });
 
+  test('allows continue-on-error on non-required step when job-level flag is absent', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Check types\n        run: pnpm run typecheck',
+      '      - name: Check types\n        run: pnpm run typecheck\n\n      - name: Optional diagnostics upload\n        run: pnpm run test:runner\n        continue-on-error: true',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
   test('fails when build-and-test checkout action drifts from v4', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(

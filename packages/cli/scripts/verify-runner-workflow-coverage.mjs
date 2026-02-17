@@ -440,9 +440,11 @@ function isYamlTruthy(value) {
 
 function jobHasContinueOnErrorEnabled(jobContent) {
   const lines = jobContent.split(/\r?\n/);
+  const jobHeader = parseYamlMappingEntry(lines[0]);
+  const jobFieldIndent = jobHeader ? jobHeader.indent + 2 : 4;
   for (const line of lines) {
     const entry = parseYamlMappingEntry(line);
-    if (!entry || entry.key !== 'continue-on-error') {
+    if (!entry || entry.key !== 'continue-on-error' || entry.indent !== jobFieldIndent) {
       continue;
     }
     if (isYamlTruthy(normalizeYamlScalar(entry.value))) {
