@@ -2520,6 +2520,39 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace supports absolute workspace package.json path specifiers with query/hash suffixes', async () => {
+    const root = makeTempWorkspace();
+    const sharedDir = path.join(root, 'packages/shared');
+    const sharedPackageJsonPath = path.join(sharedDir, 'package.json');
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(sharedPackageJsonPath, {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'shared-absolute-workspace': `workspace:${sharedPackageJsonPath}?workspace=true#local`,
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual(['@scope/shared']);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace supports absolute file/link/portal path dependency specifiers with query/hash suffixes', async () => {
     const root = makeTempWorkspace();
     const sharedFileDir = path.join(root, 'packages/shared-file');
