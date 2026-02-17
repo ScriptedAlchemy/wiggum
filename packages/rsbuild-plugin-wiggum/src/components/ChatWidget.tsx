@@ -347,7 +347,6 @@ function startElementInspector(onPick: (info: InspectResult) => void, options?: 
   const prevCursor = document.body.style.cursor;
   document.body.style.cursor = 'crosshair';
 
-  let lastTarget: Element | null = null;
   const isWithinSkip = (el: Node | null | undefined) => {
     if (!el) return false;
     let n: Node | null = el;
@@ -399,10 +398,8 @@ function startElementInspector(onPick: (info: InspectResult) => void, options?: 
     if (!target) return;
     if (isWithinSkip(target)) {
       highlight(null);
-      lastTarget = null;
       return;
     }
-    lastTarget = target;
     highlight(target);
   };
 
