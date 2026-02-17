@@ -32,6 +32,12 @@ function unsupportedRunnerConfigError(filePath) {
   );
 }
 
+function assertSupportedRunnerConfigPath(filePath) {
+  if (UNSUPPORTED_RUNNER_CONFIG_FILES.includes(path.basename(filePath))) {
+    throw unsupportedRunnerConfigError(filePath);
+  }
+}
+
 export function detectSupportedRunnerConfigPath(rootDir, fileSystem = fs) {
   const normalizedRootDir = ensureNonEmptyRootPath(rootDir, 'rootDir');
   const normalizedFileSystem = ensureFileSystemContract(fileSystem);
@@ -68,6 +74,7 @@ export function resolveVerifierPathsFromEnv({
   const configPath = configPathOverride
     ? path.resolve(rootDir, configPathOverride)
     : detectSupportedRunnerConfigPath(rootDir, normalizedFileSystem);
+  assertSupportedRunnerConfigPath(configPath);
   const packagesDir = packagesDirOverride
     ? path.resolve(rootDir, packagesDirOverride)
     : path.join(rootDir, 'packages');
@@ -317,6 +324,7 @@ export async function verifyRunnerCoverage(options = {}) {
     'configPath',
     normalizedRootDir,
   );
+  assertSupportedRunnerConfigPath(normalizedConfigPath);
   const normalizedPackagesDir = resolvePathOption(
     packagesDir ?? defaultPackagesDir,
     'packagesDir',
