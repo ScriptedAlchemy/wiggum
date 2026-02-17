@@ -67,6 +67,7 @@ class ChatWidgetManager {
   // Removed persistent lastSelection; selection context flows from ChatWidget per-send
   private lastConfig: ChatWidgetProps = {};
   private observer: MutationObserver | null = null;
+  private pendingStateTimers = new Set<number>();
 
   init(config: ChatWidgetProps = {}) {
     // Remember config for potential remounts after HMR/DOM replacement
@@ -213,6 +214,11 @@ class ChatWidgetManager {
   destroy() {
     if (!this.isInitialized) return;
 
+    for (const timerId of this.pendingStateTimers) {
+      window.clearTimeout(timerId);
+    }
+    this.pendingStateTimers.clear();
+
     try { this.observer?.disconnect(); } catch {}
     this.observer = null;
 
@@ -229,11 +235,19 @@ class ChatWidgetManager {
     this.isInitialized = false;
   }
 
+  private scheduleStateRetry(callback: () => void) {
+    const timerId = window.setTimeout(() => {
+      this.pendingStateTimers.delete(timerId);
+      callback();
+    }, 16);
+    this.pendingStateTimers.add(timerId);
+  }
+
   private setOpenState(shouldOpen: boolean, attempt = 0) {
     const root = document.getElementById('wiggum-chat-widget-root');
     if (!root) {
       if (attempt < 10) {
-        window.setTimeout(() => this.setOpenState(shouldOpen, attempt + 1), 16);
+        this.scheduleStateRetry(() => this.setOpenState(shouldOpen, attempt + 1));
       }
       return;
     }
@@ -242,7 +256,7 @@ class ChatWidgetManager {
     const toggleButton = root.querySelector<HTMLButtonElement>('.chat-widget__toggle');
     if (!toggleButton) {
       if (attempt < 10) {
-        window.setTimeout(() => this.setOpenState(shouldOpen, attempt + 1), 16);
+        this.scheduleStateRetry(() => this.setOpenState(shouldOpen, attempt + 1));
       }
       return;
     }
@@ -253,9 +267,7 @@ class ChatWidgetManager {
   private waitForOpenState(shouldOpen: boolean, attempt = 0) {
     if (this.isOpen() === shouldOpen) return;
     if (attempt < 10) {
-      window.setTimeout(() => {
-        this.waitForOpenState(shouldOpen, attempt + 1);
-      }, 16);
+      this.scheduleStateRetry(() => this.waitForOpenState(shouldOpen, attempt + 1));
     }
   }
 
