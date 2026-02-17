@@ -1,6 +1,7 @@
 {
   "name": "@wiggum/rsbuild-plugin-wiggum",
   "version": "0.1.0",
+  "type": "commonjs",
   "description": "Rsbuild plugin for adding a floating chat widget to web applications",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,14 +12,19 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.js"
+      }
     },
     "./src/widget-entry": "./src/widget-entry.tsx"
   },
   "scripts": {
-    "build": "rslib build",
+    "build": "rslib build && node ./sync-dts.mjs",
     "build:watch": "rslib build --watch",
     "dev": "rslib build --watch",
     "prepublishOnly": "npm run build",
@@ -40,27 +46,27 @@
     "react-dom": ">=16.8.0"
   },
   "devDependencies": {
-    "@rsbuild/core": "^1.5.3",
-    "@rsbuild/plugin-react": "^1.4.0",
-    "@rslib/core": "^0.12.4",
-    "@types/node": "^22.18.1",
-    "@types/react": "^18.3.24",
-    "@types/react-dom": "^18.3.7",
-    "publint": "^0.3.12",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "typescript": "^5.9.2",
-    "vitest": "^1.6.1"
+    "@rsbuild/core": "^1.7.3",
+    "@rsbuild/plugin-react": "^1.4.5",
+    "@rslib/core": "^0.19.6",
+    "@types/node": "^25.2.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "publint": "^0.3.17",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "^0.6.10",
+    "@opencode-ai/sdk": "^1.2.6",
     "@wiggum/agent": "workspace:*",
     "clsx": "^2.1.1",
-    "http-proxy-middleware": "^2.0.6"
+    "http-proxy-middleware": "^3.0.5"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/wiggum/wiggum.git",
+    "url": "git+https://github.com/wiggum/wiggum.git",
     "directory": "packages/rsbuild-plugin-wiggum"
   },
   "publishConfig": {

@@ -10,28 +10,29 @@
     "test": "wiggum test",
     "test:watch": "wiggum test --watch",
     "test:e2e": "playwright test",
+    "test:e2e:widget-api": "playwright test tests/e2e/widget-api.spec.ts --project=chromium",
     "test:e2e:ui": "playwright test --ui",
     "lint": "pnpm --filter @wiggum/cli build && wiggum lint . --autofix",
     "lint:fix": "pnpm --filter @wiggum/cli build && wiggum lint --fix ."
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "@rsbuild/core": "^1.5.3",
-    "@rsbuild/plugin-type-check": "^1.2.4",
-    "@rslint/core": "^0.1.13",
-    "@rstest/core": "^0.3.2",
-    "@types/react": "^18.3.24",
-    "@types/react-dom": "^18.3.7",
+    "@playwright/test": "^1.58.2",
+    "@rsbuild/core": "^1.7.3",
+    "@rsbuild/plugin-type-check": "^1.3.3",
+    "@rslint/core": "^0.2.1",
+    "@rstest/core": "^0.8.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@wiggum/cli": "workspace:*",
     "@wiggum/rsbuild-plugin-wiggum": "workspace:*",
-    "jsdom": "^27.0.0",
-    "playwright": "^1.55.0",
-    "publint": "^0.3.12",
-    "typescript": "^5.9.2"
+    "jsdom": "^28.1.0",
+    "playwright": "^1.58.2",
+    "publint": "^0.3.17",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@rsbuild/plugin-react": "^1.4.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "@rsbuild/plugin-react": "^1.4.5",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   }
 }

@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+if ('NO_COLOR' in process.env) {
+  delete process.env.NO_COLOR;
+}
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -19,7 +23,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm dev',
+    command: 'pnpm exec wiggum build dev',
+    env: {
+      ...process.env,
+      WIGGUM_CHAT_WIDGET_DISABLE_BACKEND: '1',
+    },
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

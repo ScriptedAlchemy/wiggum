@@ -99,7 +99,7 @@ export function spawnOpenCode(args: string[], options: AgentOptions = {}): Child
   const child = spawn('opencode', args, openCodeOptions);
 
   child.on('error', (error) => {
-    if ((error as any).code === 'ENOENT') {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       console.error(chalk.red('OpenCode binary not found'));
       console.log(chalk.yellow('Run "wiggum agent install" to install OpenCode'));
     } else {
@@ -131,7 +131,7 @@ export async function runOpenCodeServer(port?: number, hostname?: string): Promi
   const child = spawnOpenCode(args, { config: mergedConfig });
 
   // Handle graceful shutdown
-  process.on('SIGINT', () => {
+  process.once('SIGINT', () => {
     console.log(chalk.yellow('\nStopping OpenCode server...'));
     child.kill('SIGINT');
     process.exit(0);
@@ -187,7 +187,7 @@ ${chalk.yellow('Default:')}
   wiggum agent         Start interactive OpenCode TUI (uses inline config)
 
 ${chalk.yellow('Commands:')}
-  ${chalk.cyan('serve')}               Start OpenCode server
+  ${chalk.cyan('serve | server')}      Start OpenCode server
   ${chalk.cyan('init')}                Initialize OpenCode config
   ${chalk.cyan('install')}             Install OpenCode binary
   ${chalk.cyan('chat')}                Start interactive TUI (same as default)
@@ -195,7 +195,18 @@ ${chalk.yellow('Commands:')}
   
 ${chalk.yellow('Server Options:')}
   --port <port>       Server port (default: 3000)
+  --port=<port>       Equals-form alias for --port
   --hostname <host>   Server hostname (default: localhost)
+  --hostname=<host>   Equals-form server hostname
+  --host <host>       Alias for --hostname
+  --host=<host>       Equals-form alias for --hostname
+  -p <port>           Short alias for --port
+  -p=<port>           Equals-form alias for --port
+  -H <host>           Short alias for --hostname
+  -H=<host>           Equals-form alias for --hostname
+
+${chalk.yellow('Notes:')}
+  Chat modes require an interactive terminal (TTY).
 
 
 ${chalk.yellow('Examples:')}
@@ -208,6 +219,10 @@ ${chalk.yellow('Examples:')}
   ${chalk.gray('# Start OpenCode server')}
   wiggum agent serve
   wiggum agent serve --port 4096
+  wiggum agent server --port=4096 --hostname=0.0.0.0
+  wiggum agent serve --port=4096 --host=localhost
+  wiggum agent serve -p 4096 -H localhost
+  wiggum agent serve -p=4096 -H=localhost
 
   ${chalk.gray('# Start interactive chat')}
   wiggum agent chat

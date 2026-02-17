@@ -1,5 +1,12 @@
 import { createOpencodeClient, createOpencodeServer } from '@opencode-ai/sdk'
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return String(error)
+}
+
 async function main() {
   // Fixed defaults; no options
   const hostname = '127.0.0.1'
@@ -21,8 +28,10 @@ async function main() {
   try {
     const client = createOpencodeClient({ baseUrl })
     const res = await client.config.providers()
-    console.log('CONFIG', await client.config.get())
-    if (!res.data) throw (res as any).error ?? new Error('Unknown providers() error')
+    if (!res.data) {
+      const responseError = (res as { error?: unknown }).error
+      throw responseError ?? new Error('Unknown providers() error')
+    }
     const providers = res.data.providers
     const simplified = providers.map((p) => ({
       id: p.id,
@@ -30,10 +39,9 @@ async function main() {
       models: Object.keys(p.models ?? {}),
     }))
     const output = { server: baseUrl, providers: simplified }
-    // console.log(JSON.stringify(output, null, 2))
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to query providers from server:', err?.message || err)
+    process.stdout.write(`${JSON.stringify(output, null, 2)}\n`)
+  } catch (err: unknown) {
+    process.stderr.write(`Failed to query providers from server: ${getErrorMessage(err)}\n`)
     process.exitCode = 1
   } finally {
     try {

@@ -1,12 +1,8 @@
-// Intentionally broken TypeScript for testing
-const x: string = "123"; // Fixed type error
+const x = '123';
 console.log(x);
 
-// Missing semicolon
-const y = "test";
-
-// Undefined variable
-let undefinedVar = "something";
-console.log(undefinedVar);
+const y = 'test';
+const sampleValue = 'something';
+console.log(sampleValue);
 
 export { x, y };

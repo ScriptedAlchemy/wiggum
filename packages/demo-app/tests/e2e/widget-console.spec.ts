@@ -1,58 +1,51 @@
 import { test, expect } from '@playwright/test';
 
+type WidgetApi = {
+  init: (config?: { title?: string }) => void;
+};
+
+declare global {
+  interface Window {
+    WiggumChatWidget?: WidgetApi;
+  }
+}
+
 test.describe('Widget Console Logs', () => {
-  test('capture widget initialization logs', async ({ page }) => {
+  test('capture widget initialization logs', async ({ page }, testInfo) => {
     const consoleLogs: string[] = [];
-    
-    // Capture all console logs
+
     page.on('console', msg => {
       consoleLogs.push(`[${msg.type()}] ${msg.text()}`);
     });
-    
-    // Navigate to the page
+
     await page.goto('/');
-    
-    // Wait a bit for any async initialization
-    await page.waitForTimeout(2000);
-    
-    // Print all console logs
-    console.log('=== Console Logs ===');
-    consoleLogs.forEach(log => console.log(log));
-    console.log('===================');
-    
-    // Check if widget initialization was attempted
-    const initLogs = consoleLogs.filter(log => log.includes('Wiggum') || log.includes('WIGGUM'));
-    console.log('Widget-related logs:', initLogs);
-    
-    // Check if WiggumChatWidget is defined on window
+    await page.waitForFunction(() => typeof window.WiggumChatWidget !== 'undefined');
+
     const hasWidgetAPI = await page.evaluate(() => {
-      return typeof (window as any).WiggumChatWidget !== 'undefined';
+      return typeof window.WiggumChatWidget !== 'undefined';
     });
-    console.log('WiggumChatWidget API available:', hasWidgetAPI);
-    
-    // Try to manually init if not already done
+
     if (hasWidgetAPI) {
-      const result = await page.evaluate(() => {
-        const widget = (window as any).WiggumChatWidget;
-        try {
-          widget.init({ title: 'Test Widget' });
-          return 'Initialized successfully';
-        } catch (error) {
-          return `Error: ${error}`;
+      await page.evaluate(() => {
+        const widget = window.WiggumChatWidget;
+        if (!widget) {
+          return;
         }
+        widget.init({ title: 'Test Widget' });
       });
-      console.log('Manual init result:', result);
     }
-    
-    // Wait and check for DOM elements
-    await page.waitForTimeout(1000);
-    
+
+    await page.waitForSelector('#wiggum-chat-widget-root');
+
     const widgetRoot = await page.evaluate(() => {
       return document.getElementById('wiggum-chat-widget-root') !== null;
     });
-    console.log('Widget root element exists:', widgetRoot);
-    
-    // Take a screenshot
-    await page.screenshot({ path: 'widget-console-test.png', fullPage: true });
+    const consoleErrors = consoleLogs.filter((log) => log.startsWith('[error]'));
+
+    expect(hasWidgetAPI).toBe(true);
+    expect(widgetRoot).toBe(true);
+    expect(consoleErrors).toEqual([]);
+
+    await page.screenshot({ path: testInfo.outputPath('widget-console-test.png'), fullPage: true });
   });
 });

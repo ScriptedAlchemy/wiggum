@@ -8,6 +8,7 @@ export default defineConfig({
       source: {
         entry: {
           cli: './src/cli.ts',
+          runner: './src/runner.ts',
         },
       },
       output: {

@@ -35,10 +35,27 @@ jobs:
         
       - name: Run tests
         run: pnpm test
+
+      - name: Install Playwright Chromium (demo widget smoke)
+        run: pnpm run setup:demo:playwright
+
+      - name: Run widget API e2e smoke
+        run: pnpm run test:demo:widget-api
+
+      - name: Run full demo app e2e suite
+        run: pnpm run test:demo:e2e
+
+      - name: Run runner-focused CLI tests
+        run: pnpm run test:runner
+
+      - name: Verify runner project coverage
+        run: pnpm run verify:runner:coverage
+
+      - name: Verify runner workflow coverage
+        run: pnpm run verify:runner:workflow
         
       - name: Check types
-        run: pnpm -r exec tsc --noEmit || true
-        continue-on-error: true
+        run: pnpm run typecheck
 
   lint:
     runs-on: ubuntu-latest
@@ -63,4 +80,7 @@ jobs:
         run: pnpm build
         
       - name: Run linting
-        run: pnpm -r run lint
+        run: pnpm run lint
+
+      - name: Run publint
+        run: pnpm run publint

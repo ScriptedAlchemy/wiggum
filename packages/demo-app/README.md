@@ -1,4 +1,4 @@
-# Rsbuild project
+# Wiggum demo app
 
 ## Setup
 
@@ -16,6 +16,8 @@ Start the dev server, and the app will be available at [http://localhost:3000](h
 pnpm dev
 ```
 
+This demo includes `@wiggum/rsbuild-plugin-wiggum`, so the floating widget is injected automatically in development.
+
 Build the app for production:
 
 ```bash
@@ -27,6 +29,37 @@ Preview the production build locally:
 ```bash
 pnpm preview
 ```
+
+## Testing
+
+Run unit tests:
+
+```bash
+pnpm test
+```
+
+Run Playwright e2e tests:
+
+```bash
+# one-time browser install
+pnpm exec playwright install chromium
+
+# or from monorepo root
+pnpm run setup:demo:playwright
+
+# run e2e
+pnpm test:e2e
+
+# run only widget API coverage
+pnpm test:e2e:widget-api
+
+# or from monorepo root
+pnpm run test:demo:e2e
+pnpm run test:demo:widget-api
+```
+
+The e2e suite includes coverage for the browser widget API (`window.WiggumChatWidget.open/close/isOpen`).
+For test stability, the Playwright web server disables backend spawn with `WIGGUM_CHAT_WIDGET_DISABLE_BACKEND=1` (widget UI still mounts, but OpenCode client calls are skipped).
 
 ## Learn more
 

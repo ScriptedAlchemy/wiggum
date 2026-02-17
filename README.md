@@ -18,7 +18,7 @@ Wiggum is a small developer tooling monorepo that ties together the Rstack ecosy
 
 ## Requirements
 
-- Node.js 18+ (CI tests on 18.x and 20.x)
+- Node.js 18+ (CI tests on 20.x)
 - pnpm 8+
 
 ## Quick Start (this repo)
@@ -60,8 +60,68 @@ Common commands:
 - `wiggum doc …` → Rspress passthrough
 - `wiggum doctor …` → Rsdoctor passthrough
 - `wiggum agent …` → OpenCode integration (see package README for details)
+- `wiggum projects …` → list/graph workspace projects discovered from runner config
+- `wiggum run <task> …` → run any Rstack task across projects with graph-based ordering and concurrency
 
 Tip: run `wiggum --help` for a concise command list.
+`wiggum agent` chat modes require an interactive terminal (TTY).
+`wiggum agent serve` supports `--port 4096`, `--port=4096`, and `-p=4096` forms (port must be 1-65535).
+Serve hostname flags support both `--hostname` and `--host` (with either `<value>` or `=<value>` forms).
+Serve short aliases are also supported: `-p <port>`, `-p=<port>`, `-H <hostname>`, and `-H=<hostname>`.
+For `wiggum agent run ...`, arguments such as `--autofix` are forwarded to OpenCode as command arguments (they are not treated as Wiggum globals in agent mode).
+
+### Runner config (workspace orchestration)
+
+Add a `wiggum.config.json` at your repo root to declare projects:
+
+```json
+{
+  "projects": ["packages/*"]
+}
+```
+
+Supported runner config filenames are `wiggum.config.json`, `wiggum.config.mjs`, `wiggum.config.js`, and `wiggum.config.cjs`.
+TypeScript runner config variants (`wiggum.config.ts` / `.mts` / `.cts`) are not currently supported.
+Runner projects must keep `package.json` names unique across distinct project entries so local dependency/import graph mapping remains deterministic.
+
+Then use:
+
+```bash
+wiggum projects graph --json
+wiggum projects list -p @scope/app
+wiggum run build --parallel 4
+wiggum run test --project "@scope/*" --project "!@scope/legacy"
+wiggum run test -p="@scope/*,!@scope/legacy"
+wiggum run --dry-run --json build
+wiggum run lint --dry-run --json
+wiggum run build --ai-prompt
+wiggum projects graph --no-infer-imports --json
+```
+
+Dependency edges are resolved from local package manifests (including `npm:` / `workspace:` alias specifiers with npm-compatible package targets, local `file:`/`link:`/`portal:` path references, workspace-wrapped `workspace:file|link|portal:` path references, optional query/hash suffix tolerance on alias/path specifiers, and `bundleDependencies` / `bundledDependencies` arrays) and inferred local source specifiers (`import`, dynamic `import()`, `require`, `require.resolve`, `import.meta.resolve`, and export-from forms) discovered from `src/`, `test/`, `tests/`, `spec/`, `specs/`, and `__tests__/` files, then executed in deterministic topological order.
+Use `--no-infer-imports` when you want ordering based strictly on manifest-declared workspace dependencies.
+Set `WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer>` to tune the capped per-project source scan budget used for inferred import edges (default: `400`).
+The scan budget applies to both `wiggum run ...` and `wiggum projects ...` while inferred imports are enabled, and is ignored when `--no-infer-imports` is used.
+
+For failed workspace runs, you can:
+- print a structured AI remediation prompt with `--ai-prompt`
+- launch OpenCode directly with rich failure context using `--autofix`
+- note: `--autofix` applies to execution flows (`wiggum run ...` / passthrough commands), not `wiggum projects ...`
+
+`--autofix` is accepted in both leading and inline global forms for execution flows:
+- `wiggum --autofix run build`
+- `wiggum run build --autofix`
+
+Agent-mode note: `wiggum agent run ... --autofix` forwards the flag to OpenCode, while `wiggum --autofix agent run ...` consumes it as a Wiggum global.
+
+In CI/non-interactive terminals, `--autofix` falls back to printing the prompt instead of opening TUI.
+You can set default runner concurrency with `WIGGUM_RUNNER_PARALLEL=<positive integer>` (run mode only).
+
+If a tool argument overlaps with a Wiggum global flag, pass it after `--`:
+
+```bash
+wiggum build -- --autofix
+```
 
 ## Chat Widget (Rsbuild plugin)
 
@@ -78,6 +138,9 @@ export default defineConfig({
 ```
 
 By default, the plugin will start a local OpenCode server and proxy it at `/__opencode__` during `rsbuild dev`. You can also point it to an external server with `apiEndpoint`.
+For CI/e2e or environments without the `opencode` binary, set `disableBackend: true` in plugin options (or `WIGGUM_CHAT_WIDGET_DISABLE_BACKEND=1`) to keep the widget UI mounted while skipping backend spawn/client wiring.
+If both `apiEndpoint` and `disableBackend` are provided, `apiEndpoint` is used.
+The browser API is exposed at `window.WiggumChatWidget` (`open`, `close`, `isOpen`, `init`, `destroy`).
 
 ## MCP Doc Explorer
 
@@ -87,9 +150,34 @@ The MCP server in `packages/mcp` exposes tools to search and fetch documentation
 
 - Build everything: `pnpm build`
 - Test everything: `pnpm test`
-- Type check (best‑effort): `pnpm -r exec tsc --noEmit`
+- Run workspace lint: `pnpm run lint`
+- Type check (best‑effort): `pnpm run typecheck`
+- Install demo Playwright browser: `pnpm run setup:demo:playwright`
+- Run full demo Playwright e2e: `pnpm run test:demo:e2e`
+- Run widget-browser API e2e smoke: `pnpm run test:demo:widget-api`
+- Run full local CI-equivalent gate: `pnpm run ci:validate`
 
-CI runs on pushes and PRs against `main` and `develop` and validates build, tests, and a best‑effort type check on Node 18.x/20.x.
+CI runs on pushes and PRs against `main` and `develop` and validates build, tests, linting, runner verifiers, publint, demo Playwright e2e coverage (smoke + full suite), and type checks on Node 20.x.
+
+Runner-specific CI guard scripts:
+
+- `pnpm run verify:runner:coverage`
+- `pnpm run verify:runner:workflow`
+- `pnpm run verify:runner:all`
+- `pnpm run ci:validate` (full local CI-equivalent build/test/lint/runner/publint/e2e/typecheck pass)
+
+`verify:runner:workflow` enforces script/step contracts plus CI metadata invariants (branch triggers, job runtime/action pinning, and no `continue-on-error` drift on required jobs) and reports all contract counts in its success output.
+
+These scripts also support path override environment variables for isolated fixture validation:
+
+- Coverage verifier: `WIGGUM_RUNNER_VERIFY_ROOT`, `WIGGUM_RUNNER_VERIFY_CONFIG_PATH`, `WIGGUM_RUNNER_VERIFY_PACKAGES_DIR`
+- Workflow verifier: `WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT`, `WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH`, `WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH`
+
+When `WIGGUM_RUNNER_VERIFY_CONFIG_PATH` is omitted, the coverage verifier auto-detects supported runner configs in precedence order (`wiggum.config.mjs`, `wiggum.config.js`, `wiggum.config.cjs`, `wiggum.config.json`) and otherwise falls back to `wiggum.config.json`.
+Unsupported TypeScript runner config variants (`wiggum.config.ts` / `.mts` / `.cts`) fail fast with explicit diagnostics.
+
+Whitespace-only override values are ignored and safely fall back to default repository paths.
+Relative override paths resolve from the verifier root override, and absolute paths are honored directly.
 
 ## Release Management
 

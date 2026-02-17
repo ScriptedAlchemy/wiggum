@@ -25,12 +25,12 @@
   "author": "Wiggum Team",
   "license": "MIT",
   "dependencies": {
-    "@opencode-ai/sdk": "^0.6.10"
+    "@opencode-ai/sdk": "^1.2.6"
   },
   "devDependencies": {
-    "@rslib/core": "^0.12.4",
-    "@types/node": "^20.19.12",
-    "publint": "^0.3.12",
-    "typescript": "^5.9.2"
+    "@rslib/core": "^0.19.6",
+    "@types/node": "^25.2.3",
+    "publint": "^0.3.17",
+    "typescript": "^5.9.3"
   }
 }

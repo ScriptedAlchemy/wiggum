@@ -70,20 +70,56 @@ export type InspectResult = {
   };
 };
 
+type FiberComponentType = {
+  displayName?: string;
+  name?: string;
+  render?: {
+    displayName?: string;
+    name?: string;
+  };
+};
+
+type ReactFiberNode = {
+  type?: FiberComponentType | string;
+  elementType?: FiberComponentType;
+  return?: ReactFiberNode | null;
+  _debugOwner?: ReactFiberNode | null;
+  _debugSource?: {
+    fileName?: string;
+    lineNumber?: number;
+    columnNumber?: number;
+  };
+  key?: string | number | null;
+  memoizedProps?: Record<string, unknown>;
+  pendingProps?: Record<string, unknown>;
+  memoizedState?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
+declare global {
+  interface Window {
+    __REACT_DEVTOOLS_GLOBAL_HOOK__?: unknown;
+    __wiggumStopInspector?: () => void;
+  }
+}
+
 // Attempt to find the React Fiber for a given DOM node. This uses private internals
 // and is best-effort. It may break across React versions. Guarded and optional.
-function getFiberFromNode(node: any): any | null {
-  if (!node) return null;
+function getFiberFromNode(node: unknown): ReactFiberNode | null {
+  if (!isRecord(node)) return null;
   const keys = Object.keys(node);
   const fiberKey = keys.find((k) => k.startsWith('__reactFiber$'))
     || keys.find((k) => k.startsWith('__reactInternalInstance$'))
     || keys.find((k) => k.startsWith('__reactContainer$'));
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - dynamic private key
-  return fiberKey ? node[fiberKey] : null;
+  if (!fiberKey) return null;
+  const maybeFiber = node[fiberKey];
+  return isRecord(maybeFiber) ? (maybeFiber as ReactFiberNode) : null;
 }
 
-function getDisplayNameFromFiber(fiber: any | null | undefined): string | undefined {
+function getDisplayNameFromFiber(fiber: ReactFiberNode | null | undefined): string | undefined {
   if (!fiber) return undefined;
   const t = fiber.type || fiber.elementType;
   if (!t) return undefined;
@@ -95,11 +131,11 @@ function getDisplayNameFromFiber(fiber: any | null | undefined): string | undefi
   );
 }
 
-function buildComponentPath(fiber: any | null | undefined): string[] | undefined {
+function buildComponentPath(fiber: ReactFiberNode | null | undefined): string[] | undefined {
   if (!fiber) return undefined;
   const names: string[] = [];
-  let f: any | null = fiber;
-  const visited = new Set<any>();
+  let f: ReactFiberNode | null = fiber;
+  const visited = new Set<ReactFiberNode>();
   while (f && !visited.has(f)) {
     visited.add(f);
     const name = getDisplayNameFromFiber(f);
@@ -111,11 +147,11 @@ function buildComponentPath(fiber: any | null | undefined): string[] | undefined
   return names.length ? names.reverse() : undefined;
 }
 
-function buildSourceTrail(fiber: any | null | undefined): InspectResult['source'] | undefined {
+function buildSourceTrail(fiber: ReactFiberNode | null | undefined): InspectResult['source'] | undefined {
   if (!fiber) return undefined;
   const out: NonNullable<InspectResult['source']> = [];
-  let f: any | null = fiber;
-  const seen = new Set<any>();
+  let f: ReactFiberNode | null = fiber;
+  const seen = new Set<ReactFiberNode>();
   while (f && !seen.has(f)) {
     seen.add(f);
     if (f._debugSource) {
@@ -185,7 +221,7 @@ function sanitizeValue(value: unknown, depth = 2): unknown {
   }
 }
 
-function getReactInfo(fiber: any | null | undefined): InspectResult['react'] | undefined {
+function getReactInfo(fiber: ReactFiberNode | null | undefined): InspectResult['react'] | undefined {
   if (!fiber) return undefined;
   const key = fiber.key ?? null;
   let props: Record<string, unknown> | undefined;
@@ -279,7 +315,7 @@ function startElementInspector(onPick: (info: InspectResult) => void, options?: 
     pointerEvents: 'none',
     boxShadow: '0 0 0 999999px rgba(14, 165, 233, 0.05)',
     transition: 'all 0.04s ease',
-  } as any);
+  } as Partial<CSSStyleDeclaration>);
 
   const tooltip = document.createElement('div');
   tooltip.id = 'wiggum-inspector-tooltip';
@@ -298,7 +334,7 @@ function startElementInspector(onPick: (info: InspectResult) => void, options?: 
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     transform: 'translate(-9999px, -9999px)',
-  } as any);
+  } as Partial<CSSStyleDeclaration>);
 
   const rootOverlayHost = document.body;
   rootOverlayHost.appendChild(overlay);
@@ -311,14 +347,13 @@ function startElementInspector(onPick: (info: InspectResult) => void, options?: 
   const prevCursor = document.body.style.cursor;
   document.body.style.cursor = 'crosshair';
 
-  let lastTarget: Element | null = null;
   const isWithinSkip = (el: Node | null | undefined) => {
-    if (!el || !(el as any).ownerDocument) return false;
+    if (!el) return false;
     let n: Node | null = el;
     while (n && n instanceof HTMLElement) {
       if (options?.skipWithin && n === options.skipWithin) return true;
-      if ((n as HTMLElement).id === 'wiggum-chat-widget-root') return true;
-      n = (n as HTMLElement).parentElement;
+      if (n.id === 'wiggum-chat-widget-root') return true;
+      n = n.parentElement;
     }
     return false;
   };
@@ -363,10 +398,8 @@ function startElementInspector(onPick: (info: InspectResult) => void, options?: 
     if (!target) return;
     if (isWithinSkip(target)) {
       highlight(null);
-      lastTarget = null;
       return;
     }
-    lastTarget = target;
     highlight(target);
   };
 
@@ -398,12 +431,12 @@ function startElementInspector(onPick: (info: InspectResult) => void, options?: 
       let componentPath = buildComponentPath(fiber);
       // Best-effort: enrich path using React DevTools hook when available
       try {
-        const hook: any = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+        const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
         if (hook && fiber) {
           if (!componentPath || componentPath.length === 0) {
             const ownerPath: string[] = [];
-            let f: any | null = fiber;
-            const visited = new Set<any>();
+            let f: ReactFiberNode | null = fiber;
+            const visited = new Set<ReactFiberNode>();
             while (f && !visited.has(f)) {
               visited.add(f);
               if (f._debugOwner) {
@@ -488,8 +521,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     if (!onStateChange) return;
     const snapshot: WidgetState = { isOpen, messages, inputValue, pendingContext };
     try { onStateChange(snapshot); } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, messages, inputValue, pendingContext]);
+  }, [isOpen, messages, inputValue, pendingContext, onStateChange]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
@@ -543,7 +575,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 
   const startInspecting = () => {
     if (inspecting) {
-      try { (window as any).__wiggumStopInspector?.(); } catch {}
+      try { window.__wiggumStopInspector?.(); } catch {}
       setInspecting(false);
       return;
     }
@@ -553,9 +585,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       if (onInspectElement) {
         try { onInspectElement(info); } catch (err) { console.warn('onInspectElement error:', err); }
       }
-      // Also log for convenience
-      // eslint-disable-next-line no-console
-      console.log('[Wiggum] Inspector selected:', info);
       // Optional: drop a message into the chat
       try {
         const summary = `Selected: ${info.componentName || info.tag || 'unknown'}\nSelector: ${info.selector || info.domPath || info.tag}${info.componentPath?.length ? `\nPath: ${info.componentPath.join(' > ')}` : ''}${info.id ? `\n#${info.id}` : ''}${info.classes?.length ? `\n.${info.classes.join('.')}` : ''}`;
@@ -574,7 +603,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     // Safety: end inspecting if widget unmounts
     const onUnmountCleanup = () => { try { stop(); } catch {} };
     // Store on window so we can cancel if needed
-    (window as any).__wiggumStopInspector = onUnmountCleanup;
+    window.__wiggumStopInspector = onUnmountCleanup;
   };
 
   const positionClasses = {

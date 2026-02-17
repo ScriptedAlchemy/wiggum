@@ -14,8 +14,7 @@ export default defineConfig({
     pluginReact(),
     // Always enable type checking
     pluginTypeCheck(),
-    // The chat widget plugin currently consumes only customTheme/customCSS directly at build time.
-    // Other options are unused by the injected loader, so we omit them to avoid confusion.
+    // Demo widget setup: UI title + themed styling.
     pluginChatWidget({
       title: 'Rstack Help & Support',
       customTheme: {
