@@ -676,6 +676,23 @@ describe('runner coverage verifier', () => {
     ).rejects.toThrow('Runner config not found');
   });
 
+  test('verifyRunnerCoverage rejects when config path is a directory', async () => {
+    const tempRoot = makeTempDir('verify-coverage-config-directory-');
+    const configDirPath = path.join(tempRoot, 'wiggum.config.json');
+    const packagesDir = path.join(tempRoot, 'packages');
+    fs.mkdirSync(configDirPath, { recursive: true });
+    fs.mkdirSync(packagesDir, { recursive: true });
+
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath: configDirPath,
+        packagesDir,
+        minExpectedProjects: 1,
+      }),
+    ).rejects.toThrow(`Runner config path must be a file: ${configDirPath}`);
+  });
+
   test('verifyRunnerCoverage rejects unsupported explicit config path before resolver execution', async () => {
     const tempRoot = makeTempDir('verify-coverage-config-unsupported-explicit-');
     const packagesDir = path.join(tempRoot, 'packages');
@@ -1287,6 +1304,30 @@ describe('runner coverage verifier', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('[verify-runner-coverage]');
     expect(result.stderr).toContain(`Runner config not found at ${missingConfigPath}`);
+  });
+
+  test('coverage verifier CLI reports overridden config directory path in error output', () => {
+    const fixture = createCoverageVerifierFixture({
+      configContent: '{"projects":["packages/*"]}',
+      createPackagesDir: true,
+      packageNames: ['cli'],
+    });
+    const configDirectoryPath = path.join(fixture.rootDir, 'configs', 'wiggum.config.json');
+    fs.mkdirSync(configDirectoryPath, { recursive: true });
+
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: fixture.rootDir,
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: configDirectoryPath,
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-coverage]');
+    expect(result.stderr).toContain(`Runner config path must be a file: ${configDirectoryPath}`);
   });
 
   test('coverage verifier CLI reports unsupported overridden config path in error output', () => {

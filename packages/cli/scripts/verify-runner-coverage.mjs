@@ -337,6 +337,10 @@ export async function verifyRunnerCoverage(options = {}) {
   if (!normalizedFileSystem.existsSync(normalizedConfigPath)) {
     throw new Error(`Runner config not found at ${normalizedConfigPath}`);
   }
+  const configStats = normalizedFileSystem.statSync(normalizedConfigPath);
+  if (!configStats.isFile()) {
+    throw new Error(`Runner config path must be a file: ${normalizedConfigPath}`);
+  }
 
   const effectiveMinExpectedProjects = minExpectedProjects === undefined
     ? parseMinimumExpectedProjects()
