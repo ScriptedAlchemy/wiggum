@@ -44,12 +44,14 @@ const PACKAGE_JSON_PATH = path.join(DEFAULT_ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(DEFAULT_ROOT, '.github/workflows/ci.yml');
 
 const REQUIRED_PACKAGE_SCRIPTS = [
+  'setup:demo:playwright',
   'test:demo:widget-api',
   'test:runner',
   'verify:runner:coverage',
   'verify:runner:workflow',
 ];
 const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
+  'setup:demo:playwright': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+exec\s+playwright\s+install\s+chromium$/,
   'test:demo:widget-api': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e:widget-api$/,
   'test:runner': /^pnpm\s+-F\s+@wiggum\/cli\s+test$/,
   'verify:runner:coverage': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs$/,
@@ -74,10 +76,10 @@ const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Install Playwright Chromium (demo widget smoke)',
-    requiredRunCommand: 'pnpm --filter ./packages/demo-app exec playwright install chromium',
+    requiredRunCommand: 'pnpm run setup:demo:playwright',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
-      /run:\s*pnpm --filter \.\/packages\/demo-app exec playwright install chromium\s*\|\|\s*true/,
+      /run:\s*pnpm run setup:demo:playwright\s*\|\|\s*true/,
     ],
   },
   {

@@ -6,6 +6,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
+    "setup:demo:playwright": "pnpm --filter ./packages/demo-app exec playwright install chromium",
     "test:demo:widget-api": "pnpm --filter ./packages/demo-app test:e2e:widget-api",
     "test:runner": "pnpm -F @wiggum/cli test",
     "verify:runner:coverage": "node ./packages/cli/scripts/verify-runner-coverage.mjs",

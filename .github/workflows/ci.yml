@@ -37,7 +37,7 @@ jobs:
         run: pnpm test
 
       - name: Install Playwright Chromium (demo widget smoke)
-        run: pnpm --filter ./packages/demo-app exec playwright install chromium
+        run: pnpm run setup:demo:playwright
 
       - name: Run widget API e2e smoke
         run: pnpm run test:demo:widget-api
