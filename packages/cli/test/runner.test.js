@@ -2168,6 +2168,65 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace resolves workspace-wrapped path protocols pointing to package.json files', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared-file/package.json'), {
+      name: '@scope/shared-file',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/shared-link/package.json'), {
+      name: '@scope/shared-link',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/shared-portal/package.json'), {
+      name: '@scope/shared-portal',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'workspace-file-shared': 'workspace:file:../shared-file/package.json?foo=1#bar',
+      },
+      devDependencies: {
+        'workspace-link-shared': 'workspace:link:../shared-link/package.json?foo=1#bar',
+      },
+      optionalDependencies: {
+        'workspace-portal-shared': 'workspace:portal:../shared-portal/package.json?foo=1#bar',
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual([
+      '@scope/shared-file',
+      '@scope/shared-link',
+      '@scope/shared-portal',
+    ]);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-file',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-link',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-portal',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace resolves direct path protocols with query/hash suffixes', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
