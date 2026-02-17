@@ -10,6 +10,8 @@ dist/
 
 # Test artifacts
 test-results/
+playwright-report/
+widget-*.png
 
 # Profile
 .rspack-profile-*/
