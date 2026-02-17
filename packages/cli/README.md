@@ -59,6 +59,8 @@ The graph/orchestration model is aligned with patterns used across Rstack toolin
 - wildcard/negation project filtering
 - concurrency by dependency levels
 
+When distinct runner project entries resolve to different project names, their `package.json` names must still be unique so local dependency/import edges remain unambiguous.
+
 Create a root runner config:
 
 ```json
