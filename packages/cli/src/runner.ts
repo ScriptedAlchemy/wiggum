@@ -324,6 +324,42 @@ async function readRunnerConfig(configPath: string): Promise<RunnerConfig> {
   return config;
 }
 
+function parseNpmAliasDependencyTarget(specifier: string): string | undefined {
+  const trimmedSpecifier = specifier.trim();
+  if (!trimmedSpecifier.startsWith('npm:')) {
+    return undefined;
+  }
+
+  const aliasBody = trimmedSpecifier.slice('npm:'.length).trim();
+  if (aliasBody.length === 0) {
+    return undefined;
+  }
+
+  if (aliasBody.startsWith('@')) {
+    const scopeSeparatorIndex = aliasBody.indexOf('/');
+    if (scopeSeparatorIndex <= 1) {
+      return undefined;
+    }
+    const versionSeparatorIndex = aliasBody.indexOf('@', scopeSeparatorIndex + 1);
+    return versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
+  }
+
+  const versionSeparatorIndex = aliasBody.indexOf('@');
+  return versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
+}
+
+function collectDependencyPackageNames(field: Record<string, string>): string[] {
+  const dependencyPackageNames = new Set<string>();
+  for (const [dependencyName, dependencySpecifier] of Object.entries(field)) {
+    dependencyPackageNames.add(dependencyName);
+    const aliasTargetPackageName = parseNpmAliasDependencyTarget(dependencySpecifier);
+    if (aliasTargetPackageName) {
+      dependencyPackageNames.add(aliasTargetPackageName);
+    }
+  }
+  return Array.from(dependencyPackageNames);
+}
+
 async function readPackageInfo(projectRoot: string): Promise<{
   packageName?: string;
   dependencyPackageNames: string[];
@@ -348,7 +384,7 @@ async function readPackageInfo(projectRoot: string): Promise<{
       pkg.optionalDependencies ?? {},
     ];
     const dependencyPackageNames = Array.from(
-      new Set(fields.flatMap((field) => Object.keys(field)))
+      new Set(fields.flatMap((field) => collectDependencyPackageNames(field)))
     );
     return { packageName: pkg.name, dependencyPackageNames };
   } catch {
