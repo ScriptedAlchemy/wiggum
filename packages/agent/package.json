@@ -28,7 +28,7 @@
     "@opencode-ai/sdk": "^0.6.10"
   },
   "devDependencies": {
-    "@rslib/core": "^0.12.4",
+    "@rslib/core": "^0.19.0",
     "@types/node": "^20.19.12",
     "publint": "^0.3.12",
     "typescript": "^5.9.2"
