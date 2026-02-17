@@ -73,6 +73,10 @@ describe('runner coverage verifier', () => {
     expect(parseMinimumExpectedProjects(' 7 ')).toBe(7);
   });
 
+  test('parseMinimumExpectedProjects treats blank string as default', () => {
+    expect(parseMinimumExpectedProjects('   ')).toBe(4);
+  });
+
   test('parseMinimumExpectedProjects rejects non-numeric values', () => {
     expect(() => parseMinimumExpectedProjects('7abc')).toThrow(
       'MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a positive integer',

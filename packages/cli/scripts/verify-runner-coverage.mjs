@@ -97,6 +97,9 @@ export function parseMinimumExpectedProjects(rawValue = process.env.MIN_EXPECTED
   }
 
   const normalizedValue = rawValue.trim();
+  if (normalizedValue.length === 0) {
+    return 4;
+  }
   if (!/^\d+$/.test(normalizedValue)) {
     throw new Error(
       `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS must be a positive integer, got "${rawValue}"`,
