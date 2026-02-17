@@ -10,6 +10,7 @@ import {
   REQUIRED_WORKFLOW_CONTENT_PATTERNS,
   REQUIRED_WORKFLOW_STEPS,
   resolveWorkflowVerifierPathsFromEnv,
+  validateRequiredPackageScriptContracts,
   validateRequiredWorkflowStepContracts,
   validateRequiredWorkflowContentContracts,
   verifyRunnerWorkflowCoverage,
@@ -74,6 +75,32 @@ afterEach(() => {
 });
 
 describe('runner workflow coverage verifier', () => {
+  test('validateRequiredPackageScriptContracts accepts current script contracts', () => {
+    expect(() => validateRequiredPackageScriptContracts()).not.toThrow();
+  });
+
+  test('validateRequiredPackageScriptContracts rejects script entries without regex patterns', () => {
+    expect(() =>
+      validateRequiredPackageScriptContracts(
+        ['ci:validate'],
+        {
+          'ci:validate': 'pnpm build',
+        },
+      ),
+    ).toThrow('must have a regex command pattern');
+  });
+
+  test('validateRequiredPackageScriptContracts rejects duplicate script contracts', () => {
+    expect(() =>
+      validateRequiredPackageScriptContracts(
+        ['ci:validate', 'ci:validate'],
+        {
+          'ci:validate': /^pnpm build$/,
+        },
+      ),
+    ).toThrow('Duplicate required package script "ci:validate"');
+  });
+
   test('validateRequiredWorkflowStepContracts accepts current step definitions', () => {
     expect(() => validateRequiredWorkflowStepContracts()).not.toThrow();
   });

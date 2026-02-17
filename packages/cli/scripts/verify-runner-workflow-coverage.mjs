@@ -67,6 +67,41 @@ export const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
   'verify:runner:coverage': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs$/,
   'verify:runner:workflow': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-workflow-coverage\.mjs$/,
 };
+
+export function validateRequiredPackageScriptContracts(
+  requiredScripts = REQUIRED_PACKAGE_SCRIPTS,
+  requiredScriptPatterns = REQUIRED_PACKAGE_SCRIPT_PATTERNS,
+) {
+  if (!Array.isArray(requiredScripts)) {
+    throw new Error('Required package scripts must be an array');
+  }
+  if (
+    !requiredScriptPatterns
+    || typeof requiredScriptPatterns !== 'object'
+    || Array.isArray(requiredScriptPatterns)
+  ) {
+    throw new Error('Required package script patterns must be an object');
+  }
+
+  const seenScripts = new Set();
+  for (let index = 0; index < requiredScripts.length; index += 1) {
+    const scriptName = requiredScripts[index];
+    if (typeof scriptName !== 'string' || scriptName.trim().length === 0) {
+      throw new Error(`Required package script at index ${index} must be a non-empty string`);
+    }
+    if (seenScripts.has(scriptName)) {
+      throw new Error(`Duplicate required package script "${scriptName}"`);
+    }
+    seenScripts.add(scriptName);
+
+    const expectedPattern = requiredScriptPatterns[scriptName];
+    if (!(expectedPattern instanceof RegExp)) {
+      throw new Error(
+        `Required package script "${scriptName}" must have a regex command pattern`,
+      );
+    }
+  }
+}
 export const REQUIRED_WORKFLOW_STEPS = [
   {
     name: 'Install dependencies',
@@ -702,6 +737,7 @@ function extractRunCommand(stepBlock) {
 }
 
 function verifyPackageScriptsContent(packageJsonContent, packageJsonPath = PACKAGE_JSON_PATH) {
+  validateRequiredPackageScriptContracts();
   let pkg;
   try {
     pkg = JSON.parse(packageJsonContent);
