@@ -241,11 +241,13 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   },
   {
     description: 'push trigger branches must include main and develop',
-    pattern: /push:\s*\n\s*branches:\s*\[\s*main\s*,\s*develop\s*\]/,
+    verify: (workflow) =>
+      workflowHasRequiredTriggerBranches(workflow, 'push', ['main', 'develop']),
   },
   {
     description: 'pull_request trigger branches must include main and develop',
-    pattern: /pull_request:\s*\n\s*branches:\s*\[\s*main\s*,\s*develop\s*\]/,
+    verify: (workflow) =>
+      workflowHasRequiredTriggerBranches(workflow, 'pull_request', ['main', 'develop']),
   },
   {
     description: 'build-and-test node matrix must run on 20.x',
@@ -386,6 +388,113 @@ function normalizeInlineScalar(value) {
   return trimmedValue.replace(/\s+#.*$/, '').trim();
 }
 
+function normalizeYamlScalar(value) {
+  const normalizedValue = value.trim().replace(/\s+#.*$/, '').trim();
+  const quotedMatch = normalizedValue.match(/^(['"])(.*?)\1$/);
+  if (quotedMatch) {
+    return quotedMatch[2].trim();
+  }
+  return normalizedValue;
+}
+
+function parseInlineYamlList(value) {
+  const normalizedValue = value.trim().replace(/\s+#.*$/, '').trim();
+  if (!normalizedValue.startsWith('[') || !normalizedValue.endsWith(']')) {
+    return [];
+  }
+  const innerValue = normalizedValue.slice(1, -1).trim();
+  if (innerValue.length === 0) {
+    return [];
+  }
+  return innerValue
+    .split(',')
+    .map((token) => normalizeYamlScalar(token))
+    .filter((token) => token.length > 0);
+}
+
+function extractTriggerBranches(workflow, eventName) {
+  const lines = workflow.split(/\r?\n/);
+  const onIndex = lines.findIndex((line) => /^on:\s*$/.test(line.trim()));
+  if (onIndex === -1) {
+    return [];
+  }
+
+  let onBlockEnd = lines.length;
+  for (let i = onIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim().length === 0) {
+      continue;
+    }
+    if (!line.startsWith(' ') && /^[A-Za-z0-9_-]+:\s*$/.test(line.trim())) {
+      onBlockEnd = i;
+      break;
+    }
+  }
+
+  const eventHeaderRe = new RegExp(`^\\s{2}${eventName}:\\s*$`);
+  let eventStart = -1;
+  for (let i = onIndex + 1; i < onBlockEnd; i++) {
+    if (eventHeaderRe.test(lines[i])) {
+      eventStart = i;
+      break;
+    }
+  }
+  if (eventStart === -1) {
+    return [];
+  }
+
+  let eventEnd = onBlockEnd;
+  for (let i = eventStart + 1; i < onBlockEnd; i++) {
+    if (/^\s{2}[A-Za-z0-9_-]+:\s*$/.test(lines[i])) {
+      eventEnd = i;
+      break;
+    }
+  }
+
+  for (let i = eventStart + 1; i < eventEnd; i++) {
+    const branchMatch = lines[i].match(/^(\s*)branches:\s*(.*)$/);
+    if (!branchMatch) {
+      continue;
+    }
+    const [, branchIndentRaw, branchValueRaw] = branchMatch;
+    const branchIndent = branchIndentRaw.length;
+    const branchValue = branchValueRaw.trim();
+    if (branchValue.length > 0) {
+      return parseInlineYamlList(branchValue);
+    }
+
+    const parsedBranches = [];
+    for (let j = i + 1; j < eventEnd; j++) {
+      const nestedLine = lines[j];
+      const nestedTrimmed = nestedLine.trim();
+      if (nestedTrimmed.length === 0) {
+        continue;
+      }
+      const nestedIndent = getIndentWidth(nestedLine);
+      if (nestedIndent <= branchIndent) {
+        break;
+      }
+      if (!nestedTrimmed.startsWith('-')) {
+        continue;
+      }
+      const branchToken = normalizeYamlScalar(nestedTrimmed.slice(1));
+      if (branchToken.length > 0) {
+        parsedBranches.push(branchToken);
+      }
+    }
+    return parsedBranches;
+  }
+
+  return [];
+}
+
+function workflowHasRequiredTriggerBranches(workflow, eventName, requiredBranches) {
+  const branchSet = new Set(
+    extractTriggerBranches(workflow, eventName).map((branch) => branch.toLowerCase()),
+  );
+  return requiredBranches.every((branch) => branchSet.has(branch.toLowerCase()));
+}
+
 function normalizeCommandWhitespace(command) {
   return command.trim().replace(/\s+/g, ' ');
 }
@@ -518,7 +627,14 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
     const targetContent = requiredPattern.requiredJob
       ? extractJobBlock(workflow, requiredPattern.requiredJob)
       : workflow;
-    if (!targetContent || !requiredPattern.pattern.test(targetContent)) {
+    const isMatch = !targetContent
+      ? false
+      : typeof requiredPattern.verify === 'function'
+        ? requiredPattern.verify(targetContent)
+        : requiredPattern.pattern instanceof RegExp
+          ? requiredPattern.pattern.test(targetContent)
+          : false;
+    if (!isMatch) {
       throw new Error(
         `Workflow ${workflowPath} missing required content: ${requiredPattern.description}`,
       );

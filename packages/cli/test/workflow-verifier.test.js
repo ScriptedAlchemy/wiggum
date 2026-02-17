@@ -310,6 +310,45 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('missing required content: push trigger branches must include main and develop');
   });
 
+  test('accepts multiline push/pull_request trigger branch syntax', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'on:\n  push:\n    branches: [ main, develop ]\n  pull_request:\n    branches: [ main, develop ]',
+      'on:\n  push:\n    branches:\n      - main\n      - develop\n  pull_request:\n    branches:\n      - main\n      - develop',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
+  test('fails when multiline push workflow branches drop develop', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const multilinePushWorkflow = replaceOrThrow(
+      workflowContent,
+      'push:\n    branches: [ main, develop ]',
+      'push:\n    branches:\n      - main\n      - develop',
+    );
+    const mutatedWorkflow = replaceOrThrow(
+      multilinePushWorkflow,
+      '    branches:\n      - main\n      - develop',
+      '    branches:\n      - main',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: push trigger branches must include main and develop');
+  });
+
   test('fails when lint job no longer targets ubuntu-latest', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
