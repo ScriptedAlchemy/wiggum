@@ -4,6 +4,18 @@
 // Import the widget bundle statically to avoid code splitting
 import './widget-entry';
 
+type HotModule = {
+  hot?: {
+    dispose: (callback: () => void) => void;
+    accept: (callback: () => void) => void;
+  };
+};
+
+function getRuntimeModule(): HotModule | undefined {
+  const runtime = globalThis as typeof globalThis & { module?: HotModule };
+  return runtime.module;
+}
+
 // Initialize the widget
 const loadWidget = () => {
   try {
@@ -22,12 +34,12 @@ if (document.readyState === 'loading') {
 
 // HMR support: re-run loader on updates
 try {
-  const anyModule = typeof module !== 'undefined' ? (module as any) : undefined;
-  if (anyModule && anyModule.hot) {
-    anyModule.hot.dispose(() => {
+  const runtimeModule = getRuntimeModule();
+  if (runtimeModule?.hot) {
+    runtimeModule.hot.dispose(() => {
       try { window.WiggumChatWidget?.destroy?.(); } catch {}
     });
-    anyModule.hot.accept(() => {
+    runtimeModule.hot.accept(() => {
       try { window.WiggumChatWidget?.init?.(); } catch { loadWidget(); }
     });
   }
