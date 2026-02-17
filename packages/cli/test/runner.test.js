@@ -1752,6 +1752,52 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('run --dry-run honors manifest dependency order when npm/workspace aliases include query/hash suffixes', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared-npm/package.json'), {
+      name: '@scope/shared-npm',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/shared-workspace/package.json'), {
+      name: '@scope/shared-workspace',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'shared-npm-alias': 'npm:@scope/shared-npm@workspace:*?foo=1#bar',
+        'shared-workspace-alias': 'workspace:@scope/shared-workspace@*?foo=1#bar',
+      },
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--json'],
+      root,
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan.map((entry) => entry.project)).toEqual([
+      '@scope/shared-npm',
+      '@scope/shared-workspace',
+      '@scope/app',
+    ]);
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/shared-npm',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/shared-workspace',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace resolves npm alias links from dev/peer/optional dependency fields', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
