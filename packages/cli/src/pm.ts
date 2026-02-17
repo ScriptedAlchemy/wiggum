@@ -25,6 +25,13 @@ function toSupportedPackageManager(packageManager: string): SupportedPackageMana
   return 'npm'
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  return String(error)
+}
+
 export async function getPackageManager(): Promise<string> {
   if (cachedPackageManager) return cachedPackageManager
   try {
@@ -64,8 +71,8 @@ export async function installPackageDev(packageName: string, packageManager?: st
     await execa(command, args, { stdio: 'pipe' })
     spinner.succeed(`Successfully installed ${packageName} as dev dependency`)
     return true
-  } catch (error: any) {
-    spinner.fail(`Failed to install ${packageName}: ${error.message}`)
+  } catch (error: unknown) {
+    spinner.fail(`Failed to install ${packageName}: ${getErrorMessage(error)}`)
     return false
   }
 }
@@ -99,8 +106,8 @@ export async function installGlobalPackage(packageName: string, packageManager?:
     await execa(command, args, { stdio: 'pipe' })
     spinner.succeed(`Installed ${packageName} globally`)
     return true
-  } catch (error: any) {
-    spinner.fail(`Failed to install ${packageName} globally: ${error.message}`)
+  } catch (error: unknown) {
+    spinner.fail(`Failed to install ${packageName} globally: ${getErrorMessage(error)}`)
     return false
   }
 }
