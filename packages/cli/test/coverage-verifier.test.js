@@ -269,6 +269,42 @@ describe('runner coverage verifier', () => {
     );
   });
 
+  test('resolveVerifierPathsFromEnv rejects unsupported explicit mts config path overrides', () => {
+    const tempRoot = makeTempDir('verify-coverage-env-override-unsupported-mts-');
+    const configPath = path.join(tempRoot, 'configs', 'wiggum.config.mts');
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, 'export default {};');
+
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {
+          WIGGUM_RUNNER_VERIFY_ROOT: tempRoot,
+          WIGGUM_RUNNER_VERIFY_CONFIG_PATH: configPath,
+        },
+      }),
+    ).toThrow(
+      'Unsupported runner config file "wiggum.config.mts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
+  test('resolveVerifierPathsFromEnv rejects unsupported explicit cts config path overrides', () => {
+    const tempRoot = makeTempDir('verify-coverage-env-override-unsupported-cts-');
+    const configPath = path.join(tempRoot, 'configs', 'wiggum.config.cts');
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, 'export default {};');
+
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: {
+          WIGGUM_RUNNER_VERIFY_ROOT: tempRoot,
+          WIGGUM_RUNNER_VERIFY_CONFIG_PATH: configPath,
+        },
+      }),
+    ).toThrow(
+      'Unsupported runner config file "wiggum.config.cts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
   test('resolveVerifierPathsFromEnv rejects non-string fallbackRoot', () => {
     expect(() =>
       resolveVerifierPathsFromEnv({
@@ -1277,6 +1313,33 @@ describe('runner coverage verifier', () => {
     expect(result.stderr).toContain('[verify-runner-coverage]');
     expect(result.stderr).toContain(
       'Unsupported runner config file "wiggum.config.ts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
+  test('coverage verifier CLI reports unsupported overridden mts config path in error output', () => {
+    const fixture = createCoverageVerifierFixture({
+      configContent: '{"projects":["packages/*"]}',
+      createPackagesDir: true,
+      packageNames: ['cli'],
+    });
+    const unsupportedConfigPath = path.join(fixture.rootDir, 'configs', 'wiggum.config.mts');
+    fs.mkdirSync(path.dirname(unsupportedConfigPath), { recursive: true });
+    fs.writeFileSync(unsupportedConfigPath, 'export default {};');
+
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: fixture.rootDir,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        WIGGUM_RUNNER_VERIFY_ROOT: fixture.rootDir,
+        WIGGUM_RUNNER_VERIFY_CONFIG_PATH: unsupportedConfigPath,
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('[verify-runner-coverage]');
+    expect(result.stderr).toContain(
+      'Unsupported runner config file "wiggum.config.mts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
     );
   });
 
