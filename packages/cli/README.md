@@ -54,7 +54,7 @@ Wiggum can orchestrate tasks across many projects with an independently calculat
 The graph/orchestration model is aligned with patterns used across Rstack tooling:
 - project discovery via config paths/globs/object entries (similar to Rstest/Rslib workspace patterns)
 - package-name dependency linking for local workspace edges (including `npm:` + `workspace:` alias specifiers, local `file:`/`link:`/`portal:` path references, and `bundleDependencies` / `bundledDependencies` arrays)
-- inferred local edges from source imports (`import`, dynamic `import()`, `require`, and export-from specifiers) discovered in `src/`, `test/`, `tests/`, `spec/`, `specs/`, and `__tests__/`
+- inferred local edges from source imports (`import`, dynamic `import()`, `require`, `require.resolve`, and export-from specifiers) discovered in `src/`, `test/`, `tests/`, `spec/`, `specs/`, and `__tests__/`
 - deterministic topological ordering + cycle detection
 - wildcard/negation project filtering
 - concurrency by dependency levels
