@@ -393,6 +393,23 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Step "Run publint" must run "pnpm run publint"');
   });
 
+  test('fails when publint workflow step uses no-fail fallback', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm run publint',
+      'run: pnpm run publint || true',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Run publint" must run "pnpm run publint"');
+  });
+
   test('fails when Playwright Chromium install step command is rewired', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
