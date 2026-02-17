@@ -42,7 +42,7 @@ function parseToolPayload(result: ToolCallResult): JsonRecord {
 
 describe('WiggumMCPServer MCP tools (real calls)', () => {
   const ALL_SITES = ['rspack','rsbuild','rspress','rslib','rsdoctor','rstest','rslint'] as const;
-  // TODO(rspress): Add 'rspress' back here once the site serves /llms.txt.
+  // Note(rspress): Add 'rspress' back here once the site serves /llms.txt.
   // As of now, fetching https://rspress.rs/llms.txt returns 404, and https://rspress.dev/llms.txt
   // redirects to the same. When this becomes available, include 'rspress' below and
   // expand the all-sites success assertions accordingly.
