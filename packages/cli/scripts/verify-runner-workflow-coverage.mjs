@@ -183,7 +183,7 @@ const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   },
   {
     description: 'lint job node setup must run on 20.x',
-    pattern: /Setup Node\.js[\s\S]*?node-version:\s*20\.x/,
+    pattern: /lint:\s*\n[\s\S]*?- name:\s*Setup Node\.js[\s\S]*?node-version:\s*20\.x/,
   },
 ];
 
