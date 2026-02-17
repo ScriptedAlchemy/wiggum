@@ -1361,7 +1361,7 @@ export class WiggumMCPServer {
     process.stderr.write('[INFO] Background indexing process completed for all sites\n');
   }
 
-  private async fetchWithTimeout(url: string, timeoutMs: number = this.fetchTimeoutMs, retries: number = 1): Promise<any> {
+  private async fetchWithTimeout(url: string, timeoutMs: number = this.fetchTimeoutMs, retries: number = 1): Promise<Response> {
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
       let timeout: NodeJS.Timeout | null = null;
