@@ -207,7 +207,7 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   {
     description: 'build-and-test job must not enable continue-on-error',
     requiredJob: 'build-and-test',
-    verify: (jobContent) => !/^\s*continue-on-error:\s*true\b/m.test(jobContent),
+    verify: (jobContent) => !jobHasContinueOnErrorEnabled(jobContent),
   },
   {
     description: 'build-and-test checkout step must use actions/checkout@v4',
@@ -243,7 +243,7 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   {
     description: 'lint job must not enable continue-on-error',
     requiredJob: 'lint',
-    verify: (jobContent) => !/^\s*continue-on-error:\s*true\b/m.test(jobContent),
+    verify: (jobContent) => !jobHasContinueOnErrorEnabled(jobContent),
   },
   {
     description: 'lint checkout step must use actions/checkout@v4',
@@ -432,6 +432,24 @@ function jobHasStepOrder(jobContent, expectedOrder) {
     previousIndex = currentIndex;
   }
   return true;
+}
+
+function isYamlTruthy(value) {
+  return /^(true|yes|on)$/i.test(value);
+}
+
+function jobHasContinueOnErrorEnabled(jobContent) {
+  const lines = jobContent.split(/\r?\n/);
+  for (const line of lines) {
+    const entry = parseYamlMappingEntry(line);
+    if (!entry || entry.key !== 'continue-on-error') {
+      continue;
+    }
+    if (isYamlTruthy(normalizeYamlScalar(entry.value))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function normalizeInlineScalar(value) {
