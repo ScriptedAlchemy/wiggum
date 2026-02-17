@@ -142,6 +142,7 @@ type CollectContext = {
   dedupeByRoot: Map<string, MutableProject>;
   dedupeByName: Map<string, string>;
   visitedConfigPaths: Set<string>;
+  packageNameByPathCache: Map<string, string | undefined>;
 };
 
 function normalizePath(inputPath: string): string {
@@ -387,15 +388,14 @@ async function readPackageNameFromPath(
   packageNameCache: Map<string, string | undefined>,
 ): Promise<string | undefined> {
   const normalizedDependencyPath = normalizePath(dependencyPath);
-  if (packageNameCache.has(normalizedDependencyPath)) {
-    return packageNameCache.get(normalizedDependencyPath);
-  }
-
   const packageJsonPath = path.basename(normalizedDependencyPath) === 'package.json'
     ? normalizedDependencyPath
-    : path.join(normalizedDependencyPath, 'package.json');
+    : normalizePath(path.join(normalizedDependencyPath, 'package.json'));
+  if (packageNameCache.has(packageJsonPath)) {
+    return packageNameCache.get(packageJsonPath);
+  }
   if (!(await pathExists(packageJsonPath))) {
-    packageNameCache.set(normalizedDependencyPath, undefined);
+    packageNameCache.set(packageJsonPath, undefined);
     return undefined;
   }
 
@@ -404,10 +404,10 @@ async function readPackageNameFromPath(
     const packageName = typeof pkg.name === 'string' && pkg.name.trim().length > 0
       ? pkg.name.trim()
       : undefined;
-    packageNameCache.set(normalizedDependencyPath, packageName);
+    packageNameCache.set(packageJsonPath, packageName);
     return packageName;
   } catch {
-    packageNameCache.set(normalizedDependencyPath, undefined);
+    packageNameCache.set(packageJsonPath, undefined);
     return undefined;
   }
 }
@@ -486,7 +486,10 @@ function collectBundledDependencyPackageNames(rawValue: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
-async function readPackageInfo(projectRoot: string): Promise<{
+async function readPackageInfo(
+  projectRoot: string,
+  packageNameCache: Map<string, string | undefined>,
+): Promise<{
   packageName?: string;
   dependencyPackageNames: string[];
 }> {
@@ -511,7 +514,6 @@ async function readPackageInfo(projectRoot: string): Promise<{
       pkg.peerDependencies ?? {},
       pkg.optionalDependencies ?? {},
     ];
-    const packageNameCache = new Map<string, string | undefined>();
     const packageNamesFromFields = (
       await Promise.all(
         fields.map((field) => collectDependencyPackageNames(field, projectRoot, packageNameCache)),
@@ -590,7 +592,7 @@ async function addResolvedProject(
   },
 ): Promise<void> {
   const normalizedRoot = normalizePath(projectRoot);
-  const packageInfo = await readPackageInfo(normalizedRoot);
+  const packageInfo = await readPackageInfo(normalizedRoot, ctx.packageNameByPathCache);
   const fallbackName = path.basename(normalizedRoot);
   const projectName = options.explicitName ?? packageInfo.packageName ?? fallbackName;
   const combinedArgs = [...options.inheritedArgs, ...(options.localArgs ?? [])];
@@ -1003,6 +1005,7 @@ export async function resolveRunnerWorkspace(
     dedupeByRoot: new Map(),
     dedupeByName: new Map(),
     visitedConfigPaths: new Set(),
+    packageNameByPathCache: new Map(),
   };
 
   if (configPath) {
