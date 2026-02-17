@@ -46,6 +46,10 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
+
 export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin => ({
   name: 'rsbuild:chat-widget',
   
@@ -119,7 +123,11 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
         }
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.warn('[chat-widget] Failed to start opencode server:', getErrorMessage(e));
+        if (isErrnoException(e) && e.code === 'ENOENT') {
+          console.warn('[chat-widget] OpenCode binary not found; continuing without backend server.');
+        } else {
+          console.warn('[chat-widget] Failed to start opencode server:', getErrorMessage(e));
+        }
         return;
       }
 

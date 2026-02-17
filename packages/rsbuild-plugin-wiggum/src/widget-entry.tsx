@@ -245,11 +245,14 @@ class ChatWidgetManager {
       return;
     }
     toggleButton.click();
+    this.waitForOpenState(shouldOpen);
+  }
+
+  private waitForOpenState(shouldOpen: boolean, attempt = 0) {
+    if (this.isOpen() === shouldOpen) return;
     if (attempt < 10) {
       window.setTimeout(() => {
-        if (this.isOpen() !== shouldOpen) {
-          this.setOpenState(shouldOpen, attempt + 1);
-        }
+        this.waitForOpenState(shouldOpen, attempt + 1);
       }, 16);
     }
   }
