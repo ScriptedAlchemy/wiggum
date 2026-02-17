@@ -179,6 +179,24 @@ describe('runner coverage verifier', () => {
     );
   });
 
+  test('detectSupportedRunnerConfigPath rejects unsupported mts config when no supported files exist', () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-config-unsupported-mts-');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.mts'), 'export default {};');
+
+    expect(() => detectSupportedRunnerConfigPath(tempRoot)).toThrow(
+      'Unsupported runner config file "wiggum.config.mts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
+  test('detectSupportedRunnerConfigPath rejects unsupported cts config when no supported files exist', () => {
+    const tempRoot = makeTempDir('verify-coverage-detect-config-unsupported-cts-');
+    fs.writeFileSync(path.join(tempRoot, 'wiggum.config.cts'), 'export default {};');
+
+    expect(() => detectSupportedRunnerConfigPath(tempRoot)).toThrow(
+      'Unsupported runner config file "wiggum.config.cts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+  });
+
   test('detectSupportedRunnerConfigPath prefers supported config even when unsupported ts config exists', () => {
     const tempRoot = makeTempDir('verify-coverage-detect-config-supported-with-unsupported-');
     fs.writeFileSync(path.join(tempRoot, 'wiggum.config.ts'), 'export default {};');
