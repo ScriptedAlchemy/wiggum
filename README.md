@@ -161,7 +161,7 @@ Runner-specific CI guard scripts:
 - `pnpm run verify:runner:coverage`
 - `pnpm run verify:runner:workflow`
 - `pnpm run verify:runner:all`
-- `pnpm run ci:validate` (full local CI-equivalent build/test/runner/e2e/typecheck pass)
+- `pnpm run ci:validate` (full local CI-equivalent build/test/runner/publint/e2e/typecheck pass)
 
 These scripts also support path override environment variables for isolated fixture validation:
 

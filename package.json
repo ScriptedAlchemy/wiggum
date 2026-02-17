@@ -13,7 +13,7 @@
     "verify:runner:coverage": "node ./packages/cli/scripts/verify-runner-coverage.mjs",
     "verify:runner:workflow": "node ./packages/cli/scripts/verify-runner-workflow-coverage.mjs",
     "verify:runner:all": "pnpm run verify:runner:coverage && pnpm run verify:runner:workflow",
-    "ci:validate": "pnpm build && pnpm test && pnpm run verify:runner:all && pnpm run test:demo:e2e && pnpm -r exec tsc --noEmit",
+    "ci:validate": "pnpm build && pnpm test && pnpm run verify:runner:all && pnpm run publint && pnpm run test:demo:e2e && pnpm -r exec tsc --noEmit",
     "dev": "pnpm -r dev",
     "clean": "pnpm -r clean",
     "publint": "pnpm -r publint",
