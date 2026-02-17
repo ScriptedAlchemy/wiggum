@@ -1798,6 +1798,47 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('run --dry-run ignores malformed alias targets while preserving valid dependency ordering', () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'valid-shared-alias': 'npm:@scope/shared@workspace:*',
+        'invalid-workspace-alias': 'workspace:link:target',
+      },
+      optionalDependencies: {
+        'invalid-npm-alias': 'npm:portal:target@1.0.0',
+      },
+    });
+
+    const result = runCLI(
+      ['run', 'build', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--json'],
+      root,
+    );
+
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.plan.map((entry) => entry.project)).toEqual(['@scope/shared', '@scope/app']);
+    expect(payload.graph.edges).toContainEqual({
+      from: '@scope/shared',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(payload.graph.edges).not.toContainEqual({
+      from: 'link:target',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace resolves npm alias links from dev/peer/optional dependency fields', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
