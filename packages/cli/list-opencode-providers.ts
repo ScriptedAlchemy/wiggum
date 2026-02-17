@@ -28,7 +28,6 @@ async function main() {
   try {
     const client = createOpencodeClient({ baseUrl })
     const res = await client.config.providers()
-    console.log('CONFIG', await client.config.get())
     if (!res.data) {
       const responseError = (res as { error?: unknown }).error
       throw responseError ?? new Error('Unknown providers() error')
@@ -40,10 +39,9 @@ async function main() {
       models: Object.keys(p.models ?? {}),
     }))
     const output = { server: baseUrl, providers: simplified }
-    // console.log(JSON.stringify(output, null, 2))
+    process.stdout.write(`${JSON.stringify(output, null, 2)}\n`)
   } catch (err: unknown) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to query providers from server:', getErrorMessage(err))
+    process.stderr.write(`Failed to query providers from server: ${getErrorMessage(err)}\n`)
     process.exitCode = 1
   } finally {
     try {
