@@ -79,6 +79,18 @@ describe('runner workflow coverage verifier', () => {
     expect(() => validateRequiredPackageScriptContracts()).not.toThrow();
   });
 
+  test('validateRequiredPackageScriptContracts rejects non-array required scripts input', () => {
+    expect(() =>
+      validateRequiredPackageScriptContracts(null, {}),
+    ).toThrow('Required package scripts must be an array');
+  });
+
+  test('validateRequiredPackageScriptContracts rejects non-object pattern map input', () => {
+    expect(() =>
+      validateRequiredPackageScriptContracts(['ci:validate'], []),
+    ).toThrow('Required package script patterns must be an object');
+  });
+
   test('validateRequiredPackageScriptContracts rejects script entries without regex patterns', () => {
     expect(() =>
       validateRequiredPackageScriptContracts(
