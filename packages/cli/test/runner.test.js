@@ -1796,6 +1796,37 @@ describe('Wiggum runner workspace graph', () => {
     ]);
   });
 
+  test('resolveRunnerWorkspace links local manifest dependencies for unscoped npm aliases', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: 'shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: 'app',
+      version: '1.0.0',
+      dependencies: {
+        'shared-local': 'npm:shared@workspace:*',
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === 'app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual(['shared']);
+    expect(workspace.graph.edges).toContainEqual({
+      from: 'shared',
+      to: 'app',
+      reason: 'manifest',
+    });
+  });
+
   test('includes inferred import dependencies for filtered runs', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
