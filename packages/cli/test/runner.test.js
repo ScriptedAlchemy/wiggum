@@ -1914,6 +1914,52 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace links local manifest dependencies for npm/workspace aliases with dot and underscore package names', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared-dot/package.json'), {
+      name: '@scope/shared.dot',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/shared-underscore/package.json'), {
+      name: '@scope/shared_underscore',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'dot-alias': 'npm:@scope/shared.dot@workspace:*',
+      },
+      devDependencies: {
+        'underscore-alias': 'workspace:@scope/shared_underscore@*',
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual([
+      '@scope/shared_underscore',
+      '@scope/shared.dot',
+    ]);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared.dot',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared_underscore',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace resolves local links from bundleDependencies and bundledDependencies arrays', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
