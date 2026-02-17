@@ -454,13 +454,16 @@ async function parseLocalPathDependencyTarget(
 }
 
 async function collectDependencyPackageNames(
-  field: Record<string, string>,
+  field: Record<string, unknown>,
   projectRoot: string,
   packageNameCache: Map<string, string | undefined>,
 ): Promise<string[]> {
   const dependencyPackageNames = new Set<string>();
   for (const [dependencyName, dependencySpecifier] of Object.entries(field)) {
     dependencyPackageNames.add(dependencyName);
+    if (typeof dependencySpecifier !== 'string') {
+      continue;
+    }
     const aliasTargets = [
       parseNpmAliasDependencyTarget(dependencySpecifier),
       parseWorkspaceAliasDependencyTarget(dependencySpecifier),
@@ -501,10 +504,10 @@ async function readPackageInfo(
   try {
     const pkg = await readJsonFile<{
       name?: string;
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      peerDependencies?: Record<string, string>;
-      optionalDependencies?: Record<string, string>;
+      dependencies?: Record<string, unknown>;
+      devDependencies?: Record<string, unknown>;
+      peerDependencies?: Record<string, unknown>;
+      optionalDependencies?: Record<string, unknown>;
       bundleDependencies?: string[];
       bundledDependencies?: string[];
     }>(packageJsonPath);
