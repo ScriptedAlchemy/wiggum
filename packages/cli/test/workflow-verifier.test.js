@@ -501,6 +501,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Missing required package scripts: publint');
   });
 
+  test('fails when ci:validate package script is missing', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    delete parsedPackage.scripts['ci:validate'];
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Missing required package scripts: ci:validate');
+  });
+
   test('fails when full demo e2e package script command is rewired', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const parsedPackage = JSON.parse(packageJsonContent);
@@ -529,6 +544,21 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('Package script "publint" does not match expected command pattern');
+  });
+
+  test('fails when ci:validate package script command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts['ci:validate'] = 'pnpm test && pnpm run verify:runner:all';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "ci:validate" does not match expected command pattern');
   });
 
   test('fails when Playwright setup package script command is rewired', () => {

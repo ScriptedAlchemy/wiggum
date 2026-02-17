@@ -44,6 +44,7 @@ const PACKAGE_JSON_PATH = path.join(DEFAULT_ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(DEFAULT_ROOT, '.github/workflows/ci.yml');
 
 export const REQUIRED_PACKAGE_SCRIPTS = [
+  'ci:validate',
   'publint',
   'setup:demo:playwright',
   'test:demo:e2e',
@@ -53,6 +54,7 @@ export const REQUIRED_PACKAGE_SCRIPTS = [
   'verify:runner:workflow',
 ];
 export const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
+  'ci:validate': /^pnpm\s+build\s+&&\s+pnpm\s+test\s+&&\s+pnpm\s+run\s+verify:runner:all\s+&&\s+pnpm\s+run\s+publint\s+&&\s+pnpm\s+run\s+test:demo:e2e\s+&&\s+pnpm\s+-r\s+exec\s+tsc\s+--noEmit$/,
   'publint': /^pnpm\s+-r\s+publint$/,
   'setup:demo:playwright': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+exec\s+playwright\s+install\s+chromium$/,
   'test:demo:e2e': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e$/,
