@@ -46,6 +46,9 @@ pnpm exec playwright install chromium
 
 # run e2e
 pnpm test:e2e
+
+# run only widget API coverage
+pnpm test:e2e:widget-api
 ```
 
 The e2e suite includes coverage for the browser widget API (`window.WiggumChatWidget.open/close/isOpen`).

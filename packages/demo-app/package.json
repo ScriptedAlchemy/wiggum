@@ -10,6 +10,7 @@
     "test": "wiggum test",
     "test:watch": "wiggum test --watch",
     "test:e2e": "playwright test",
+    "test:e2e:widget-api": "playwright test tests/e2e/widget-api.spec.ts --project=chromium",
     "test:e2e:ui": "playwright test --ui",
     "lint": "pnpm --filter @wiggum/cli build && wiggum lint . --autofix",
     "lint:fix": "pnpm --filter @wiggum/cli build && wiggum lint --fix ."
