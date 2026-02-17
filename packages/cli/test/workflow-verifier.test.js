@@ -384,6 +384,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Missing required package scripts: setup:demo:playwright');
   });
 
+  test('fails when Playwright setup package script command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts['setup:demo:playwright'] = 'pnpm --filter ./packages/demo-app exec playwright install';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "setup:demo:playwright" does not match expected command pattern');
+  });
+
   test('fails when required package script adds trailing command arguments', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const parsedPackage = JSON.parse(packageJsonContent);
