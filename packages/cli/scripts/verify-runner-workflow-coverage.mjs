@@ -69,6 +69,15 @@ export const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
 };
 export const REQUIRED_WORKFLOW_STEPS = [
   {
+    name: 'Install dependencies',
+    requiredJob: 'build-and-test',
+    requiredRunCommand: 'pnpm install --frozen-lockfile',
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm install --frozen-lockfile\s*\|\|\s*true/,
+    ],
+  },
+  {
     name: 'Build all packages',
     requiredJob: 'build-and-test',
     requiredRunCommand: 'pnpm build',
@@ -138,6 +147,15 @@ export const REQUIRED_WORKFLOW_STEPS = [
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm run verify:runner:workflow\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Install dependencies',
+    requiredJob: 'lint',
+    requiredRunCommand: 'pnpm install --frozen-lockfile',
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm install --frozen-lockfile\s*\|\|\s*true/,
     ],
   },
   {
@@ -385,20 +403,27 @@ function verifyPackageScriptsContent(packageJsonContent, packageJsonPath = PACKA
 function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
   const previousStepByJob = new Map();
   for (const requiredStep of REQUIRED_WORKFLOW_STEPS) {
-    const stepBlocks = extractStepBlocks(workflow, requiredStep.name);
+    const matchingStepBlocks = extractStepBlocks(workflow, requiredStep.name);
+    const stepBlocks = requiredStep.requiredJob
+      ? matchingStepBlocks.filter((stepBlock) => stepBlock.jobName === requiredStep.requiredJob)
+      : matchingStepBlocks;
     if (stepBlocks.length === 0) {
+      if (requiredStep.requiredJob) {
+        throw new Error(
+          `Workflow ${workflowPath} is missing required step "${requiredStep.name}" in job "${requiredStep.requiredJob}"`,
+        );
+      }
       throw new Error(`Workflow ${workflowPath} is missing required step "${requiredStep.name}"`);
     }
     if (stepBlocks.length > 1) {
+      if (requiredStep.requiredJob) {
+        throw new Error(
+          `Workflow ${workflowPath} contains duplicate required step "${requiredStep.name}" in job "${requiredStep.requiredJob}"`,
+        );
+      }
       throw new Error(`Workflow ${workflowPath} contains duplicate required step "${requiredStep.name}"`);
     }
     const [stepBlock] = stepBlocks;
-    if (requiredStep.requiredJob && stepBlock.jobName !== requiredStep.requiredJob) {
-      const detectedJob = stepBlock.jobName ?? 'unknown';
-      throw new Error(
-        `Step "${requiredStep.name}" must be defined in job "${requiredStep.requiredJob}" (found in "${detectedJob}")`,
-      );
-    }
     const stepJobName = stepBlock.jobName ?? '__unknown_job__';
     const previousStep = previousStepByJob.get(stepJobName);
     if (previousStep && stepBlock.startLine <= previousStep.startLine) {

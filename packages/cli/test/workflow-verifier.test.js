@@ -513,7 +513,41 @@ describe('runner workflow coverage verifier', () => {
         workflowContent: mutatedWorkflow,
         workflowPath: WORKFLOW_PATH,
       }),
-    ).toThrow('Step "Run publint" must be defined in job "lint" (found in "build-and-test")');
+    ).toThrow('is missing required step "Run publint" in job "lint"');
+  });
+
+  test('fails when build-and-test install dependencies command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Install dependencies\n        run: pnpm install --frozen-lockfile\n        \n      - name: Build all packages',
+      '      - name: Install dependencies\n        run: pnpm install\n        \n      - name: Build all packages',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Install dependencies" must run "pnpm install --frozen-lockfile"');
+  });
+
+  test('fails when lint install dependencies step is renamed away', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Install dependencies\n        run: pnpm install --frozen-lockfile\n      \n      - name: Build workspace (required for lint commands)',
+      '      - name: Install workspace dependencies\n        run: pnpm install --frozen-lockfile\n      \n      - name: Build workspace (required for lint commands)',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('is missing required step "Install dependencies" in job "lint"');
   });
 
   test('fails when publint workflow step is renamed away', () => {
@@ -622,8 +656,11 @@ describe('runner workflow coverage verifier', () => {
 
   test('fails when a required workflow step is duplicated', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
-    const duplicateStep = '\n      - name: Run tests\n        run: pnpm test\n';
-    const mutatedWorkflow = `${workflowContent}${duplicateStep}`;
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Run tests\n        run: pnpm test\n\n      - name: Install Playwright Chromium (demo widget smoke)',
+      '      - name: Run tests\n        run: pnpm test\n\n      - name: Run tests\n        run: pnpm test\n\n      - name: Install Playwright Chromium (demo widget smoke)',
+    );
 
     expect(() =>
       verifyRunnerWorkflowCoverage({
@@ -631,7 +668,7 @@ describe('runner workflow coverage verifier', () => {
         workflowContent: mutatedWorkflow,
         workflowPath: WORKFLOW_PATH,
       }),
-    ).toThrow('contains duplicate required step "Run tests"');
+    ).toThrow('contains duplicate required step "Run tests" in job "build-and-test"');
   });
 
   test('fails when a required package script command is rewired', () => {
@@ -1077,7 +1114,7 @@ describe('runner workflow coverage verifier', () => {
         workflowContent: swappedJobsWorkflow,
         workflowPath: WORKFLOW_PATH,
       }),
-    ).toThrow('Step "Build all packages" must be defined in job "build-and-test" (found in "lint")');
+    ).toThrow('is missing required step "Build all packages" in job "build-and-test"');
   });
 
   test('accepts required step names with inline comments', () => {
