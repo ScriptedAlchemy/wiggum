@@ -342,6 +342,23 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Step "Run full demo app e2e suite" must run "pnpm run test:demo:e2e"');
   });
 
+  test('fails when full demo e2e workflow step uses no-fail fallback', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm run test:demo:e2e',
+      'run: pnpm run test:demo:e2e || true',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Run full demo app e2e suite" must run "pnpm run test:demo:e2e"');
+  });
+
   test('fails when Playwright Chromium install step command is rewired', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
