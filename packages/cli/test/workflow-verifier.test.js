@@ -135,6 +135,12 @@ describe('runner workflow coverage verifier', () => {
     expect(() => validateRequiredWorkflowStepContracts()).not.toThrow();
   });
 
+  test('validateRequiredWorkflowStepContracts rejects non-array input', () => {
+    expect(() =>
+      validateRequiredWorkflowStepContracts(null),
+    ).toThrow('Required workflow steps must be an array');
+  });
+
   test('validateRequiredWorkflowStepContracts rejects steps without required command', () => {
     expect(() =>
       validateRequiredWorkflowStepContracts([
@@ -210,6 +216,12 @@ describe('runner workflow coverage verifier', () => {
 
   test('validateRequiredWorkflowContentContracts accepts current contract definitions', () => {
     expect(() => validateRequiredWorkflowContentContracts()).not.toThrow();
+  });
+
+  test('validateRequiredWorkflowContentContracts rejects non-array input', () => {
+    expect(() =>
+      validateRequiredWorkflowContentContracts(null),
+    ).toThrow('Workflow content contracts must be an array');
   });
 
   test('validateRequiredWorkflowContentContracts rejects contracts without matcher', () => {
