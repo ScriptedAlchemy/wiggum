@@ -18,7 +18,7 @@ Wiggum is a small developer tooling monorepo that ties together the Rstack ecosy
 
 ## Requirements
 
-- Node.js 18+ (CI tests on 18.x and 20.x)
+- Node.js 18+ (CI tests on 20.x)
 - pnpm 8+
 
 ## Quick Start (this repo)
