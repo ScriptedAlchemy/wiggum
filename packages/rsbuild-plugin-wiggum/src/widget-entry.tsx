@@ -237,10 +237,16 @@ class ChatWidgetManager {
   }
 
   open() {
-    this.setOpenState(true);
+    if (!this.isInitialized) {
+      this.init(this.lastConfig);
+    }
+    queueMicrotask(() => {
+      this.setOpenState(true);
+    });
   }
 
   close() {
+    if (!this.isInitialized) return;
     this.setOpenState(false);
   }
 
