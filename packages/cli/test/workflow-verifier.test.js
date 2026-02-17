@@ -306,6 +306,25 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('is missing required step "Run widget API e2e smoke"');
   });
 
+  test('fails when Playwright Chromium install step command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm --filter ./packages/demo-app exec playwright install chromium',
+      'run: pnpm --filter ./packages/demo-app exec playwright install',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow(
+      'Step "Install Playwright Chromium (demo widget smoke)" must run "pnpm --filter ./packages/demo-app exec playwright install chromium"',
+    );
+  });
+
   test('fails when a required workflow step is duplicated', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const duplicateStep = '\n      - name: Run tests\n        run: pnpm test\n';
