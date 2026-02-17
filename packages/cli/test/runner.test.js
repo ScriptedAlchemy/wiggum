@@ -1934,7 +1934,7 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
-  test('resolveRunnerWorkspace resolves local links from file/link/workspace path dependency specifiers', async () => {
+  test('resolveRunnerWorkspace resolves local links from file/link/portal/workspace path dependency specifiers', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
       projects: ['packages/*'],
@@ -1951,6 +1951,10 @@ describe('Wiggum runner workspace graph', () => {
       name: '@scope/shared-workspace',
       version: '1.0.0',
     });
+    writeJson(path.join(root, 'packages/shared-portal/package.json'), {
+      name: '@scope/shared-portal',
+      version: '1.0.0',
+    });
     writeJson(path.join(root, 'packages/app/package.json'), {
       name: '@scope/app',
       version: '1.0.0',
@@ -1963,6 +1967,9 @@ describe('Wiggum runner workspace graph', () => {
       optionalDependencies: {
         'workspace-shared': 'workspace:../shared-workspace',
       },
+      peerDependencies: {
+        'portal-shared': 'portal:../shared-portal',
+      },
     });
 
     const workspace = await resolveWorkspaceDirect({
@@ -1974,6 +1981,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(appProject.dependencies).toEqual([
       '@scope/shared-file',
       '@scope/shared-link',
+      '@scope/shared-portal',
       '@scope/shared-workspace',
     ]);
     expect(workspace.graph.edges).toContainEqual({
@@ -1988,6 +1996,11 @@ describe('Wiggum runner workspace graph', () => {
     });
     expect(workspace.graph.edges).toContainEqual({
       from: '@scope/shared-workspace',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-portal',
       to: '@scope/app',
       reason: 'manifest',
     });

@@ -424,6 +424,8 @@ async function parseLocalPathDependencyTarget(
     rawPath = trimmedSpecifier.slice('file:'.length).trim();
   } else if (trimmedSpecifier.startsWith('link:')) {
     rawPath = trimmedSpecifier.slice('link:'.length).trim();
+  } else if (trimmedSpecifier.startsWith('portal:')) {
+    rawPath = trimmedSpecifier.slice('portal:'.length).trim();
   } else if (trimmedSpecifier.startsWith('workspace:')) {
     const workspaceBody = trimmedSpecifier.slice('workspace:'.length).trim();
     if (workspaceBody.startsWith('./') || workspaceBody.startsWith('../') || workspaceBody.startsWith('/')) {

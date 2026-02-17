@@ -98,7 +98,7 @@ wiggum run build --ai-prompt
 wiggum projects graph --no-infer-imports --json
 ```
 
-Dependency edges are resolved from local package manifests (including `npm:` / `workspace:` alias specifiers, local `file:`/`link:` path references, and `bundleDependencies` / `bundledDependencies` arrays) and inferred local source specifiers (`import`, dynamic `import()`, `require`, and export-from forms) discovered from `src/`, `test/`, `tests/`, `spec/`, `specs/`, and `__tests__/` files, then executed in deterministic topological order.
+Dependency edges are resolved from local package manifests (including `npm:` / `workspace:` alias specifiers, local `file:`/`link:`/`portal:` path references, and `bundleDependencies` / `bundledDependencies` arrays) and inferred local source specifiers (`import`, dynamic `import()`, `require`, and export-from forms) discovered from `src/`, `test/`, `tests/`, `spec/`, `specs/`, and `__tests__/` files, then executed in deterministic topological order.
 Use `--no-infer-imports` when you want ordering based strictly on manifest-declared workspace dependencies.
 Set `WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES=<positive integer>` to tune the capped per-project source scan budget used for inferred import edges (default: `400`).
 The scan budget applies to both `wiggum run ...` and `wiggum projects ...` while inferred imports are enabled, and is ignored when `--no-infer-imports` is used.
