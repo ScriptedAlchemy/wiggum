@@ -32,7 +32,7 @@ export function parseMarkdownLinks(content: string): Array<{ title: string; path
         links.push({ title: token.text || token.href, path: token.href });
       }
     });
-  } catch (error) {
+  } catch {
     // Fallback regex parser
     const markdownLinkMatches = content.matchAll(/\[([^\]]+)\]\(([^)]+\.md)\)/g);
     for (const match of markdownLinkMatches) {
@@ -52,7 +52,7 @@ export function extractMarkdownHeadings(content: string): Array<{ level: number;
         headings.push({ level: token.depth, text: token.text });
       }
     }
-  } catch (error) {
+  } catch {
     const lines = content.split('\n');
     for (const line of lines) {
       const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
@@ -83,7 +83,7 @@ export function parseAvailablePages(
         pages.push({ title: token.text || token.href, path: token.href, section: currentSection || undefined });
       }
     });
-  } catch (error) {
+  } catch {
     const lines = llmsContent.split('\n');
     for (const line of lines) {
       const sectionMatch = line.match(/^##\s+(.+)$/);
