@@ -11,7 +11,7 @@ declare global {
 }
 
 test.describe('Widget Console Logs', () => {
-  test('capture widget initialization logs', async ({ page }) => {
+  test('capture widget initialization logs', async ({ page }, testInfo) => {
     const consoleLogs: string[] = [];
     
     // Capture all console logs
@@ -69,6 +69,6 @@ test.describe('Widget Console Logs', () => {
     expect(widgetRoot).toBe(true);
     
     // Take a screenshot
-    await page.screenshot({ path: 'widget-console-test.png', fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath('widget-console-test.png'), fullPage: true });
   });
 });

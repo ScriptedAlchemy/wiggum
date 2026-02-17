@@ -7,7 +7,7 @@ declare global {
 }
 
 test.describe('Widget Debug', () => {
-  test('check widget configuration is loaded', async ({ page }) => {
+  test('check widget configuration is loaded', async ({ page }, testInfo) => {
     // Navigate to the page
     await page.goto('/');
     
@@ -56,7 +56,7 @@ test.describe('Widget Debug', () => {
     console.log('Widget elements found:', widgetElements);
     
     // Take a screenshot for debugging
-    await page.screenshot({ path: 'widget-debug.png', fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath('widget-debug.png'), fullPage: true });
     
     expect(hasConfig).toBe(true);
     expect(hasWidgetStyles).toBe(true);
