@@ -193,6 +193,28 @@ function packageNameFromSpecifier(specifier: string): string {
   return specifier.split('/')[0];
 }
 
+function buildPackageNameToProjectNameMap(projects: RunnerProject[]): Map<string, string> {
+  const packageNameToProjectName = new Map<string, string>();
+  const packageNameToProjectRoot = new Map<string, string>();
+
+  for (const project of projects) {
+    if (!project.packageName) {
+      continue;
+    }
+    const existingProjectName = packageNameToProjectName.get(project.packageName);
+    if (existingProjectName && existingProjectName !== project.name) {
+      const existingProjectRoot = packageNameToProjectRoot.get(project.packageName) ?? '(unknown)';
+      throw new Error(
+        `Duplicate package name "${project.packageName}" across projects "${existingProjectName}" (${existingProjectRoot}) and "${project.name}" (${project.root}).`,
+      );
+    }
+    packageNameToProjectName.set(project.packageName, project.name);
+    packageNameToProjectRoot.set(project.packageName, project.root);
+  }
+
+  return packageNameToProjectName;
+}
+
 function applyProjectFilters(projects: RunnerProject[], filters: string[]): RunnerProject[] {
   if (filters.length === 0) return projects;
 
@@ -734,11 +756,7 @@ async function inferImportDependencies(
   maxImportScanFiles: number,
 ): Promise<void> {
   validateInferImportMaxFilesOption(maxImportScanFiles);
-  const packageNameToProject = new Map(
-    projects
-      .filter((project) => Boolean(project.packageName))
-      .map((project) => [project.packageName as string, project.name]),
-  );
+  const packageNameToProject = buildPackageNameToProjectNameMap(projects);
   if (packageNameToProject.size === 0) return;
 
   for (const project of projects) {
@@ -824,11 +842,7 @@ export async function resolveRunnerWorkspace(
     }))
     .sort((a, b) => a.name.localeCompare(b.name) || a.root.localeCompare(b.root));
 
-  const packageToName = new Map(
-    projects
-      .filter((project) => Boolean(project.packageName))
-      .map((project) => [project.packageName as string, project.name]),
-  );
+  const packageToName = buildPackageNameToProjectNameMap(projects);
 
   for (const project of projects) {
     const localDependencies = project.dependencyPackageNames
