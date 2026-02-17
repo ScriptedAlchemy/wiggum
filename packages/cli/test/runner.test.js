@@ -1752,6 +1752,50 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace resolves npm alias links from dev/peer/optional dependency fields', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/dev-lib/package.json'), {
+      name: '@scope/dev-lib',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/peer-lib/package.json'), {
+      name: '@scope/peer-lib',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/optional-lib/package.json'), {
+      name: '@scope/optional-lib',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      devDependencies: {
+        'dev-lib-alias': 'npm:@scope/dev-lib@workspace:*',
+      },
+      peerDependencies: {
+        'peer-lib-alias': 'npm:@scope/peer-lib@workspace:*',
+      },
+      optionalDependencies: {
+        'optional-lib-alias': 'npm:@scope/optional-lib@workspace:*',
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual([
+      '@scope/dev-lib',
+      '@scope/optional-lib',
+      '@scope/peer-lib',
+    ]);
+  });
+
   test('includes inferred import dependencies for filtered runs', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
