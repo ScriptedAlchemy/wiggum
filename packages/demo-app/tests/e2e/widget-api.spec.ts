@@ -11,6 +11,9 @@ type WidgetApi = {
 declare global {
   interface Window {
     WiggumChatWidget?: WidgetApi;
+    __wiggum_widget_config?: {
+      disableBackend?: boolean;
+    };
   }
 }
 
@@ -21,6 +24,10 @@ test.describe('Widget manager browser API', () => {
 
     const hasWidgetApi = await page.evaluate(() => typeof window.WiggumChatWidget !== 'undefined');
     expect(hasWidgetApi).toBe(true);
+    const disableBackendFlag = await page.evaluate(
+      () => window.__wiggum_widget_config?.disableBackend ?? false,
+    );
+    expect(disableBackendFlag).toBe(true);
 
     const initialState = await page.evaluate(() => window.WiggumChatWidget?.isOpen() ?? null);
     expect(initialState).toBe(false);
@@ -95,6 +102,10 @@ test.describe('Widget manager browser API', () => {
   test('sending a message works in backend-disabled mode', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('#wiggum-chat-widget-root');
+    const disableBackendFlag = await page.evaluate(
+      () => window.__wiggum_widget_config?.disableBackend ?? false,
+    );
+    expect(disableBackendFlag).toBe(true);
 
     await page.evaluate(() => {
       window.WiggumChatWidget?.open();
