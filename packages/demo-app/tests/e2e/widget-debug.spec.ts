@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+declare global {
+  interface Window {
+    __wiggum_widget_config?: Record<string, unknown>;
+  }
+}
+
 test.describe('Widget Debug', () => {
   test('check widget configuration is loaded', async ({ page }) => {
     // Navigate to the page
@@ -10,7 +16,7 @@ test.describe('Widget Debug', () => {
     
     // Check if the widget configuration is set (new loader key)
     const hasConfig = await page.evaluate(() => {
-      return typeof (window as any).__wiggum_widget_config !== 'undefined';
+      return typeof window.__wiggum_widget_config !== 'undefined';
     });
     
     console.log('Has widget config:', hasConfig);
@@ -18,7 +24,7 @@ test.describe('Widget Debug', () => {
     // Get the config if it exists
     if (hasConfig) {
       const config = await page.evaluate(() => {
-        return (window as any).__wiggum_widget_config;
+        return window.__wiggum_widget_config;
       });
       console.log('Widget config:', config);
     }

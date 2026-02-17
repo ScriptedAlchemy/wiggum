@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
 
+type WidgetApi = {
+  init: (config?: { title?: string }) => void;
+};
+
+declare global {
+  interface Window {
+    WiggumChatWidget?: WidgetApi;
+  }
+}
+
 test.describe('Widget Console Logs', () => {
   test('capture widget initialization logs', async ({ page }) => {
     const consoleLogs: string[] = [];
@@ -26,19 +36,22 @@ test.describe('Widget Console Logs', () => {
     
     // Check if WiggumChatWidget is defined on window
     const hasWidgetAPI = await page.evaluate(() => {
-      return typeof (window as any).WiggumChatWidget !== 'undefined';
+      return typeof window.WiggumChatWidget !== 'undefined';
     });
     console.log('WiggumChatWidget API available:', hasWidgetAPI);
     
     // Try to manually init if not already done
     if (hasWidgetAPI) {
       const result = await page.evaluate(() => {
-        const widget = (window as any).WiggumChatWidget;
+        const widget = window.WiggumChatWidget;
+        if (!widget) {
+          return 'Widget API unavailable';
+        }
         try {
           widget.init({ title: 'Test Widget' });
           return 'Initialized successfully';
         } catch (error) {
-          return `Error: ${error}`;
+          return `Error: ${error instanceof Error ? error.message : String(error)}`;
         }
       });
       console.log('Manual init result:', result);
@@ -51,6 +64,9 @@ test.describe('Widget Console Logs', () => {
       return document.getElementById('wiggum-chat-widget-root') !== null;
     });
     console.log('Widget root element exists:', widgetRoot);
+
+    expect(hasWidgetAPI).toBe(true);
+    expect(widgetRoot).toBe(true);
     
     // Take a screenshot
     await page.screenshot({ path: 'widget-console-test.png', fullPage: true });
