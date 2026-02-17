@@ -225,6 +225,17 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
     pattern: /- name:\s*Setup Node\.js \$\{\{ matrix\.node-version \}\}\s*\n\s*uses:\s*actions\/setup-node@v4/,
   },
   {
+    description: 'build-and-test setup steps must remain in deterministic order',
+    requiredJob: 'build-and-test',
+    verify: (jobContent) =>
+      jobHasStepOrder(jobContent, [
+        'Checkout repository',
+        'Setup pnpm',
+        'Setup Node.js ${{ matrix.node-version }}',
+        'Install dependencies',
+      ]),
+  },
+  {
     description: 'lint job must target ubuntu-latest',
     requiredJob: 'lint',
     pattern: /^\s*runs-on:\s*ubuntu-latest\b/m,
@@ -248,6 +259,17 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
     description: 'lint setup-node action must use actions/setup-node@v4',
     requiredJob: 'lint',
     pattern: /- name:\s*Setup Node\.js\s*\n\s*uses:\s*actions\/setup-node@v4/,
+  },
+  {
+    description: 'lint setup steps must remain in deterministic order',
+    requiredJob: 'lint',
+    verify: (jobContent) =>
+      jobHasStepOrder(jobContent, [
+        'Checkout repository',
+        'Setup pnpm',
+        'Setup Node.js',
+        'Install dependencies',
+      ]),
   },
   {
     description: 'push trigger branches must include main and develop',
@@ -390,6 +412,26 @@ function extractJobBlock(workflow, jobName) {
   }
 
   return lines.slice(startIndex, endIndex).join('\n');
+}
+
+function extractStepNamesFromBlock(blockContent) {
+  return blockContent
+    .split(/\r?\n/)
+    .map((line) => extractStepName(line))
+    .filter((name) => typeof name === 'string');
+}
+
+function jobHasStepOrder(jobContent, expectedOrder) {
+  const stepNames = extractStepNamesFromBlock(jobContent);
+  let previousIndex = -1;
+  for (const stepName of expectedOrder) {
+    const currentIndex = stepNames.indexOf(stepName);
+    if (currentIndex === -1 || currentIndex <= previousIndex) {
+      return false;
+    }
+    previousIndex = currentIndex;
+  }
+  return true;
 }
 
 function normalizeInlineScalar(value) {
