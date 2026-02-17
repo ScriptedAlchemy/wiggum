@@ -68,7 +68,6 @@ class ChatWidgetManager {
   private observer: MutationObserver | null = null;
 
   init(config: ChatWidgetProps = {}) {
-    console.log('Wiggum Chat Widget init called with config:', config);
     // Remember config for potential remounts after HMR/DOM replacement
     const injected = window.__wiggum_widget_config ?? {};
     const mergedConfig: RuntimeWidgetConfig = { ...injected, ...config };
@@ -189,7 +188,6 @@ class ChatWidgetManager {
     );
 
     this.isInitialized = true;
-    console.log('Wiggum Chat Widget initialization complete. Container added to DOM:', document.getElementById('wiggum-chat-widget-root'));
 
     // Watch for DOM removals (e.g., SPA/HMR replacing body) and remount if needed
     try {
@@ -229,19 +227,27 @@ class ChatWidgetManager {
     this.isInitialized = false;
   }
 
+  private setOpenState(shouldOpen: boolean) {
+    const root = document.getElementById('wiggum-chat-widget-root');
+    if (!root) return;
+    const isCurrentlyOpen = root.querySelector('.chat-widget__window') !== null;
+    if (isCurrentlyOpen === shouldOpen) return;
+    const toggleButton = root.querySelector<HTMLButtonElement>('.chat-widget__toggle');
+    toggleButton?.click();
+  }
+
   open() {
-    // This would need to be implemented with a ref or state management
-    console.log('Opening chat widget');
+    this.setOpenState(true);
   }
 
   close() {
-    // This would need to be implemented with a ref or state management
-    console.log('Closing chat widget');
+    this.setOpenState(false);
   }
 
   isOpen(): boolean {
-    // This would need to be implemented with a ref or state management
-    return false;
+    const root = document.getElementById('wiggum-chat-widget-root');
+    if (!root) return false;
+    return root.querySelector('.chat-widget__window') !== null;
   }
 }
 

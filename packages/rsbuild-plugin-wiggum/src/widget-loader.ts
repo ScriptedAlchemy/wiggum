@@ -19,7 +19,7 @@ function getRuntimeModule(): HotModule | undefined {
 // Initialize the widget
 const loadWidget = () => {
   try {
-    console.log('Wiggum Chat Widget loaded successfully');
+    // Widget entry is imported eagerly above; this hook remains for future bootstrap work.
   } catch (error) {
     console.error('Failed to load Wiggum Chat Widget:', error);
   }
