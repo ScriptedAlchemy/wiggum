@@ -135,6 +135,12 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('must include a non-empty requiredRunCommand');
   });
 
+  test('validateRequiredWorkflowStepContracts rejects empty step list', () => {
+    expect(() =>
+      validateRequiredWorkflowStepContracts([]),
+    ).toThrow('Required workflow steps must include at least one step');
+  });
+
   test('validateRequiredWorkflowStepContracts rejects steps with non-regex forbidden patterns', () => {
     expect(() =>
       validateRequiredWorkflowStepContracts([
@@ -190,6 +196,12 @@ describe('runner workflow coverage verifier', () => {
         },
       ]),
     ).toThrow('must define exactly one matcher: pattern or verify');
+  });
+
+  test('validateRequiredWorkflowContentContracts rejects empty contract list', () => {
+    expect(() =>
+      validateRequiredWorkflowContentContracts([]),
+    ).toThrow('Workflow content contracts must include at least one contract');
   });
 
   test('validateRequiredWorkflowContentContracts rejects contracts with both matcher types', () => {

@@ -251,6 +251,9 @@ export function validateRequiredWorkflowStepContracts(
   if (!Array.isArray(requiredSteps)) {
     throw new Error('Required workflow steps must be an array');
   }
+  if (requiredSteps.length === 0) {
+    throw new Error('Required workflow steps must include at least one step');
+  }
 
   const seenStepKeys = new Set();
   for (let index = 0; index < requiredSteps.length; index += 1) {
@@ -427,6 +430,9 @@ export function validateRequiredWorkflowContentContracts(
 ) {
   if (!Array.isArray(contracts)) {
     throw new Error('Workflow content contracts must be an array');
+  }
+  if (contracts.length === 0) {
+    throw new Error('Workflow content contracts must include at least one contract');
   }
 
   const seenDescriptions = new Set();
