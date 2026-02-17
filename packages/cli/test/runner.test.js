@@ -2131,6 +2131,38 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace supports absolute portal path dependency specifiers', async () => {
+    const root = makeTempWorkspace();
+    const sharedDir = path.join(root, 'packages/shared');
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(sharedDir, 'package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'shared-absolute-portal': `portal:${sharedDir}`,
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual(['@scope/shared']);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('run --dry-run honors manifest dependency order for local path protocol dependencies', () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
