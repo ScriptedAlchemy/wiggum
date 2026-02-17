@@ -359,6 +359,40 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('missing required content: lint setup-pnpm step must use pnpm/action-setup@v2');
   });
 
+  test('fails when build-and-test setup-node action drifts from v4', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Setup Node.js ${{ matrix.node-version }}\n        uses: actions/setup-node@v4',
+      '      - name: Setup Node.js ${{ matrix.node-version }}\n        uses: actions/setup-node@v5',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: build-and-test setup-node action must use actions/setup-node@v4');
+  });
+
+  test('fails when lint setup-node action drifts from v4', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Setup Node.js\n        uses: actions/setup-node@v4',
+      '      - name: Setup Node.js\n        uses: actions/setup-node@v3',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: lint setup-node action must use actions/setup-node@v4');
+  });
+
   test('fails when build-and-test job no longer targets ubuntu-latest', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(

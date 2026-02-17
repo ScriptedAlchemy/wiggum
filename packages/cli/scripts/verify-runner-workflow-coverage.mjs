@@ -215,6 +215,11 @@ const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
     pattern: /- name:\s*Setup pnpm\s*\n\s*uses:\s*pnpm\/action-setup@v2/,
   },
   {
+    description: 'build-and-test setup-node action must use actions/setup-node@v4',
+    requiredJob: 'build-and-test',
+    pattern: /- name:\s*Setup Node\.js \$\{\{ matrix\.node-version \}\}\s*\n\s*uses:\s*actions\/setup-node@v4/,
+  },
+  {
     description: 'lint job must target ubuntu-latest',
     requiredJob: 'lint',
     pattern: /lint:\s*\n\s*runs-on:\s*ubuntu-latest/,
@@ -228,6 +233,11 @@ const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
     description: 'lint setup-pnpm step must use pnpm/action-setup@v2',
     requiredJob: 'lint',
     pattern: /- name:\s*Setup pnpm\s*\n\s*uses:\s*pnpm\/action-setup@v2/,
+  },
+  {
+    description: 'lint setup-node action must use actions/setup-node@v4',
+    requiredJob: 'lint',
+    pattern: /- name:\s*Setup Node\.js\s*\n\s*uses:\s*actions\/setup-node@v4/,
   },
   {
     description: 'push trigger branches must include main and develop',
