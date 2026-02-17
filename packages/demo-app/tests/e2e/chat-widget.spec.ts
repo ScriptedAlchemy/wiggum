@@ -143,9 +143,9 @@ test.describe('Chat Widget', () => {
     
     await input.fill('First message');
     await sendButton.click();
-    
-    await page.waitForTimeout(500);
-    
+
+    const firstBotMessage = messages.locator('.chat-widget__message--bot').last();
+    await expect(firstBotMessage).toContainText('Thanks! I will look into that.');
     await input.fill('Second message');
     await sendButton.click();
     
