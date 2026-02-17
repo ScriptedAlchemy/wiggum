@@ -1529,4 +1529,18 @@ describe('runner coverage verifier', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-coverage] Verified');
   });
+
+  test('coverage verifier CLI treats blank minimum expected projects env as default', () => {
+    const result = spawnSync(process.execPath, [COVERAGE_SCRIPT_PATH], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS: '   ',
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[verify-runner-coverage] Verified');
+  });
 });
