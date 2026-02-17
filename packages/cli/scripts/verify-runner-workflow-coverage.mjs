@@ -303,6 +303,40 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   },
 ];
 
+export function validateRequiredWorkflowContentContracts(
+  contracts = REQUIRED_WORKFLOW_CONTENT_PATTERNS,
+) {
+  if (!Array.isArray(contracts)) {
+    throw new Error('Workflow content contracts must be an array');
+  }
+
+  for (let index = 0; index < contracts.length; index += 1) {
+    const contract = contracts[index];
+    if (!contract || typeof contract !== 'object') {
+      throw new Error(`Workflow content contract at index ${index} must be an object`);
+    }
+    if (typeof contract.description !== 'string' || contract.description.trim().length === 0) {
+      throw new Error(`Workflow content contract at index ${index} must include a non-empty description`);
+    }
+    if (
+      contract.requiredJob !== undefined
+      && (typeof contract.requiredJob !== 'string' || contract.requiredJob.trim().length === 0)
+    ) {
+      throw new Error(
+        `Workflow content contract "${contract.description}" has invalid requiredJob value`,
+      );
+    }
+
+    const hasPatternMatcher = contract.pattern instanceof RegExp;
+    const hasFunctionMatcher = typeof contract.verify === 'function';
+    if (hasPatternMatcher === hasFunctionMatcher) {
+      throw new Error(
+        `Workflow content contract "${contract.description}" must define exactly one matcher: pattern or verify`,
+      );
+    }
+  }
+}
+
 function readUtf8(filePath) {
   try {
     if (fs.existsSync(filePath)) {
@@ -661,6 +695,7 @@ function verifyPackageScriptsContent(packageJsonContent, packageJsonPath = PACKA
 }
 
 function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
+  validateRequiredWorkflowContentContracts();
   const previousStepByJob = new Map();
   for (const requiredStep of REQUIRED_WORKFLOW_STEPS) {
     const matchingStepBlocks = extractStepBlocks(workflow, requiredStep.name);

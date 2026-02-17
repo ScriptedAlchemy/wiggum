@@ -10,6 +10,7 @@ import {
   REQUIRED_WORKFLOW_CONTENT_PATTERNS,
   REQUIRED_WORKFLOW_STEPS,
   resolveWorkflowVerifierPathsFromEnv,
+  validateRequiredWorkflowContentContracts,
   verifyRunnerWorkflowCoverage,
 } from '../scripts/verify-runner-workflow-coverage.mjs';
 
@@ -72,6 +73,44 @@ afterEach(() => {
 });
 
 describe('runner workflow coverage verifier', () => {
+  test('validateRequiredWorkflowContentContracts accepts current contract definitions', () => {
+    expect(() => validateRequiredWorkflowContentContracts()).not.toThrow();
+  });
+
+  test('validateRequiredWorkflowContentContracts rejects contracts without matcher', () => {
+    expect(() =>
+      validateRequiredWorkflowContentContracts([
+        {
+          description: 'invalid contract without matcher',
+        },
+      ]),
+    ).toThrow('must define exactly one matcher: pattern or verify');
+  });
+
+  test('validateRequiredWorkflowContentContracts rejects contracts with both matcher types', () => {
+    expect(() =>
+      validateRequiredWorkflowContentContracts([
+        {
+          description: 'invalid contract with duplicate matchers',
+          pattern: /abc/,
+          verify: () => true,
+        },
+      ]),
+    ).toThrow('must define exactly one matcher: pattern or verify');
+  });
+
+  test('validateRequiredWorkflowContentContracts rejects contracts with blank requiredJob', () => {
+    expect(() =>
+      validateRequiredWorkflowContentContracts([
+        {
+          description: 'invalid contract with blank requiredJob',
+          requiredJob: '   ',
+          pattern: /abc/,
+        },
+      ]),
+    ).toThrow('has invalid requiredJob value');
+  });
+
   test('rejects non-string packageJsonContent input', () => {
     const { workflowContent } = readCurrentInputs();
     expect(() =>
