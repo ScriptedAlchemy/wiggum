@@ -7,6 +7,7 @@ import { createOpencodeClient } from '@opencode-ai/sdk/client';
 type RuntimeWidgetConfig = ChatWidgetProps & {
   apiEndpoint?: string;
   directory?: string;
+  disableBackend?: boolean;
 };
 
 type RuntimeHotModule = {
@@ -88,7 +89,8 @@ class ChatWidgetManager {
     }
 
     // Discover opencode backend via injected config or same-origin proxy
-    const apiEndpoint = mergedConfig.apiEndpoint || `${location.origin}/__opencode__`;
+    const shouldDisableBackend = mergedConfig.disableBackend === true;
+    const apiEndpoint = shouldDisableBackend ? undefined : mergedConfig.apiEndpoint || `${location.origin}/__opencode__`;
     const directory = document.querySelector('meta[name="wiggum-opencode-dir"]')?.getAttribute('content') || mergedConfig.directory;
     let sessionId: string | undefined;
     let client: ReturnType<typeof createOpencodeClient> | undefined;

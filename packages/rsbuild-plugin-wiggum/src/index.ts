@@ -62,6 +62,8 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
   setup(api) {
     let opencodeUrl: string | undefined;
     let opencodeClose: (() => void) | undefined;
+    const backendDisabledByEnv = isTruthyEnv(process.env.WIGGUM_CHAT_WIDGET_DISABLE_BACKEND);
+    let backendDisabledForRuntime = backendDisabledByEnv;
 
     const {
       customCSS = '',
@@ -94,8 +96,10 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
         // If apiEndpoint is provided, skip server spawn and proxy
         if (options.apiEndpoint) {
           opencodeUrl = options.apiEndpoint;
-        } else if (isTruthyEnv(process.env.WIGGUM_CHAT_WIDGET_DISABLE_BACKEND)) {
+          backendDisabledForRuntime = false;
+        } else if (backendDisabledByEnv) {
           opencodeUrl = undefined;
+          backendDisabledForRuntime = true;
         } else {
           const config = await buildMergedConfig();
 
@@ -132,6 +136,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
       } catch (e) {
         // eslint-disable-next-line no-console
         if (isErrnoException(e) && e.code === 'ENOENT') {
+          backendDisabledForRuntime = true;
           console.warn('[chat-widget] OpenCode binary not found; continuing without backend server.');
         } else {
           console.warn('[chat-widget] Failed to start opencode server:', getErrorMessage(e));
@@ -184,7 +189,14 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
           // Provide project directory via meta tag (server URL proxied via /__opencode__)
           { tag: 'meta', attrs: { name: 'wiggum-opencode-dir', content: api.context.rootPath } },
           // Inject runtime widget config for the loader to consume
-          { tag: 'script', children: `(function(){try{window.__wiggum_widget_config=${JSON.stringify({ ...runtimeConfig, ...(options.apiEndpoint ? { apiEndpoint: options.apiEndpoint } : {}) })};}catch(e){}})();` },
+          {
+            tag: 'script',
+            children: `(function(){try{window.__wiggum_widget_config=${JSON.stringify({
+              ...runtimeConfig,
+              ...(options.apiEndpoint ? { apiEndpoint: options.apiEndpoint } : {}),
+              ...(backendDisabledForRuntime ? { disableBackend: true } : {}),
+            })};}catch(e){}})();`,
+          },
           // Inject custom CSS if provided
           ...(customCSS ? [{
             tag: 'style',
