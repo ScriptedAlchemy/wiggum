@@ -101,7 +101,7 @@ const INFERRED_IMPORT_SOURCE_PATTERNS = [
 ];
 const IMPORT_RE =
   new RegExp(
-    `(?:import\\s+(?:[^'"]+from\\s*)?|import\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|export\\s+[^'"]*from\\s*|require(?:\\.resolve)?\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*)['"]([^'"]+)['"]\\s*\\)?`,
+    `(?:import\\s+(?:[^'"]+from\\s*)?|import\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|export\\s+[^'"]*from\\s*|require(?:\\.resolve)?\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|import\\.meta\\.resolve\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*)['"]([^'"]+)['"]\\s*\\)?`,
     'g',
   );
 
