@@ -665,6 +665,56 @@ describe('runner coverage verifier', () => {
     expect(resolveWorkspaceCalls).toBe(0);
   });
 
+  test('verifyRunnerCoverage rejects unsupported explicit mts config path before resolver execution', async () => {
+    const tempRoot = makeTempDir('verify-coverage-config-unsupported-explicit-mts-');
+    const packagesDir = path.join(tempRoot, 'packages');
+    const unsupportedConfigPath = path.join(tempRoot, 'wiggum.config.mts');
+    fs.mkdirSync(packagesDir, { recursive: true });
+    fs.writeFileSync(unsupportedConfigPath, 'export default {};');
+
+    let resolveWorkspaceCalls = 0;
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath: unsupportedConfigPath,
+        packagesDir,
+        minExpectedProjects: 1,
+        resolveWorkspace: async () => {
+          resolveWorkspaceCalls += 1;
+          return { projects: [] };
+        },
+      }),
+    ).rejects.toThrow(
+      'Unsupported runner config file "wiggum.config.mts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+    expect(resolveWorkspaceCalls).toBe(0);
+  });
+
+  test('verifyRunnerCoverage rejects unsupported explicit cts config path before resolver execution', async () => {
+    const tempRoot = makeTempDir('verify-coverage-config-unsupported-explicit-cts-');
+    const packagesDir = path.join(tempRoot, 'packages');
+    const unsupportedConfigPath = path.join(tempRoot, 'wiggum.config.cts');
+    fs.mkdirSync(packagesDir, { recursive: true });
+    fs.writeFileSync(unsupportedConfigPath, 'export default {};');
+
+    let resolveWorkspaceCalls = 0;
+    await expect(
+      verifyRunnerCoverage({
+        rootDir: tempRoot,
+        configPath: unsupportedConfigPath,
+        packagesDir,
+        minExpectedProjects: 1,
+        resolveWorkspace: async () => {
+          resolveWorkspaceCalls += 1;
+          return { projects: [] };
+        },
+      }),
+    ).rejects.toThrow(
+      'Unsupported runner config file "wiggum.config.cts". Use one of: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json',
+    );
+    expect(resolveWorkspaceCalls).toBe(0);
+  });
+
   test('verifyRunnerCoverage passes expected options to workspace resolver', async () => {
     const tempRoot = makeTempDir('verify-coverage-resolve-');
     const configPath = path.join(tempRoot, 'wiggum.config.json');
