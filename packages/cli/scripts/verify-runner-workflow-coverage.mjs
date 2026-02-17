@@ -407,6 +407,23 @@ function normalizeYamlScalar(value) {
   return normalizedValue;
 }
 
+function parseYamlMappingEntry(line) {
+  const match = line.match(/^(\s*)(?:(['"])(.*?)\2|([A-Za-z0-9_-]+)):\s*(.*)$/);
+  if (!match) {
+    return undefined;
+  }
+  const [, indentRaw, , quotedKey, bareKey, value] = match;
+  const key = (quotedKey ?? bareKey ?? '').trim();
+  if (key.length === 0) {
+    return undefined;
+  }
+  return {
+    indent: indentRaw.length,
+    key,
+    value,
+  };
+}
+
 function parseInlineYamlList(value) {
   const normalizedValue = value.trim().replace(/\s+#.*$/, '').trim();
   if (!normalizedValue.startsWith('[') || !normalizedValue.endsWith(']')) {
@@ -424,7 +441,10 @@ function parseInlineYamlList(value) {
 
 function extractTriggerBranches(workflow, eventName) {
   const lines = workflow.split(/\r?\n/);
-  const onIndex = lines.findIndex((line) => /^on:\s*$/.test(line.trim()));
+  const onIndex = lines.findIndex((line) => {
+    const entry = parseYamlMappingEntry(line);
+    return Boolean(entry && entry.indent === 0 && entry.key === 'on');
+  });
   if (onIndex === -1) {
     return [];
   }
@@ -435,16 +455,17 @@ function extractTriggerBranches(workflow, eventName) {
     if (line.trim().length === 0) {
       continue;
     }
-    if (!line.startsWith(' ') && /^[A-Za-z0-9_-]+:\s*$/.test(line.trim())) {
+    const entry = parseYamlMappingEntry(line);
+    if (entry && entry.indent === 0) {
       onBlockEnd = i;
       break;
     }
   }
 
-  const eventHeaderRe = new RegExp(`^\\s{2}${eventName}:\\s*$`);
   let eventStart = -1;
   for (let i = onIndex + 1; i < onBlockEnd; i++) {
-    if (eventHeaderRe.test(lines[i])) {
+    const entry = parseYamlMappingEntry(lines[i]);
+    if (entry && entry.indent === 2 && entry.key === eventName) {
       eventStart = i;
       break;
     }
@@ -455,20 +476,20 @@ function extractTriggerBranches(workflow, eventName) {
 
   let eventEnd = onBlockEnd;
   for (let i = eventStart + 1; i < onBlockEnd; i++) {
-    if (/^\s{2}[A-Za-z0-9_-]+:\s*$/.test(lines[i])) {
+    const entry = parseYamlMappingEntry(lines[i]);
+    if (entry && entry.indent === 2) {
       eventEnd = i;
       break;
     }
   }
 
   for (let i = eventStart + 1; i < eventEnd; i++) {
-    const branchMatch = lines[i].match(/^(\s*)branches:\s*(.*)$/);
-    if (!branchMatch) {
+    const branchEntry = parseYamlMappingEntry(lines[i]);
+    if (!branchEntry || branchEntry.key !== 'branches') {
       continue;
     }
-    const [, branchIndentRaw, branchValueRaw] = branchMatch;
-    const branchIndent = branchIndentRaw.length;
-    const branchValue = branchValueRaw.trim();
+    const branchIndent = branchEntry.indent;
+    const branchValue = branchEntry.value.trim();
     if (branchValue.length > 0) {
       return parseInlineYamlList(branchValue);
     }

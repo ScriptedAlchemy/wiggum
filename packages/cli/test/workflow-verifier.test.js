@@ -327,6 +327,23 @@ describe('runner workflow coverage verifier', () => {
     ).not.toThrow();
   });
 
+  test('accepts quoted workflow trigger keys for push/pull_request branches', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'on:\n  push:\n    branches: [ main, develop ]\n  pull_request:\n    branches: [ main, develop ]',
+      '\'on\':\n  "push":\n    \'branches\': [ main, develop ]\n  \'pull_request\':\n    "branches": [ main, develop ]',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
   test('fails when multiline push workflow branches drop develop', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const multilinePushWorkflow = replaceOrThrow(
