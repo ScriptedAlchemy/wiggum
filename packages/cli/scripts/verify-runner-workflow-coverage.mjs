@@ -168,6 +168,25 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
 ];
 
+const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
+  {
+    description: 'push trigger branches must include main and develop',
+    pattern: /push:\s*\n\s*branches:\s*\[\s*main\s*,\s*develop\s*\]/,
+  },
+  {
+    description: 'pull_request trigger branches must include main and develop',
+    pattern: /pull_request:\s*\n\s*branches:\s*\[\s*main\s*,\s*develop\s*\]/,
+  },
+  {
+    description: 'build-and-test node matrix must run on 20.x',
+    pattern: /matrix:\s*\n\s*node-version:\s*\[\s*20\.x\s*\]/,
+  },
+  {
+    description: 'lint job node setup must run on 20.x',
+    pattern: /Setup Node\.js[\s\S]*?node-version:\s*20\.x/,
+  },
+];
+
 function readUtf8(filePath) {
   try {
     if (fs.existsSync(filePath)) {
@@ -378,6 +397,14 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
           `Step "${requiredStep.name}" contains forbidden pattern ${forbiddenPattern}`,
         );
       }
+    }
+  }
+
+  for (const requiredPattern of REQUIRED_WORKFLOW_CONTENT_PATTERNS) {
+    if (!requiredPattern.pattern.test(workflow)) {
+      throw new Error(
+        `Workflow ${workflowPath} missing required content: ${requiredPattern.description}`,
+      );
     }
   }
 

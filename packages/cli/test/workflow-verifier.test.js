@@ -291,6 +291,40 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('is missing required step "Run tests"');
   });
 
+  test('fails when push workflow branches drop develop', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'branches: [ main, develop ]',
+      'branches: [ main ]',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: push trigger branches must include main and develop');
+  });
+
+  test('fails when build-and-test node matrix drifts from 20.x', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'node-version: [20.x]',
+      'node-version: [22.x]',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: build-and-test node matrix must run on 20.x');
+  });
+
   test('fails when widget API smoke workflow step is renamed away', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
