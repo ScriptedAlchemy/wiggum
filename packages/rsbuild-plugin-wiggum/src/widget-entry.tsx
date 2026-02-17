@@ -1,11 +1,54 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { ChatWidget, ChatWidgetProps, InspectResult, WidgetState } from './components/ChatWidget';
 import { createOpencodeClient } from '@opencode-ai/sdk/client';
+
+type RuntimeWidgetConfig = ChatWidgetProps & {
+  apiEndpoint?: string;
+  directory?: string;
+};
+
+type RuntimeHotModule = {
+  hot?: {
+    dispose: (callback: () => void) => void;
+    accept: (callback: () => void) => void;
+  };
+};
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function getRuntimeModule(): RuntimeHotModule | undefined {
+  const runtime = globalThis as typeof globalThis & { module?: RuntimeHotModule };
+  return runtime.module;
+}
+
+function extractTextResponse(parts: unknown): string {
+  if (!Array.isArray(parts)) return '';
+  return parts
+    .map((part) => {
+      if (!part || typeof part !== 'object') return '';
+      const record = part as { type?: unknown; text?: unknown };
+      if (record.type === 'text' && typeof record.text === 'string') {
+        return record.text;
+      }
+      return '';
+    })
+    .filter(Boolean)
+    .join('\n');
+}
 
 // Global interface for widget API (no global config)
 declare global {
   interface Window {
+    __wiggum_widget_config?: RuntimeWidgetConfig;
+    __WIGGUM_WIDGET_STATE__?: Partial<WidgetState>;
+    __WIGGUM_CHAT_MANAGER__?: ChatWidgetManager;
     WiggumChatWidget?: {
       init: (config?: ChatWidgetProps) => void;
       destroy: () => void;
@@ -17,7 +60,7 @@ declare global {
 }
 
 class ChatWidgetManager {
-  private root: any = null;
+  private root: Root | null = null;
   private container: HTMLElement | null = null;
   public isInitialized = false;
   // Removed persistent lastSelection; selection context flows from ChatWidget per-send
@@ -27,8 +70,8 @@ class ChatWidgetManager {
   init(config: ChatWidgetProps = {}) {
     console.log('Wiggum Chat Widget init called with config:', config);
     // Remember config for potential remounts after HMR/DOM replacement
-    const injected = (window as any).__wiggum_widget_config || {};
-    const mergedConfig: ChatWidgetProps = { ...(injected as any), ...config };
+    const injected = window.__wiggum_widget_config ?? {};
+    const mergedConfig: RuntimeWidgetConfig = { ...injected, ...config };
     this.lastConfig = { ...mergedConfig };
 
     // If the DOM container vanished (e.g., due to framework replacing <body>), reset state
@@ -46,15 +89,15 @@ class ChatWidgetManager {
     }
 
     // Discover opencode backend via injected config or same-origin proxy
-    const apiEndpoint = (mergedConfig as any).apiEndpoint || `${location.origin}/__opencode__`;
-    const directory = document.querySelector('meta[name="wiggum-opencode-dir"]')?.getAttribute('content') || (config as any)['directory'];
+    const apiEndpoint = mergedConfig.apiEndpoint || `${location.origin}/__opencode__`;
+    const directory = document.querySelector('meta[name="wiggum-opencode-dir"]')?.getAttribute('content') || mergedConfig.directory;
     let sessionId: string | undefined;
     let client: ReturnType<typeof createOpencodeClient> | undefined;
     if (apiEndpoint) {
       try {
         client = createOpencodeClient({ baseUrl: apiEndpoint });
       } catch (e) {
-        console.warn('Failed to initialize Opencode client:', (e as any)?.message ?? e);
+        console.warn('Failed to initialize Opencode client:', getErrorMessage(e));
       }
     }
 
@@ -81,8 +124,7 @@ class ChatWidgetManager {
     // Create React root and render widget
     this.root = createRoot(this.container);
     // Restore previous widget state across HMR if present
-    const w = window as any;
-    const restoreState: Partial<WidgetState> | undefined = w.__WIGGUM_WIDGET_STATE__;
+    const restoreState = window.__WIGGUM_WIDGET_STATE__;
 
     this.root.render(
       <div style={{ pointerEvents: 'auto' }}>
@@ -91,7 +133,7 @@ class ChatWidgetManager {
           title={mergedConfig.title || 'Wiggum Assistant'}
           restoreState={restoreState}
           onStateChange={(state) => {
-            try { (window as any).__WIGGUM_WIDGET_STATE__ = state; } catch {}
+            try { window.__WIGGUM_WIDGET_STATE__ = state; } catch {}
           }}
           onMessageResponse={async (text: string, context?: InspectResult | null) => {
             // Lazy-create session on first message
@@ -105,10 +147,10 @@ class ChatWidgetManager {
                 sessionId = created.data.id;
               }
               if (client && sessionId) {
-                const outParts: any[] = [];
+                const outParts: Array<{ type: 'text'; text: string }> = [];
                 if (context) {
                   // Filter context to essentials to keep payload small
-                  const keep: Record<string, any> = {
+                  const keep: Record<string, unknown> = {
                     tag: context.tag,
                     id: context.id,
                     classes: context.classes,
@@ -133,15 +175,11 @@ class ChatWidgetManager {
                   body: { parts: outParts },
                 });
                 if (!res.data) throw res.error ?? new Error('No response data');
-                const inParts = res.data.parts || [];
-                const reply = inParts
-                  .map((p: any) => (p.type === 'text' ? p.text : ''))
-                  .filter(Boolean)
-                  .join('\n') || 'OK';
+                const reply = extractTextResponse(res.data.parts) || 'OK';
                 return reply;
               }
             } catch (err) {
-              console.warn('Opencode request failed:', (err as any)?.message ?? err);
+              console.warn('Opencode request failed:', getErrorMessage(err));
             }
             // Fallback response
             return 'Thanks! I will look into that.';
@@ -162,13 +200,13 @@ class ChatWidgetManager {
           console.warn('[Wiggum] Widget container removed from DOM. Attempting to remount.');
           try { this.destroy(); } catch {}
           try { this.init(this.lastConfig); } catch (e) {
-            console.warn('[Wiggum] Remount failed:', (e as any)?.message ?? e);
+            console.warn('[Wiggum] Remount failed:', getErrorMessage(e));
           }
         }
       });
       this.observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
     } catch (e) {
-      console.debug('[Wiggum] MutationObserver unavailable or failed:', (e as any)?.message ?? e);
+      console.debug('[Wiggum] MutationObserver unavailable or failed:', getErrorMessage(e));
     }
   }
 
@@ -210,12 +248,11 @@ class ChatWidgetManager {
 // Create global instance
 const chatWidgetManager: ChatWidgetManager = ((): ChatWidgetManager => {
   // Reuse a global manager across HMR updates to avoid duplicate instances
-  const w = window as any;
-  if (w.__WIGGUM_CHAT_MANAGER__ && w.__WIGGUM_CHAT_MANAGER__ instanceof ChatWidgetManager) {
-    return w.__WIGGUM_CHAT_MANAGER__ as ChatWidgetManager;
+  if (window.__WIGGUM_CHAT_MANAGER__ instanceof ChatWidgetManager) {
+    return window.__WIGGUM_CHAT_MANAGER__;
   }
   const mgr = new ChatWidgetManager();
-  w.__WIGGUM_CHAT_MANAGER__ = mgr;
+  window.__WIGGUM_CHAT_MANAGER__ = mgr;
   return mgr;
 })();
 
@@ -241,12 +278,12 @@ if (document.readyState === 'loading') {
 
 // HMR support: cleanup and remount on module replacement
 try {
-  const anyModule = typeof module !== 'undefined' ? (module as any) : undefined;
-  if (anyModule && anyModule.hot) {
-    anyModule.hot.dispose(() => {
+  const runtimeModule = getRuntimeModule();
+  if (runtimeModule?.hot) {
+    runtimeModule.hot.dispose(() => {
       try { chatWidgetManager.destroy(); } catch {}
     });
-    anyModule.hot.accept(() => {
+    runtimeModule.hot.accept(() => {
       try {
         if (!document.getElementById('wiggum-chat-widget-root')) {
           chatWidgetManager.init();
