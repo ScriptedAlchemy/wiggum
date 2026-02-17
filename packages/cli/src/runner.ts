@@ -360,6 +360,16 @@ function collectDependencyPackageNames(field: Record<string, string>): string[] 
   return Array.from(dependencyPackageNames);
 }
 
+function collectBundledDependencyPackageNames(rawValue: unknown): string[] {
+  if (!Array.isArray(rawValue)) {
+    return [];
+  }
+  return rawValue
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
 async function readPackageInfo(projectRoot: string): Promise<{
   packageName?: string;
   dependencyPackageNames: string[];
@@ -376,6 +386,8 @@ async function readPackageInfo(projectRoot: string): Promise<{
       devDependencies?: Record<string, string>;
       peerDependencies?: Record<string, string>;
       optionalDependencies?: Record<string, string>;
+      bundleDependencies?: string[];
+      bundledDependencies?: string[];
     }>(packageJsonPath);
     const fields = [
       pkg.dependencies ?? {},
@@ -383,8 +395,15 @@ async function readPackageInfo(projectRoot: string): Promise<{
       pkg.peerDependencies ?? {},
       pkg.optionalDependencies ?? {},
     ];
+    const bundledDependencyPackageNames = [
+      ...collectBundledDependencyPackageNames(pkg.bundleDependencies),
+      ...collectBundledDependencyPackageNames(pkg.bundledDependencies),
+    ];
     const dependencyPackageNames = Array.from(
-      new Set(fields.flatMap((field) => collectDependencyPackageNames(field)))
+      new Set([
+        ...fields.flatMap((field) => collectDependencyPackageNames(field)),
+        ...bundledDependencyPackageNames,
+      ]),
     );
     return { packageName: pkg.name, dependencyPackageNames };
   } catch {
