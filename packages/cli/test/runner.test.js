@@ -1866,6 +1866,48 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace ignores non-string bundled dependency entries without dropping valid package names', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared-a/package.json'), {
+      name: '@scope/shared-a',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/shared-b/package.json'), {
+      name: '@scope/shared-b',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      bundleDependencies: ['@scope/shared-a', '', 7, null],
+      bundledDependencies: ['@scope/shared-b', false, { name: 'oops' }],
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual([
+      '@scope/shared-a',
+      '@scope/shared-b',
+    ]);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-a',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-b',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace links local manifest dependencies declared via workspace alias specifiers', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {
@@ -2294,6 +2336,37 @@ describe('Wiggum runner workspace graph', () => {
     });
     expect(workspace.graph.edges).toContainEqual({
       from: '@scope/shared-portal',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
+  test('resolveRunnerWorkspace resolves plain workspace path package.json specifiers with query/hash suffixes', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared-workspace/package.json'), {
+      name: '@scope/shared-workspace',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'workspace-shared': 'workspace:../shared-workspace/package.json?foo=1#bar',
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual(['@scope/shared-workspace']);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-workspace',
       to: '@scope/app',
       reason: 'manifest',
     });
