@@ -392,6 +392,7 @@ export function validateRequiredWorkflowContentContracts(
     throw new Error('Workflow content contracts must be an array');
   }
 
+  const seenDescriptions = new Set();
   for (let index = 0; index < contracts.length; index += 1) {
     const contract = contracts[index];
     if (!contract || typeof contract !== 'object') {
@@ -400,6 +401,10 @@ export function validateRequiredWorkflowContentContracts(
     if (typeof contract.description !== 'string' || contract.description.trim().length === 0) {
       throw new Error(`Workflow content contract at index ${index} must include a non-empty description`);
     }
+    if (seenDescriptions.has(contract.description)) {
+      throw new Error(`Duplicate workflow content contract description "${contract.description}"`);
+    }
+    seenDescriptions.add(contract.description);
     if (
       contract.requiredJob !== undefined
       && (typeof contract.requiredJob !== 'string' || contract.requiredJob.trim().length === 0)

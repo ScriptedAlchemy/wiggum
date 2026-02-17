@@ -186,6 +186,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('has invalid requiredJob value');
   });
 
+  test('validateRequiredWorkflowContentContracts rejects duplicate contract descriptions', () => {
+    expect(() =>
+      validateRequiredWorkflowContentContracts([
+        {
+          description: 'duplicate content contract',
+          pattern: /abc/,
+        },
+        {
+          description: 'duplicate content contract',
+          verify: () => true,
+        },
+      ]),
+    ).toThrow('Duplicate workflow content contract description "duplicate content contract"');
+  });
+
   test('rejects non-string packageJsonContent input', () => {
     const { workflowContent } = readCurrentInputs();
     expect(() =>
