@@ -198,7 +198,7 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
 ];
 
-const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
+export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   {
     description: 'build-and-test job must target ubuntu-latest',
     requiredJob: 'build-and-test',
@@ -527,6 +527,7 @@ function verifyWorkflowContent(workflow, workflowPath = WORKFLOW_PATH) {
 
   return {
     requiredStepCount: REQUIRED_WORKFLOW_STEPS.length,
+    requiredContentPatternCount: REQUIRED_WORKFLOW_CONTENT_PATTERNS.length,
   };
 }
 
@@ -572,7 +573,7 @@ function main() {
     workflowPath,
   });
   console.log(
-    `[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow (${result.requiredScriptCount} scripts, ${result.requiredStepCount} steps).`,
+    `[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow (${result.requiredScriptCount} scripts, ${result.requiredStepCount} steps, ${result.requiredContentPatternCount} content requirements).`,
   );
 }
 

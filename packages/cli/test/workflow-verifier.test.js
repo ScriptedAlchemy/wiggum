@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import {
   REQUIRED_PACKAGE_SCRIPTS,
+  REQUIRED_WORKFLOW_CONTENT_PATTERNS,
   REQUIRED_WORKFLOW_STEPS,
   resolveWorkflowVerifierPathsFromEnv,
   verifyRunnerWorkflowCoverage,
@@ -271,6 +272,7 @@ describe('runner workflow coverage verifier', () => {
     expect(result).toEqual({
       requiredScriptCount: REQUIRED_PACKAGE_SCRIPTS.length,
       requiredStepCount: REQUIRED_WORKFLOW_STEPS.length,
+      requiredContentPatternCount: REQUIRED_WORKFLOW_CONTENT_PATTERNS.length,
     });
   });
 
@@ -1297,7 +1299,7 @@ describe('runner workflow coverage verifier', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow');
     expect(result.stdout).toContain(
-      `(${REQUIRED_PACKAGE_SCRIPTS.length} scripts, ${REQUIRED_WORKFLOW_STEPS.length} steps).`,
+      `(${REQUIRED_PACKAGE_SCRIPTS.length} scripts, ${REQUIRED_WORKFLOW_STEPS.length} steps, ${REQUIRED_WORKFLOW_CONTENT_PATTERNS.length} content requirements).`,
     );
   });
 
