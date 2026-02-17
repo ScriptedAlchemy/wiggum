@@ -325,6 +325,40 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('missing required content: build-and-test node matrix must run on 20.x');
   });
 
+  test('fails when pull_request workflow branches drop develop', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'pull_request:\n    branches: [ main, develop ]',
+      'pull_request:\n    branches: [ main ]',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: pull_request trigger branches must include main and develop');
+  });
+
+  test('fails when lint job node setup drifts from 20.x', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '      - name: Setup Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: 20.x',
+      '      - name: Setup Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: 22.x',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: lint job node setup must run on 20.x');
+  });
+
   test('fails when widget API smoke workflow step is renamed away', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
