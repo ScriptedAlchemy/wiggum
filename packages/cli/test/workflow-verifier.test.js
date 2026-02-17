@@ -325,6 +325,23 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('is missing required step "Run full demo app e2e suite"');
   });
 
+  test('fails when publint workflow step is renamed away', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '- name: Run publint',
+      '- name: Run package lint',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('is missing required step "Run publint"');
+  });
+
   test('fails when full demo e2e workflow step command is rewired', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
@@ -357,6 +374,23 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('Step "Run full demo app e2e suite" must run "pnpm run test:demo:e2e"');
+  });
+
+  test('fails when publint workflow step command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm run publint',
+      'run: pnpm -r publint',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Run publint" must run "pnpm run publint"');
   });
 
   test('fails when Playwright Chromium install step command is rewired', () => {
@@ -452,6 +486,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Missing required package scripts: test:demo:e2e');
   });
 
+  test('fails when publint package script is missing', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    delete parsedPackage.scripts.publint;
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Missing required package scripts: publint');
+  });
+
   test('fails when full demo e2e package script command is rewired', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const parsedPackage = JSON.parse(packageJsonContent);
@@ -465,6 +514,21 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('Package script "test:demo:e2e" does not match expected command pattern');
+  });
+
+  test('fails when publint package script command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts.publint = 'pnpm -r lint';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "publint" does not match expected command pattern');
   });
 
   test('fails when Playwright setup package script command is rewired', () => {

@@ -44,6 +44,7 @@ const PACKAGE_JSON_PATH = path.join(DEFAULT_ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(DEFAULT_ROOT, '.github/workflows/ci.yml');
 
 export const REQUIRED_PACKAGE_SCRIPTS = [
+  'publint',
   'setup:demo:playwright',
   'test:demo:e2e',
   'test:demo:widget-api',
@@ -52,6 +53,7 @@ export const REQUIRED_PACKAGE_SCRIPTS = [
   'verify:runner:workflow',
 ];
 export const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
+  'publint': /^pnpm\s+-r\s+publint$/,
   'setup:demo:playwright': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+exec\s+playwright\s+install\s+chromium$/,
   'test:demo:e2e': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e$/,
   'test:demo:widget-api': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e:widget-api$/,
@@ -139,6 +141,14 @@ export const REQUIRED_WORKFLOW_STEPS = [
       /continue-on-error:\s*true/,
       /run:\s*pnpm -r --if-present run lint\s*\|\|\s*true/,
       /run:\s*pnpm -r run lint/,
+    ],
+  },
+  {
+    name: 'Run publint',
+    requiredRunCommand: 'pnpm run publint',
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm run publint\s*\|\|\s*true/,
     ],
   },
   {
