@@ -202,8 +202,16 @@ const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
     pattern: /matrix:\s*\n\s*node-version:\s*\[\s*20\.x\s*\]/,
   },
   {
+    description: 'build-and-test setup-node must enable pnpm cache',
+    pattern: /build-and-test:\s*\n[\s\S]*?- name:\s*Setup Node\.js \$\{\{ matrix\.node-version \}\}\s*\n\s*uses:\s*actions\/setup-node@v4\s*\n\s*with:\s*\n\s*node-version:\s*\$\{\{ matrix\.node-version \}\}\s*\n\s*cache:\s*['"]pnpm['"]/,
+  },
+  {
     description: 'lint job node setup must run on 20.x',
     pattern: /lint:\s*\n[\s\S]*?- name:\s*Setup Node\.js[\s\S]*?node-version:\s*20\.x/,
+  },
+  {
+    description: 'lint setup-node must enable pnpm cache',
+    pattern: /lint:\s*\n[\s\S]*?- name:\s*Setup Node\.js\s*\n\s*uses:\s*actions\/setup-node@v4\s*\n\s*with:\s*\n\s*node-version:\s*20\.x\s*\n\s*cache:\s*['"]pnpm['"]/,
   },
 ];
 
