@@ -227,22 +227,38 @@ class ChatWidgetManager {
     this.isInitialized = false;
   }
 
-  private setOpenState(shouldOpen: boolean) {
+  private setOpenState(shouldOpen: boolean, attempt = 0) {
     const root = document.getElementById('wiggum-chat-widget-root');
-    if (!root) return;
+    if (!root) {
+      if (attempt < 10) {
+        window.setTimeout(() => this.setOpenState(shouldOpen, attempt + 1), 16);
+      }
+      return;
+    }
     const isCurrentlyOpen = root.querySelector('.chat-widget__window') !== null;
     if (isCurrentlyOpen === shouldOpen) return;
     const toggleButton = root.querySelector<HTMLButtonElement>('.chat-widget__toggle');
-    toggleButton?.click();
+    if (!toggleButton) {
+      if (attempt < 10) {
+        window.setTimeout(() => this.setOpenState(shouldOpen, attempt + 1), 16);
+      }
+      return;
+    }
+    toggleButton.click();
+    if (attempt < 10) {
+      window.setTimeout(() => {
+        if (this.isOpen() !== shouldOpen) {
+          this.setOpenState(shouldOpen, attempt + 1);
+        }
+      }, 16);
+    }
   }
 
   open() {
     if (!this.isInitialized) {
       this.init(this.lastConfig);
     }
-    queueMicrotask(() => {
-      this.setOpenState(true);
-    });
+    this.setOpenState(true);
   }
 
   close() {
