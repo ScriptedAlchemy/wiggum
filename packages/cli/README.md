@@ -147,6 +147,9 @@ Coverage verifier:
 - `WIGGUM_RUNNER_VERIFY_PACKAGES_DIR`
 - `MIN_EXPECTED_WIGGUM_RUNNER_PROJECTS`
 
+If `WIGGUM_RUNNER_VERIFY_CONFIG_PATH` is omitted, the coverage verifier auto-detects the first supported runner config in precedence order (`wiggum.config.mjs`, `wiggum.config.js`, `wiggum.config.cjs`, `wiggum.config.json`) and falls back to `wiggum.config.json` when none exist.
+Unsupported TypeScript runner config variants (`wiggum.config.ts` / `.mts` / `.cts`) fail fast with explicit diagnostics.
+
 Workflow verifier:
 
 - `WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT`

@@ -160,6 +160,9 @@ These scripts also support path override environment variables for isolated fixt
 - Coverage verifier: `WIGGUM_RUNNER_VERIFY_ROOT`, `WIGGUM_RUNNER_VERIFY_CONFIG_PATH`, `WIGGUM_RUNNER_VERIFY_PACKAGES_DIR`
 - Workflow verifier: `WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT`, `WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH`, `WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH`
 
+When `WIGGUM_RUNNER_VERIFY_CONFIG_PATH` is omitted, the coverage verifier auto-detects supported runner configs in precedence order (`wiggum.config.mjs`, `wiggum.config.js`, `wiggum.config.cjs`, `wiggum.config.json`) and otherwise falls back to `wiggum.config.json`.
+Unsupported TypeScript runner config variants (`wiggum.config.ts` / `.mts` / `.cts`) fail fast with explicit diagnostics.
+
 Whitespace-only override values are ignored and safely fall back to default repository paths.
 Relative override paths resolve from the verifier root override, and absolute paths are honored directly.
 
