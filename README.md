@@ -151,6 +151,7 @@ The MCP server in `packages/mcp` exposes tools to search and fetch documentation
 - Test everything: `pnpm test`
 - Type check (best‑effort): `pnpm -r exec tsc --noEmit`
 - Install demo Playwright browser: `pnpm run setup:demo:playwright`
+- Run full demo Playwright e2e: `pnpm run test:demo:e2e`
 - Run widget-browser API e2e smoke: `pnpm run test:demo:widget-api`
 
 CI runs on pushes and PRs against `main` and `develop` and validates build, tests, widget browser API smoke checks, and type checks on Node 20.x.
