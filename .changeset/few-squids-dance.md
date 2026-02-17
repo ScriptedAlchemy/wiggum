@@ -11,3 +11,5 @@ Additional runner graph hardening now broadens inferred dependency detection acr
 Inference scan behavior is now tunable via `WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES` (positive integer, default `400`) with explicit validation and mode-aware behavior across `run` and `projects` workflows (including fallback/ignore behavior when `--no-infer-imports` is enabled).
 
 Runner config resolution now fails fast with deterministic diagnostics when unsupported TypeScript config variants (`wiggum.config.ts`, `.mts`, `.cts`) are used, while still preferring supported config files (`wiggum.config.json`, `.mjs`, `.js`, `.cjs`) when both are present.
+
+Runner coverage verifier defaults are now aligned with runtime runner behavior by auto-detecting supported config files in runner precedence order, scoping defaults correctly to explicit verifier roots, and failing fast for unsupported TypeScript config overrides with explicit diagnostics.
