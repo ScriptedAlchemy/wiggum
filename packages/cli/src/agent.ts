@@ -99,7 +99,7 @@ export function spawnOpenCode(args: string[], options: AgentOptions = {}): Child
   const child = spawn('opencode', args, openCodeOptions);
 
   child.on('error', (error) => {
-    if ((error as any).code === 'ENOENT') {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       console.error(chalk.red('OpenCode binary not found'));
       console.log(chalk.yellow('Run "wiggum agent install" to install OpenCode'));
     } else {
