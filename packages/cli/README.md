@@ -158,6 +158,20 @@ Workflow verifier:
 
 Blank override values are ignored, so whitespace-only values safely fall back to default paths.
 Relative override paths resolve from the configured verifier root, while absolute paths are used as-is.
+The workflow verifier contract currently enforces:
+
+- required root package scripts and exact command patterns
+- required CI steps and per-job step ordering
+- required trigger branches (`main`, `develop`) with support for inline or multiline branch YAML
+- required CI job/runtime metadata (ubuntu runners, Node 20, pnpm cache wiring)
+- required CI action versions (`actions/checkout@v4`, `pnpm/action-setup@v2`, `actions/setup-node@v4`)
+- explicit rejection of `continue-on-error: true` drift on required jobs
+
+Successful verifier output includes all contract counts in one line:
+
+```text
+[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow (<scripts> scripts, <steps> steps, <content requirements> content requirements).
+```
 
 ### Agent integration (OpenCode)
 
