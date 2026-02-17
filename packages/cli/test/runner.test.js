@@ -1897,6 +1897,50 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace resolves workspace/npm alias targets when specifiers include query/hash suffixes', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared-npm/package.json'), {
+      name: '@scope/shared-npm',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/shared-workspace/package.json'), {
+      name: '@scope/shared-workspace',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'npm-alias': 'npm:@scope/shared-npm@workspace:*?tag=latest#ignored',
+        'workspace-alias': 'workspace:@scope/shared-workspace@*?tag=latest#ignored',
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual([
+      '@scope/shared-npm',
+      '@scope/shared-workspace',
+    ]);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-npm',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared-workspace',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace ignores workspace/npm alias specifiers without explicit package alias targets', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {

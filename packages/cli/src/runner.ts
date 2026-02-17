@@ -326,34 +326,43 @@ async function readRunnerConfig(configPath: string): Promise<RunnerConfig> {
 }
 
 function parseAliasTargetPackageName(aliasBody: string): string | undefined {
-  if (aliasBody.length === 0) {
-    return undefined;
-  }
-
-  if (aliasBody.startsWith('*') || aliasBody.startsWith('^') || aliasBody.startsWith('~')) {
+  const normalizedAliasBody = stripSpecifierSuffix(aliasBody).trim();
+  if (normalizedAliasBody.length === 0) {
     return undefined;
   }
 
   if (
-    aliasBody.startsWith('./') ||
-    aliasBody.startsWith('../') ||
-    aliasBody.startsWith('/') ||
-    aliasBody.startsWith('file:')
+    normalizedAliasBody.startsWith('*') ||
+    normalizedAliasBody.startsWith('^') ||
+    normalizedAliasBody.startsWith('~')
+  ) {
+    return undefined;
+  }
+
+  if (
+    normalizedAliasBody.startsWith('./') ||
+    normalizedAliasBody.startsWith('../') ||
+    normalizedAliasBody.startsWith('/') ||
+    normalizedAliasBody.startsWith('file:')
   ) {
     return undefined;
   }
 
   let candidatePackageName: string;
-  if (aliasBody.startsWith('@')) {
-    const scopeSeparatorIndex = aliasBody.indexOf('/');
+  if (normalizedAliasBody.startsWith('@')) {
+    const scopeSeparatorIndex = normalizedAliasBody.indexOf('/');
     if (scopeSeparatorIndex <= 1) {
       return undefined;
     }
-    const versionSeparatorIndex = aliasBody.indexOf('@', scopeSeparatorIndex + 1);
-    candidatePackageName = versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
+    const versionSeparatorIndex = normalizedAliasBody.indexOf('@', scopeSeparatorIndex + 1);
+    candidatePackageName = versionSeparatorIndex === -1
+      ? normalizedAliasBody
+      : normalizedAliasBody.slice(0, versionSeparatorIndex);
   } else {
-    const versionSeparatorIndex = aliasBody.indexOf('@');
-    candidatePackageName = versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
+    const versionSeparatorIndex = normalizedAliasBody.indexOf('@');
+    candidatePackageName = versionSeparatorIndex === -1
+      ? normalizedAliasBody
+      : normalizedAliasBody.slice(0, versionSeparatorIndex);
   }
 
   if (!/^(?:@[^/\s]+\/[^/\s]+|[^@/\s][^/\s]*)$/.test(candidatePackageName)) {
@@ -361,6 +370,15 @@ function parseAliasTargetPackageName(aliasBody: string): string | undefined {
   }
 
   return candidatePackageName;
+}
+
+function stripSpecifierSuffix(rawValue: string): string {
+  const hashIndex = rawValue.indexOf('#');
+  const queryIndex = rawValue.indexOf('?');
+  const suffixCutoff = [hashIndex, queryIndex]
+    .filter((index) => index >= 0)
+    .reduce((min, index) => Math.min(min, index), Number.POSITIVE_INFINITY);
+  return Number.isFinite(suffixCutoff) ? rawValue.slice(0, suffixCutoff) : rawValue;
 }
 
 function parseNpmAliasDependencyTarget(specifier: string): string | undefined {
@@ -443,12 +461,7 @@ async function parseLocalPathDependencyTarget(
     return undefined;
   }
 
-  const hashIndex = rawPath.indexOf('#');
-  const queryIndex = rawPath.indexOf('?');
-  const suffixCutoff = [hashIndex, queryIndex]
-    .filter((index) => index >= 0)
-    .reduce((min, index) => Math.min(min, index), Number.POSITIVE_INFINITY);
-  const cleanedPath = (Number.isFinite(suffixCutoff) ? rawPath.slice(0, suffixCutoff) : rawPath).trim();
+  const cleanedPath = stripSpecifierSuffix(rawPath).trim();
   if (cleanedPath.length === 0) {
     return undefined;
   }
