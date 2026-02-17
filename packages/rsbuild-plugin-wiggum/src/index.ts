@@ -17,6 +17,7 @@ export interface ChatWidgetOptions {
   
   // API configuration
   apiEndpoint?: string; // If provided, use this OpenCode server URL and skip spawning/proxying
+  disableBackend?: boolean; // Skip spawning/proxying backend and run widget in UI-only mode
   
   // Behavior options
   autoOpen?: boolean;
@@ -62,8 +63,10 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
   setup(api) {
     let opencodeUrl: string | undefined;
     let opencodeClose: (() => void | Promise<void>) | undefined;
+    const backendDisabledByOption = options.disableBackend === true;
     const backendDisabledByEnv = isTruthyEnv(process.env.WIGGUM_CHAT_WIDGET_DISABLE_BACKEND);
-    let backendDisabledForRuntime = backendDisabledByEnv;
+    const backendDisabledRequested = backendDisabledByOption || backendDisabledByEnv;
+    let backendDisabledForRuntime = backendDisabledRequested;
 
     const {
       customCSS = '',
@@ -97,7 +100,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
         if (options.apiEndpoint) {
           opencodeUrl = options.apiEndpoint;
           backendDisabledForRuntime = false;
-        } else if (backendDisabledByEnv) {
+        } else if (backendDisabledRequested) {
           opencodeUrl = undefined;
           backendDisabledForRuntime = true;
         } else {

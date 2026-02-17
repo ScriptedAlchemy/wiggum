@@ -137,7 +137,7 @@ export default defineConfig({
 ```
 
 By default, the plugin will start a local OpenCode server and proxy it at `/__opencode__` during `rsbuild dev`. You can also point it to an external server with `apiEndpoint`.
-For CI/e2e or environments without the `opencode` binary, set `WIGGUM_CHAT_WIDGET_DISABLE_BACKEND=1` to keep the widget UI mounted while skipping backend spawn/client wiring.
+For CI/e2e or environments without the `opencode` binary, set `disableBackend: true` in plugin options (or `WIGGUM_CHAT_WIDGET_DISABLE_BACKEND=1`) to keep the widget UI mounted while skipping backend spawn/client wiring.
 The browser API is exposed at `window.WiggumChatWidget` (`open`, `close`, `isOpen`, `init`, `destroy`).
 
 ## MCP Doc Explorer
