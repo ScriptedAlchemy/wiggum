@@ -324,14 +324,21 @@ async function readRunnerConfig(configPath: string): Promise<RunnerConfig> {
   return config;
 }
 
-function parseNpmAliasDependencyTarget(specifier: string): string | undefined {
-  const trimmedSpecifier = specifier.trim();
-  if (!trimmedSpecifier.startsWith('npm:')) {
+function parseAliasTargetPackageName(aliasBody: string): string | undefined {
+  if (aliasBody.length === 0) {
     return undefined;
   }
 
-  const aliasBody = trimmedSpecifier.slice('npm:'.length).trim();
-  if (aliasBody.length === 0) {
+  if (aliasBody.startsWith('*') || aliasBody.startsWith('^') || aliasBody.startsWith('~')) {
+    return undefined;
+  }
+
+  if (
+    aliasBody.startsWith('./') ||
+    aliasBody.startsWith('../') ||
+    aliasBody.startsWith('/') ||
+    aliasBody.startsWith('file:')
+  ) {
     return undefined;
   }
 
@@ -348,12 +355,38 @@ function parseNpmAliasDependencyTarget(specifier: string): string | undefined {
   return versionSeparatorIndex === -1 ? aliasBody : aliasBody.slice(0, versionSeparatorIndex);
 }
 
+function parseNpmAliasDependencyTarget(specifier: string): string | undefined {
+  const trimmedSpecifier = specifier.trim();
+  if (!trimmedSpecifier.startsWith('npm:')) {
+    return undefined;
+  }
+
+  const aliasBody = trimmedSpecifier.slice('npm:'.length).trim();
+  return parseAliasTargetPackageName(aliasBody);
+}
+
+function parseWorkspaceAliasDependencyTarget(specifier: string): string | undefined {
+  const trimmedSpecifier = specifier.trim();
+  if (!trimmedSpecifier.startsWith('workspace:')) {
+    return undefined;
+  }
+
+  const aliasBody = trimmedSpecifier.slice('workspace:'.length).trim();
+  return parseAliasTargetPackageName(aliasBody);
+}
+
 function collectDependencyPackageNames(field: Record<string, string>): string[] {
   const dependencyPackageNames = new Set<string>();
   for (const [dependencyName, dependencySpecifier] of Object.entries(field)) {
     dependencyPackageNames.add(dependencyName);
-    const aliasTargetPackageName = parseNpmAliasDependencyTarget(dependencySpecifier);
-    if (aliasTargetPackageName) {
+    const aliasTargets = [
+      parseNpmAliasDependencyTarget(dependencySpecifier),
+      parseWorkspaceAliasDependencyTarget(dependencySpecifier),
+    ];
+    for (const aliasTargetPackageName of aliasTargets) {
+      if (!aliasTargetPackageName) {
+        continue;
+      }
       dependencyPackageNames.add(aliasTargetPackageName);
     }
   }
