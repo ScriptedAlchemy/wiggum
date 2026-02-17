@@ -275,6 +275,11 @@ export function validateRequiredWorkflowStepContracts(
         `Required workflow step "${step.name}" must include a non-empty requiredRunCommand`,
       );
     }
+    if (/[\r\n]/.test(step.requiredRunCommand)) {
+      throw new Error(
+        `Required workflow step "${step.name}" must define requiredRunCommand as a single-line command`,
+      );
+    }
     if (!Array.isArray(step.forbiddenPatterns)) {
       throw new Error(`Required workflow step "${step.name}" must include forbiddenPatterns array`);
     }

@@ -165,6 +165,18 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('must include at least one forbidden pattern');
   });
 
+  test('validateRequiredWorkflowStepContracts rejects multiline required commands', () => {
+    expect(() =>
+      validateRequiredWorkflowStepContracts([
+        {
+          name: 'invalid-step-with-multiline-command',
+          requiredRunCommand: 'pnpm build\npnpm test',
+          forbiddenPatterns: [/continue-on-error/],
+        },
+      ]),
+    ).toThrow('must define requiredRunCommand as a single-line command');
+  });
+
   test('validateRequiredWorkflowStepContracts rejects duplicate required step contract in same job', () => {
     expect(() =>
       validateRequiredWorkflowStepContracts([
