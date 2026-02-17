@@ -91,4 +91,22 @@ test.describe('Widget manager browser API', () => {
     expect(afterReopen.isOpen).toBe(true);
     expect(afterReopen.hasWindow).toBe(true);
   });
+
+  test('sending a message works in backend-disabled mode', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('#wiggum-chat-widget-root');
+
+    await page.evaluate(() => {
+      window.WiggumChatWidget?.open();
+    });
+    await page.waitForFunction(() => window.WiggumChatWidget?.isOpen() === true);
+
+    await page.fill('.chat-widget__input', 'hello from playwright');
+    await page.click('.chat-widget__send');
+
+    await expect(page.locator('.chat-widget__message-content')).toContainText([
+      'hello from playwright',
+      'Thanks! I will look into that.',
+    ]);
+  });
 });
