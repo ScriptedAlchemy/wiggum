@@ -7,6 +7,7 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r exec tsc --noEmit",
+    "lint": "pnpm -r --if-present run lint",
     "setup:demo:playwright": "pnpm --filter ./packages/demo-app exec playwright install chromium",
     "test:demo:e2e": "pnpm --filter ./packages/demo-app test:e2e",
     "test:demo:widget-api": "pnpm --filter ./packages/demo-app test:e2e:widget-api",

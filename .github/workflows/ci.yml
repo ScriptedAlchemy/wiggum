@@ -80,7 +80,7 @@ jobs:
         run: pnpm build
         
       - name: Run linting
-        run: pnpm -r --if-present run lint
+        run: pnpm run lint
 
       - name: Run publint
         run: pnpm run publint

@@ -346,8 +346,8 @@ describe('runner workflow coverage verifier', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
       workflowContent,
-      '      - name: Run linting\n        run: pnpm -r --if-present run lint\n\n      - name: Run publint\n        run: pnpm run publint',
-      '      - name: Run publint\n        run: pnpm run publint\n\n      - name: Run linting\n        run: pnpm -r --if-present run lint',
+      '      - name: Run linting\n        run: pnpm run lint\n\n      - name: Run publint\n        run: pnpm run publint',
+      '      - name: Run publint\n        run: pnpm run publint\n\n      - name: Run linting\n        run: pnpm run lint',
     );
 
     expect(() =>
@@ -552,6 +552,21 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Missing required package scripts: publint');
   });
 
+  test('fails when lint package script is missing', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    delete parsedPackage.scripts.lint;
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Missing required package scripts: lint');
+  });
+
   test('fails when ci:validate package script is missing', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const parsedPackage = JSON.parse(packageJsonContent);
@@ -595,6 +610,21 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('Package script "publint" does not match expected command pattern');
+  });
+
+  test('fails when lint package script command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts.lint = 'pnpm -r run lint';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "lint" does not match expected command pattern');
   });
 
   test('fails when ci:validate package script command is rewired', () => {
@@ -734,11 +764,11 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Step "Run runner-focused CLI tests"');
   });
 
-  test('fails when lint step drops --if-present safety flag', () => {
+  test('fails when lint step bypasses the root lint script command', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
       workflowContent,
-      'run: pnpm -r --if-present run lint',
+      'run: pnpm run lint',
       'run: pnpm -r run lint',
     );
 

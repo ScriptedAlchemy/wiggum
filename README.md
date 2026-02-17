@@ -149,13 +149,14 @@ The MCP server in `packages/mcp` exposes tools to search and fetch documentation
 
 - Build everything: `pnpm build`
 - Test everything: `pnpm test`
+- Run workspace lint: `pnpm run lint`
 - Type check (best‑effort): `pnpm run typecheck`
 - Install demo Playwright browser: `pnpm run setup:demo:playwright`
 - Run full demo Playwright e2e: `pnpm run test:demo:e2e`
 - Run widget-browser API e2e smoke: `pnpm run test:demo:widget-api`
 - Run full local CI-equivalent gate: `pnpm run ci:validate`
 
-CI runs on pushes and PRs against `main` and `develop` and validates build, tests, runner verifiers, publint, demo Playwright e2e coverage (smoke + full suite), and type checks on Node 20.x.
+CI runs on pushes and PRs against `main` and `develop` and validates build, tests, linting, runner verifiers, publint, demo Playwright e2e coverage (smoke + full suite), and type checks on Node 20.x.
 
 Runner-specific CI guard scripts:
 

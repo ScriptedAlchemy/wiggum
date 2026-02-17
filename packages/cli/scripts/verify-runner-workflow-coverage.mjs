@@ -45,6 +45,7 @@ const WORKFLOW_PATH = path.join(DEFAULT_ROOT, '.github/workflows/ci.yml');
 
 export const REQUIRED_PACKAGE_SCRIPTS = [
   'ci:validate',
+  'lint',
   'publint',
   'setup:demo:playwright',
   'test:demo:e2e',
@@ -56,6 +57,7 @@ export const REQUIRED_PACKAGE_SCRIPTS = [
 ];
 export const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
   'ci:validate': /^pnpm\s+build\s+&&\s+pnpm\s+test\s+&&\s+pnpm\s+run\s+verify:runner:all\s+&&\s+pnpm\s+run\s+publint\s+&&\s+pnpm\s+run\s+test:demo:e2e\s+&&\s+pnpm\s+run\s+typecheck$/,
+  'lint': /^pnpm\s+-r\s+--if-present\s+run\s+lint$/,
   'publint': /^pnpm\s+-r\s+publint$/,
   'setup:demo:playwright': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+exec\s+playwright\s+install\s+chromium$/,
   'test:demo:e2e': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e$/,
@@ -140,10 +142,11 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Run linting',
-    requiredRunCommand: 'pnpm -r --if-present run lint',
+    requiredRunCommand: 'pnpm run lint',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
-      /run:\s*pnpm -r --if-present run lint\s*\|\|\s*true/,
+      /run:\s*pnpm run lint\s*\|\|\s*true/,
+      /run:\s*pnpm -r --if-present run lint/,
       /run:\s*pnpm -r run lint/,
     ],
   },
