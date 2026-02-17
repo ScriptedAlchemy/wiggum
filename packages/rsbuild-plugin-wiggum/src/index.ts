@@ -61,7 +61,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
   
   setup(api) {
     let opencodeUrl: string | undefined;
-    let opencodeClose: (() => void) | undefined;
+    let opencodeClose: (() => void | Promise<void>) | undefined;
     const backendDisabledByEnv = isTruthyEnv(process.env.WIGGUM_CHAT_WIDGET_DISABLE_BACKEND);
     let backendDisabledForRuntime = backendDisabledByEnv;
 
@@ -217,7 +217,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     // Ensure we tear down opencode server when dev/preview server stops
     api.onCloseDevServer(async () => {
       if (opencodeClose) {
-        try { opencodeClose(); } catch { /* ignore */ }
+        try { await Promise.resolve(opencodeClose()); } catch { /* ignore */ }
       }
     });
     // Do NOT close on build-end; keep server alive during dev
