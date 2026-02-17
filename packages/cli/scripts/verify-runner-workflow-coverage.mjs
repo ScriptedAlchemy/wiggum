@@ -82,6 +82,9 @@ export function validateRequiredPackageScriptContracts(
   ) {
     throw new Error('Required package script patterns must be an object');
   }
+  if (requiredScripts.length === 0) {
+    throw new Error('Required package scripts must include at least one script');
+  }
 
   const seenScripts = new Set();
   for (let index = 0; index < requiredScripts.length; index += 1) {
@@ -100,6 +103,15 @@ export function validateRequiredPackageScriptContracts(
         `Required package script "${scriptName}" must have a regex command pattern`,
       );
     }
+  }
+
+  const extraPatternScripts = Object.keys(requiredScriptPatterns)
+    .filter((scriptName) => !seenScripts.has(scriptName))
+    .sort((a, b) => a.localeCompare(b));
+  if (extraPatternScripts.length > 0) {
+    throw new Error(
+      `Required package script patterns contain unexpected script key(s): ${extraPatternScripts.join(', ')}`,
+    );
   }
 }
 export const REQUIRED_WORKFLOW_STEPS = [
@@ -262,6 +274,9 @@ export function validateRequiredWorkflowStepContracts(
     }
     if (!Array.isArray(step.forbiddenPatterns)) {
       throw new Error(`Required workflow step "${step.name}" must include forbiddenPatterns array`);
+    }
+    if (step.forbiddenPatterns.length === 0) {
+      throw new Error(`Required workflow step "${step.name}" must include at least one forbidden pattern`);
     }
     for (const forbiddenPattern of step.forbiddenPatterns) {
       if (!(forbiddenPattern instanceof RegExp)) {

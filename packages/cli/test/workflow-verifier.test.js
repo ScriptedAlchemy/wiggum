@@ -101,6 +101,24 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Duplicate required package script "ci:validate"');
   });
 
+  test('validateRequiredPackageScriptContracts rejects empty required script list', () => {
+    expect(() =>
+      validateRequiredPackageScriptContracts([], {}),
+    ).toThrow('Required package scripts must include at least one script');
+  });
+
+  test('validateRequiredPackageScriptContracts rejects unexpected pattern keys', () => {
+    expect(() =>
+      validateRequiredPackageScriptContracts(
+        ['ci:validate'],
+        {
+          'ci:validate': /^pnpm build$/,
+          lint: /^pnpm lint$/,
+        },
+      ),
+    ).toThrow('Required package script patterns contain unexpected script key(s): lint');
+  });
+
   test('validateRequiredWorkflowStepContracts accepts current step definitions', () => {
     expect(() => validateRequiredWorkflowStepContracts()).not.toThrow();
   });
@@ -127,6 +145,18 @@ describe('runner workflow coverage verifier', () => {
         },
       ]),
     ).toThrow('has non-regex forbidden pattern');
+  });
+
+  test('validateRequiredWorkflowStepContracts rejects steps with empty forbidden pattern list', () => {
+    expect(() =>
+      validateRequiredWorkflowStepContracts([
+        {
+          name: 'invalid-step-without-forbidden-patterns',
+          requiredRunCommand: 'pnpm build',
+          forbiddenPatterns: [],
+        },
+      ]),
+    ).toThrow('must include at least one forbidden pattern');
   });
 
   test('validateRequiredWorkflowStepContracts rejects duplicate required step contract in same job', () => {
