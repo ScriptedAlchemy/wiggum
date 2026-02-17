@@ -70,6 +70,7 @@ interface ChatWidgetOptions {
 Notes:
 - When `apiEndpoint` is omitted, the plugin builds a merged OpenCode config using `@wiggum/agent`, spawns an ephemeral local server, and proxies it at `/__opencode__` during dev.
 - In production builds the plugin only injects the widget asset; you should provide your own service endpoint if you want a live chat experience.
+- Set `WIGGUM_CHAT_WIDGET_DISABLE_BACKEND=1` to skip OpenCode spawn/proxy setup (useful in CI/e2e environments where `opencode` is unavailable).
 
 ## Browser API
 

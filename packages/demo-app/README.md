@@ -49,6 +49,7 @@ pnpm test:e2e
 ```
 
 The e2e suite includes coverage for the browser widget API (`window.WiggumChatWidget.open/close/isOpen`).
+For test stability, the Playwright web server disables backend spawn with `WIGGUM_CHAT_WIDGET_DISABLE_BACKEND=1`.
 
 ## Learn more
 

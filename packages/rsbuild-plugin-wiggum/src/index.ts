@@ -50,6 +50,12 @@ function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
 }
 
+function isTruthyEnv(value: string | undefined): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
 export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin => ({
   name: 'rsbuild:chat-widget',
   
@@ -88,6 +94,8 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
         // If apiEndpoint is provided, skip server spawn and proxy
         if (options.apiEndpoint) {
           opencodeUrl = options.apiEndpoint;
+        } else if (isTruthyEnv(process.env.WIGGUM_CHAT_WIDGET_DISABLE_BACKEND)) {
+          opencodeUrl = undefined;
         } else {
           const config = await buildMergedConfig();
 
