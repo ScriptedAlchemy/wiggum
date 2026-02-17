@@ -1,15 +1,22 @@
-/* eslint-disable no-console */
 const assert = require('assert');
+
+function writeStdout(message) {
+  process.stdout.write(`${message}\n`);
+}
+
+function writeStderr(message) {
+  process.stderr.write(`${message}\n`);
+}
 
 let failures = 0;
 function test(name, fn) {
   try {
     fn();
-    console.log(`ok - ${name}`);
+    writeStdout(`ok - ${name}`);
   } catch (e) {
     failures++;
-    console.error(`not ok - ${name}`);
-    console.error(e && e.stack ? e.stack : e);
+    writeStderr(`not ok - ${name}`);
+    writeStderr(e && e.stack ? e.stack : String(e));
   }
 }
 
@@ -18,11 +25,11 @@ function testAsync(name, fn) {
   pending++;
   Promise.resolve()
     .then(fn)
-    .then(() => console.log(`ok - ${name}`))
+    .then(() => writeStdout(`ok - ${name}`))
     .catch((e) => {
       failures++;
-      console.error(`not ok - ${name}`);
-      console.error(e && e.stack ? e.stack : e);
+      writeStderr(`not ok - ${name}`);
+      writeStderr(e && e.stack ? e.stack : String(e));
     })
     .finally(() => {
       pending--;
@@ -32,10 +39,10 @@ function testAsync(name, fn) {
 
 function end() {
   if (failures) {
-    console.error(`\n${failures} test(s) failed`);
+    writeStderr(`\n${failures} test(s) failed`);
     process.exit(1);
   } else {
-    console.log('\nAll tests passed');
+    writeStdout('\nAll tests passed');
   }
 }
 (async () => {
@@ -118,6 +125,6 @@ function end() {
   if (pending === 0) end();
 })().catch((err) => {
   failures++;
-  console.error('Fatal test error:', err);
+  writeStderr(`Fatal test error: ${err && err.stack ? err.stack : String(err)}`);
   end();
 });
