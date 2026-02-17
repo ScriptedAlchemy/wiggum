@@ -6,6 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import {
+  REQUIRED_PACKAGE_SCRIPTS,
+  REQUIRED_WORKFLOW_STEPS,
   resolveWorkflowVerifierPathsFromEnv,
   verifyRunnerWorkflowCoverage,
 } from '../scripts/verify-runner-workflow-coverage.mjs';
@@ -267,8 +269,8 @@ describe('runner workflow coverage verifier', () => {
     });
 
     expect(result).toEqual({
-      requiredScriptCount: 6,
-      requiredStepCount: 11,
+      requiredScriptCount: REQUIRED_PACKAGE_SCRIPTS.length,
+      requiredStepCount: REQUIRED_WORKFLOW_STEPS.length,
     });
   });
 
@@ -704,7 +706,9 @@ describe('runner workflow coverage verifier', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow');
-    expect(result.stdout).toContain('(6 scripts, 11 steps).');
+    expect(result.stdout).toContain(
+      `(${REQUIRED_PACKAGE_SCRIPTS.length} scripts, ${REQUIRED_WORKFLOW_STEPS.length} steps).`,
+    );
   });
 
   test('workflow verifier CLI entrypoint reports prefixed error on invalid workflow', () => {

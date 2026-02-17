@@ -43,7 +43,7 @@ export function resolveWorkflowVerifierPathsFromEnv({
 const PACKAGE_JSON_PATH = path.join(DEFAULT_ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(DEFAULT_ROOT, '.github/workflows/ci.yml');
 
-const REQUIRED_PACKAGE_SCRIPTS = [
+export const REQUIRED_PACKAGE_SCRIPTS = [
   'setup:demo:playwright',
   'test:demo:e2e',
   'test:demo:widget-api',
@@ -51,7 +51,7 @@ const REQUIRED_PACKAGE_SCRIPTS = [
   'verify:runner:coverage',
   'verify:runner:workflow',
 ];
-const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
+export const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
   'setup:demo:playwright': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+exec\s+playwright\s+install\s+chromium$/,
   'test:demo:e2e': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e$/,
   'test:demo:widget-api': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e:widget-api$/,
@@ -59,7 +59,7 @@ const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
   'verify:runner:coverage': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs$/,
   'verify:runner:workflow': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-workflow-coverage\.mjs$/,
 };
-const REQUIRED_WORKFLOW_STEPS = [
+export const REQUIRED_WORKFLOW_STEPS = [
   {
     name: 'Build all packages',
     requiredRunCommand: 'pnpm build',
