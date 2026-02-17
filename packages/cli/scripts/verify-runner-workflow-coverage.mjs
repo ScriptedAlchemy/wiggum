@@ -119,6 +119,12 @@ const REQUIRED_WORKFLOW_STEPS = [
 
 function readUtf8(filePath) {
   try {
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath);
+      if (!stats.isFile()) {
+        throw new Error(`Path must be a file: ${filePath}`);
+      }
+    }
     return fs.readFileSync(filePath, 'utf8');
   } catch (error) {
     throw new Error(`Failed to read ${filePath}: ${error instanceof Error ? error.message : String(error)}`);

@@ -722,6 +722,34 @@ describe('runner workflow coverage verifier', () => {
     }
   });
 
+  test('workflow verifier CLI entrypoint reports overridden workflow directory path', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent,
+      workflowContent,
+    });
+    const workflowDirectoryPath = path.join(fixture.rootDir, 'custom-workflows', 'directory-ci.yml');
+    fs.mkdirSync(workflowDirectoryPath, { recursive: true });
+
+    try {
+      const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: fixture.rootDir,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_WORKFLOW_PATH: workflowDirectoryPath,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+      expect(result.stderr).toContain(`Path must be a file: ${workflowDirectoryPath}`);
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
+  });
+
   test('workflow verifier CLI entrypoint reports overridden missing package path', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const fixture = createWorkflowVerifierFixture({
@@ -744,6 +772,34 @@ describe('runner workflow coverage verifier', () => {
       expect(result.status).toBe(1);
       expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
       expect(result.stderr).toContain(`Failed to read ${missingPackagePath}`);
+    } finally {
+      cleanupWorkflowVerifierFixture(fixture);
+    }
+  });
+
+  test('workflow verifier CLI entrypoint reports overridden package directory path', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const fixture = createWorkflowVerifierFixture({
+      packageJsonContent,
+      workflowContent,
+    });
+    const packageDirectoryPath = path.join(fixture.rootDir, 'custom-packages', 'directory-package.json');
+    fs.mkdirSync(packageDirectoryPath, { recursive: true });
+
+    try {
+      const result = spawnSync(process.execPath, [WORKFLOW_VERIFIER_SCRIPT_PATH], {
+        cwd: fixture.rootDir,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_ROOT: fixture.rootDir,
+          WIGGUM_RUNNER_WORKFLOW_VERIFY_PACKAGE_JSON_PATH: packageDirectoryPath,
+        },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain('[verify-runner-workflow-coverage]');
+      expect(result.stderr).toContain(`Path must be a file: ${packageDirectoryPath}`);
     } finally {
       cleanupWorkflowVerifierFixture(fixture);
     }
