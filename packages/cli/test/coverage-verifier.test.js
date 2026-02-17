@@ -339,6 +339,14 @@ describe('runner coverage verifier', () => {
     ).toThrow('env must be an object');
   });
 
+  test('resolveVerifierPathsFromEnv rejects primitive string env values', () => {
+    expect(() =>
+      resolveVerifierPathsFromEnv({
+        env: 'invalid-env',
+      }),
+    ).toThrow('env must be an object');
+  });
+
   test('resolveVerifierPathsFromEnv rejects non-string override values', () => {
     expect(() =>
       resolveVerifierPathsFromEnv({

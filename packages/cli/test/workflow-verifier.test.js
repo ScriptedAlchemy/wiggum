@@ -200,6 +200,14 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('env must be an object');
   });
 
+  test('resolveWorkflowVerifierPathsFromEnv rejects primitive string env values', () => {
+    expect(() =>
+      resolveWorkflowVerifierPathsFromEnv({
+        env: 'invalid-env',
+      }),
+    ).toThrow('env must be an object');
+  });
+
   test('resolveWorkflowVerifierPathsFromEnv rejects non-string override values', () => {
     expect(() =>
       resolveWorkflowVerifierPathsFromEnv({
