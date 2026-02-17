@@ -1,4 +1,5 @@
 import type { RsbuildPlugin } from '@rsbuild/core';
+import type { Config } from '@opencode-ai/sdk';
 import path from 'path';
 import fs from 'fs';
 import { createOpencodeServer } from '@opencode-ai/sdk';
@@ -29,6 +30,21 @@ export interface ChatWidgetOptions {
 }
 
 export interface ChatWidgetProps extends Omit<ChatWidgetOptions, 'customCSS' | 'customTheme'> {}
+
+type DevServerMiddlewares = {
+  use: (path: string, middleware: unknown) => void;
+};
+
+type DevServerWithMiddlewares = {
+  middlewares?: DevServerMiddlewares;
+};
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
 
 export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin => ({
   name: 'rsbuild:chat-widget',
@@ -86,9 +102,16 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
             buildPrompt = 'You are the Wiggum Build Assistant. Focus on build pipeline and bundling. Do not execute shell commands; propose minimal patches.';
           }
 
-          const cfg: any = { ...(config as any) };
-          cfg.mode = cfg.mode || {};
-          cfg.mode.build = { ...(cfg.mode.build || {}), prompt: buildPrompt };
+          const cfg: Config = {
+            ...config,
+            mode: {
+              ...(config.mode ?? {}),
+              build: {
+                ...(config.mode?.build ?? {}),
+                prompt: buildPrompt,
+              },
+            },
+          };
 
           const serverInstance = await createOpencodeServer({ hostname: '127.0.0.1', port: 0, config: cfg });
           opencodeUrl = serverInstance.url;
@@ -96,14 +119,15 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
         }
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.warn('[chat-widget] Failed to start opencode server:', (e as any)?.message ?? e);
+        console.warn('[chat-widget] Failed to start opencode server:', getErrorMessage(e));
         return;
       }
 
       // Install proxy middleware to avoid CORS; map /__opencode__ -> opencodeUrl
-      if (!options.apiEndpoint && opencodeUrl && (server as any)?.middlewares) {
+      const devServer = server as DevServerWithMiddlewares;
+      if (!options.apiEndpoint && opencodeUrl && devServer.middlewares) {
         const target = opencodeUrl;
-        (server as any).middlewares.use(
+        devServer.middlewares.use(
           '/__opencode__',
           createProxyMiddleware({
             target,
@@ -127,7 +151,7 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
     // Inject widget styles and metadata (no window globals)
     api.modifyHTMLTags((tags) => {
       // Map plugin options to runtime widget config
-      const runtimeConfig: Record<string, any> = {};
+      const runtimeConfig: Record<string, unknown> = {};
       if (widgetProps.title) runtimeConfig.title = widgetProps.title;
       if (widgetProps.position) runtimeConfig.position = widgetProps.position;
       const theme: Record<string, string> = {};
