@@ -11,7 +11,7 @@ import crypto from 'crypto';
 import { marked } from 'marked';
 
 import { RSTACK_SITES } from './constants.js';
-import { DocumentIndex } from './types.js';
+import { DocumentIndex, SearchResultItem } from './types.js';
 import { parseMarkdownLinks, extractMarkdownHeadings, parseAvailablePages } from './markdown.js';
 import { tokenize, cosineSimilarity, extractHighlights } from './text.js';
 
@@ -25,6 +25,22 @@ const RSTACK_TOOL_NAMES = Object.values(RSTACK_SITES)
   .map((site) => site.name)
   .join(', ');
 
+function getSiteInfo(site: string) {
+  if (site in RSTACK_SITES) {
+    return RSTACK_SITES[site as keyof typeof RSTACK_SITES];
+  }
+  return undefined;
+}
+
+type PageWithHeadings = PageEntry & {
+  url: string;
+  headings: Array<{ level: number; text: string }>;
+};
+
+type HybridSearchResultItem = SearchResultItem & {
+  searchType: 'hybrid';
+};
+
 export class WiggumMCPServer {
   private server: McpServer;
   private documentCache: Map<string, { content: string; timestamp: number }>;
@@ -36,7 +52,7 @@ export class WiggumMCPServer {
   private indexTimeout = 30 * 60 * 1000; // 30 minutes for search index
   private cacheDir: string;
   private embeddingModel = 'Xenova/all-MiniLM-L6-v2'; // Fast, lightweight model
-  private embeddingPipeline: any = null;
+  private embeddingPipeline: ((...args: unknown[]) => Promise<{ data: ArrayLike<number> }>) | null = null;
   private modelInitPromise: Promise<void> | null;
   private disableEmbeddings: boolean;
   private fetchTimeoutMs: number;
@@ -98,7 +114,8 @@ export class WiggumMCPServer {
   private async initializeEmbeddingModel(): Promise<void> {
     try {
       process.stderr.write(`[INFO] Initializing embedding model: ${this.embeddingModel}\n`);
-      this.embeddingPipeline = await pipeline('feature-extraction', this.embeddingModel, { quantized: true });
+      const loadedPipeline = await pipeline('feature-extraction', this.embeddingModel, { quantized: true });
+      this.embeddingPipeline = loadedPipeline as (...args: unknown[]) => Promise<{ data: ArrayLike<number> }>;
       process.stderr.write('[INFO] Embedding model loaded successfully\n');
     } catch (error) {
       process.stderr.write(`[ERROR] Failed to load embedding model: ${error}\n`);
@@ -136,7 +153,7 @@ export class WiggumMCPServer {
         inputSchema: { site: z.enum(['rspack', 'rsbuild', 'rspress', 'rslib', 'rsdoctor', 'rstest', 'rslint']).describe('The Rstack site to get information about') },
       },
       async ({ site }) => {
-        const siteInfo = (RSTACK_SITES as any)[site];
+        const siteInfo = getSiteInfo(site);
         if (!siteInfo) throw new Error(`Site '${site}' not found`);
         const documentationUrl = `${siteInfo.url}/llms.txt`;
         return { content: [{ type: 'text', text: JSON.stringify({ site, info: siteInfo, documentationUrl }, null, 2) }] };
@@ -155,7 +172,7 @@ export class WiggumMCPServer {
         },
       },
       async ({ site, since, limit = 5 }) => {
-        const siteInfo = (RSTACK_SITES as any)[site];
+        const siteInfo = getSiteInfo(site);
         if (!siteInfo) throw new Error(`Site '${site}' not found`);
 
         let pages: PageEntry[];
@@ -248,7 +265,7 @@ export class WiggumMCPServer {
         },
       },
       async ({ site, option, includeRelated = true }) => {
-        const siteInfo = (RSTACK_SITES as any)[site];
+        const siteInfo = getSiteInfo(site);
         if (!siteInfo) throw new Error(`Site '${site}' not found`);
 
         let pages: PageEntry[];
@@ -354,7 +371,7 @@ export class WiggumMCPServer {
         },
       },
       async ({ site, from, includeRelated = true }) => {
-        const siteInfo = (RSTACK_SITES as any)[site];
+        const siteInfo = getSiteInfo(site);
         if (!siteInfo) throw new Error(`Site '${site}' not found`);
 
         let pages: PageEntry[];
@@ -574,7 +591,7 @@ export class WiggumMCPServer {
       },
       async ({ site, path }) => {
         try {
-          const siteInfo = (RSTACK_SITES as any)[site];
+          const siteInfo = getSiteInfo(site);
           if (!siteInfo) throw new Error(`Unknown site: ${site}`);
           const llmsContent = await this.fetchDocumentation(site);
           const markdownPath = this.findMarkdownPath(llmsContent, path);
@@ -625,14 +642,15 @@ export class WiggumMCPServer {
       },
       async ({ site }) => {
         try {
-          const siteInfo = (RSTACK_SITES as any)[site];
+          const siteInfo = getSiteInfo(site);
+          if (!siteInfo) throw new Error(`Unknown site: ${site}`);
           const pages = await this.getSitePages(site);
 
           // Concurrency-limit heading fetches to reduce bursty load
           const limit = Number.isFinite(Number(process.env.MCP_LIST_PAGES_CONCURRENCY)) && Number(process.env.MCP_LIST_PAGES_CONCURRENCY) > 0
             ? Number(process.env.MCP_LIST_PAGES_CONCURRENCY)
             : 4;
-          const enhancedPages: any[] = [];
+          const enhancedPages: PageWithHeadings[] = [];
           for (let i = 0; i < pages.length; i += limit) {
             const batch = pages.slice(i, i + limit);
             const batchRes = await Promise.all(batch.map(async (page) => {
@@ -644,7 +662,7 @@ export class WiggumMCPServer {
               } catch (error) {
                 process.stderr.write(`[WARNING] Failed to fetch headings for ${page.path}: ${error}\n`);
                 const canonicalUrl = this.resolveUrlOnSite(new URL(siteInfo.url), page.path).toString();
-                return { ...page, url: canonicalUrl, headings: [] as Array<{ level: number; text: string }> } as any;
+                return { ...page, url: canonicalUrl, headings: [] as Array<{ level: number; text: string }> };
               }
             }));
             enhancedPages.push(...batchRes);
@@ -860,7 +878,7 @@ export class WiggumMCPServer {
   }
 
   private async fetchDocumentation(site: string): Promise<string> {
-    const siteInfo = (RSTACK_SITES as any)[site];
+    const siteInfo = getSiteInfo(site);
     if (!siteInfo) throw new Error(`Unknown site: ${site}`);
     const url = `${siteInfo.url}/llms.txt`;
     try {
@@ -1023,7 +1041,8 @@ export class WiggumMCPServer {
   }
 
   private async buildSearchIndex(site: string, includeEmbeddings: boolean = false): Promise<DocumentIndex> {
-    const siteInfo = (RSTACK_SITES as any)[site];
+    const siteInfo = getSiteInfo(site);
+    if (!siteInfo) throw new Error(`Unknown site: ${site}`);
     const index: DocumentIndex = { terms: new Map(), documents: new Map(), idf: new Map(), lastUpdated: Date.now() } as DocumentIndex;
     if (includeEmbeddings && !this.disableEmbeddings) await this.ensureEmbeddingModel();
     const llmsContent = await this.fetchDocumentation(site);
@@ -1145,9 +1164,9 @@ export class WiggumMCPServer {
     return chunks;
   }
 
-  private async searchWithSemantics(index: DocumentIndex, query: string, maxResults: number, includeContext: boolean) {
+  private async searchWithSemantics(index: DocumentIndex, query: string, maxResults: number, includeContext: boolean): Promise<SearchResultItem[]> {
     const modelReady = await this.ensureEmbeddingModel();
-    if (!modelReady || !this.embeddingPipeline) { process.stderr.write('[WARNING] Semantic search requested but embedding model not available\n'); return [] as any[]; }
+    if (!modelReady || !this.embeddingPipeline) { process.stderr.write('[WARNING] Semantic search requested but embedding model not available\n'); return []; }
     const queryEmbedding = await this.generateEmbedding(query);
     const scores = new Map<string, number>();
     for (const [docId, doc] of index.documents) {
@@ -1159,7 +1178,7 @@ export class WiggumMCPServer {
     const sortedDocs = Array.from(scores.entries()).sort((a, b) => b[1] - a[1]).slice(0, maxResults);
     return sortedDocs.map(([docId, score]) => {
       const doc = index.documents.get(docId)!;
-      const result: any = { file: docId, title: doc.title, score: Math.round(score * 1000) / 1000, url: doc.url };
+      const result: SearchResultItem = { file: docId, title: doc.title, score: Math.round(score * 1000) / 1000, url: doc.url };
       if (includeContext) {
         const queryTokens = tokenize(query.toLowerCase());
         const highlights = extractHighlights(doc.content, queryTokens);
@@ -1169,7 +1188,7 @@ export class WiggumMCPServer {
     });
   }
 
-  private async hybridSearch(index: DocumentIndex, query: string, maxResults: number, includeContext: boolean, semanticWeight: number = 0.5) {
+  private async hybridSearch(index: DocumentIndex, query: string, maxResults: number, includeContext: boolean, semanticWeight: number = 0.5): Promise<HybridSearchResultItem[]> {
     const tfidfResults = await this.searchWithTFIDF(index, query, maxResults * 2, false);
     const tfidfScores = new Map<string, number>();
     for (const result of tfidfResults) tfidfScores.set(result.file, result.score);
@@ -1201,7 +1220,7 @@ export class WiggumMCPServer {
       .slice(0, maxResults);
     return sortedDocs.map(([docId, score]) => {
       const doc = index.documents.get(docId)!;
-      const result: any = { file: docId, title: doc.title, score: Math.round(score * 1000) / 1000, url: doc.url, searchType: 'hybrid' };
+      const result: HybridSearchResultItem = { file: docId, title: doc.title, score: Math.round(score * 1000) / 1000, url: doc.url, searchType: 'hybrid' };
       if (includeContext) {
         const queryTokens = tokenize(query.toLowerCase());
         const highlights = extractHighlights(doc.content, queryTokens);
@@ -1211,7 +1230,7 @@ export class WiggumMCPServer {
     });
   }
 
-  private async searchWithTFIDF(index: DocumentIndex, query: string, maxResults: number, includeContext: boolean) {
+  private async searchWithTFIDF(index: DocumentIndex, query: string, maxResults: number, includeContext: boolean): Promise<SearchResultItem[]> {
     const queryTokens = tokenize(query.toLowerCase());
     const scores = new Map<string, number>();
 
@@ -1226,9 +1245,9 @@ export class WiggumMCPServer {
       if (measure > 0 && i < docIds.length) scores.set(docIds[i], measure);
     });
 
-    const fuseOptions = { includeScore: true, threshold: 0.4, keys: ['title', 'content'], minMatchCharLength: 3, shouldSort: true } as const;
+    const fuseOptions = { includeScore: true, threshold: 0.4, keys: ['title', 'content'], minMatchCharLength: 3, shouldSort: true };
     const documents = Array.from(index.documents.entries()).map(([id, doc]) => ({ id, title: doc.title, content: doc.content.substring(0, 1000), url: doc.url }));
-    const fuse = new (Fuse as any)(documents, fuseOptions);
+    const fuse = new Fuse(documents, fuseOptions);
     const fuseResults = fuse.search(query);
     for (const result of fuseResults) {
       const currentScore = scores.get(result.item.id) || 0;
@@ -1244,7 +1263,7 @@ export class WiggumMCPServer {
     const sortedDocs = Array.from(scores.entries()).filter(([_, score]) => score > 0).sort((a, b) => b[1] - a[1]).slice(0, maxResults);
     return sortedDocs.map(([docId, score]) => {
       const doc = index.documents.get(docId)!;
-      const result: any = { file: docId, title: doc.title, score: Math.round(score * 1000) / 1000, url: doc.url };
+      const result: SearchResultItem = { file: docId, title: doc.title, score: Math.round(score * 1000) / 1000, url: doc.url };
       if (includeContext) {
         const highlights = extractHighlights(doc.content, queryTokens);
         result.highlights = highlights; result.context = highlights.join('\n...\n');
@@ -1353,7 +1372,7 @@ export class WiggumMCPServer {
       }
       
       try {
-        const res = await fetch(url, { signal: controller.signal } as any);
+        const res = await fetch(url, { signal: controller.signal });
         if (timeout) clearTimeout(timeout);
         return res;
       } catch (err) {
