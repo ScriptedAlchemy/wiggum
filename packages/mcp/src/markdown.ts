@@ -1,20 +1,37 @@
-import { marked } from 'marked';
+import { marked, type Token } from 'marked';
+
+type TokenWithChildren = Token & {
+  tokens?: Token[];
+  items?: Array<{ tokens?: Token[] }>;
+};
+
+function walkMarkedTokens(tokens: Token[], onToken: (token: Token) => void): void {
+  for (const token of tokens) {
+    onToken(token);
+    const candidate = token as TokenWithChildren;
+    if (Array.isArray(candidate.tokens)) {
+      walkMarkedTokens(candidate.tokens, onToken);
+    }
+    if (Array.isArray(candidate.items)) {
+      for (const item of candidate.items) {
+        if (item?.tokens && Array.isArray(item.tokens)) {
+          walkMarkedTokens(item.tokens, onToken);
+        }
+      }
+    }
+  }
+}
 
 export function parseMarkdownLinks(content: string): Array<{ title: string; path: string }> {
   const links: Array<{ title: string; path: string }> = [];
 
   try {
     const tokens = marked.lexer(content);
-    const walkTokens = (tokens: any[]): void => {
-      for (const token of tokens) {
-        if (token.type === 'link' && token.href && token.href.endsWith('.md')) {
-          links.push({ title: token.text || token.href, path: token.href });
-        }
-        if (token.tokens) walkTokens(token.tokens);
-        if (token.items) walkTokens(token.items);
+    walkMarkedTokens(tokens, (token) => {
+      if (token.type === 'link' && token.href && token.href.endsWith('.md')) {
+        links.push({ title: token.text || token.href, path: token.href });
       }
-    };
-    walkTokens(tokens);
+    });
   } catch (error) {
     // Fallback regex parser
     const markdownLinkMatches = content.matchAll(/\[([^\]]+)\]\(([^)]+\.md)\)/g);
@@ -57,20 +74,15 @@ export function parseAvailablePages(
 
   try {
     const tokens = marked.lexer(llmsContent);
-    const walkTokens = (tokens: any[]): void => {
-      for (const token of tokens) {
-        if (token.type === 'heading' && token.depth === 2) {
-          currentSection = token.text || '';
-          continue;
-        }
-        if (token.type === 'link' && token.href && token.href.endsWith('.md')) {
-          pages.push({ title: token.text || token.href, path: token.href, section: currentSection || undefined });
-        }
-        if (token.tokens) walkTokens(token.tokens);
-        if (token.items) walkTokens(token.items);
+    walkMarkedTokens(tokens, (token) => {
+      if (token.type === 'heading' && token.depth === 2) {
+        currentSection = token.text || '';
+        return;
       }
-    };
-    walkTokens(tokens);
+      if (token.type === 'link' && token.href && token.href.endsWith('.md')) {
+        pages.push({ title: token.text || token.href, path: token.href, section: currentSection || undefined });
+      }
+    });
   } catch (error) {
     const lines = llmsContent.split('\n');
     for (const line of lines) {
