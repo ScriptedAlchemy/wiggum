@@ -43,8 +43,14 @@ export function resolveWorkflowVerifierPathsFromEnv({
 const PACKAGE_JSON_PATH = path.join(DEFAULT_ROOT, 'package.json');
 const WORKFLOW_PATH = path.join(DEFAULT_ROOT, '.github/workflows/ci.yml');
 
-const REQUIRED_PACKAGE_SCRIPTS = ['test:runner', 'verify:runner:coverage', 'verify:runner:workflow'];
+const REQUIRED_PACKAGE_SCRIPTS = [
+  'test:demo:widget-api',
+  'test:runner',
+  'verify:runner:coverage',
+  'verify:runner:workflow',
+];
 const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
+  'test:demo:widget-api': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e:widget-api$/,
   'test:runner': /^pnpm\s+-F\s+@wiggum\/cli\s+test$/,
   'verify:runner:coverage': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs$/,
   'verify:runner:workflow': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-workflow-coverage\.mjs$/,
@@ -64,6 +70,22 @@ const REQUIRED_WORKFLOW_STEPS = [
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
       /run:\s*pnpm test\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Install Playwright Chromium (demo widget smoke)',
+    requiredRunCommand: 'pnpm --filter ./packages/demo-app exec playwright install chromium',
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm --filter \.\/packages\/demo-app exec playwright install chromium\s*\|\|\s*true/,
+    ],
+  },
+  {
+    name: 'Run widget API e2e smoke',
+    requiredRunCommand: 'pnpm run test:demo:widget-api',
+    forbiddenPatterns: [
+      /continue-on-error:\s*true/,
+      /run:\s*pnpm run test:demo:widget-api\s*\|\|\s*true/,
     ],
   },
   {
