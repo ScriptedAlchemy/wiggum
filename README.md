@@ -165,6 +165,8 @@ Runner-specific CI guard scripts:
 - `pnpm run verify:runner:all`
 - `pnpm run ci:validate` (full local CI-equivalent build/test/lint/runner/publint/e2e/typecheck pass)
 
+`verify:runner:workflow` enforces script/step contracts plus CI metadata invariants (branch triggers, job runtime/action pinning, and no `continue-on-error` drift on required jobs) and reports all contract counts in its success output.
+
 These scripts also support path override environment variables for isolated fixture validation:
 
 - Coverage verifier: `WIGGUM_RUNNER_VERIFY_ROOT`, `WIGGUM_RUNNER_VERIFY_CONFIG_PATH`, `WIGGUM_RUNNER_VERIFY_PACKAGES_DIR`
