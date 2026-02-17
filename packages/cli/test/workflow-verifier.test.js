@@ -578,6 +578,36 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('Package script "ci:validate" does not match expected command pattern');
   });
 
+  test('fails when typecheck package script is missing', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    delete parsedPackage.scripts.typecheck;
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Missing required package scripts: typecheck');
+  });
+
+  test('fails when typecheck package script command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    parsedPackage.scripts.typecheck = 'tsc --noEmit';
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Package script "typecheck" does not match expected command pattern');
+  });
+
   test('fails when Playwright setup package script command is rewired', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const parsedPackage = JSON.parse(packageJsonContent);
@@ -691,8 +721,8 @@ describe('runner workflow coverage verifier', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
       workflowContent,
-      '      - name: Check types\n        run: pnpm -r exec tsc --noEmit',
-      '      - name: Check types\n        run: pnpm -r exec tsc --noEmit\n        continue-on-error: true',
+      '      - name: Check types\n        run: pnpm run typecheck',
+      '      - name: Check types\n        run: pnpm run typecheck\n        continue-on-error: true',
     );
 
     expect(() =>
@@ -702,6 +732,23 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('contains forbidden pattern');
+  });
+
+  test('fails when check types step command is rewired', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      'run: pnpm run typecheck',
+      'run: pnpm -r exec tsc --noEmit',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Step "Check types" must run "pnpm run typecheck"');
   });
 
   test('fails when a required workflow command is replaced with suffixed variant', () => {

@@ -149,7 +149,7 @@ The MCP server in `packages/mcp` exposes tools to search and fetch documentation
 
 - Build everything: `pnpm build`
 - Test everything: `pnpm test`
-- Type check (best‑effort): `pnpm -r exec tsc --noEmit`
+- Type check (best‑effort): `pnpm run typecheck`
 - Install demo Playwright browser: `pnpm run setup:demo:playwright`
 - Run full demo Playwright e2e: `pnpm run test:demo:e2e`
 - Run widget-browser API e2e smoke: `pnpm run test:demo:widget-api`

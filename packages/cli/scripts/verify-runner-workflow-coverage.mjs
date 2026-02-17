@@ -50,16 +50,18 @@ export const REQUIRED_PACKAGE_SCRIPTS = [
   'test:demo:e2e',
   'test:demo:widget-api',
   'test:runner',
+  'typecheck',
   'verify:runner:coverage',
   'verify:runner:workflow',
 ];
 export const REQUIRED_PACKAGE_SCRIPT_PATTERNS = {
-  'ci:validate': /^pnpm\s+build\s+&&\s+pnpm\s+test\s+&&\s+pnpm\s+run\s+verify:runner:all\s+&&\s+pnpm\s+run\s+publint\s+&&\s+pnpm\s+run\s+test:demo:e2e\s+&&\s+pnpm\s+-r\s+exec\s+tsc\s+--noEmit$/,
+  'ci:validate': /^pnpm\s+build\s+&&\s+pnpm\s+test\s+&&\s+pnpm\s+run\s+verify:runner:all\s+&&\s+pnpm\s+run\s+publint\s+&&\s+pnpm\s+run\s+test:demo:e2e\s+&&\s+pnpm\s+run\s+typecheck$/,
   'publint': /^pnpm\s+-r\s+publint$/,
   'setup:demo:playwright': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+exec\s+playwright\s+install\s+chromium$/,
   'test:demo:e2e': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e$/,
   'test:demo:widget-api': /^pnpm\s+--filter\s+\.\/packages\/demo-app\s+test:e2e:widget-api$/,
   'test:runner': /^pnpm\s+-F\s+@wiggum\/cli\s+test$/,
+  'typecheck': /^pnpm\s+-r\s+exec\s+tsc\s+--noEmit$/,
   'verify:runner:coverage': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-coverage\.mjs$/,
   'verify:runner:workflow': /^node\s+\.\/packages\/cli\/scripts\/verify-runner-workflow-coverage\.mjs$/,
 };
@@ -155,10 +157,10 @@ export const REQUIRED_WORKFLOW_STEPS = [
   },
   {
     name: 'Check types',
-    requiredRunCommand: 'pnpm -r exec tsc --noEmit',
+    requiredRunCommand: 'pnpm run typecheck',
     forbiddenPatterns: [
       /continue-on-error:\s*true/,
-      /run:\s*pnpm -r exec tsc --noEmit\s*\|\|\s*true/,
+      /run:\s*pnpm run typecheck\s*\|\|\s*true/,
     ],
   },
 ];
