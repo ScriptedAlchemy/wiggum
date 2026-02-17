@@ -366,6 +366,40 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('missing required content: lint job must target ubuntu-latest');
   });
 
+  test('fails when build-and-test job enables continue-on-error', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '  build-and-test:\n    runs-on: ubuntu-latest',
+      '  build-and-test:\n    runs-on: ubuntu-latest\n    continue-on-error: true',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: build-and-test job must not enable continue-on-error');
+  });
+
+  test('fails when lint job enables continue-on-error', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '  lint:\n    runs-on: ubuntu-latest',
+      '  lint:\n    runs-on: ubuntu-latest\n    continue-on-error: true',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: lint job must not enable continue-on-error');
+  });
+
   test('fails when build-and-test checkout action drifts from v4', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(

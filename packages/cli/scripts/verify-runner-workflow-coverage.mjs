@@ -205,6 +205,11 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
     pattern: /build-and-test:\s*\n\s*runs-on:\s*ubuntu-latest/,
   },
   {
+    description: 'build-and-test job must not enable continue-on-error',
+    requiredJob: 'build-and-test',
+    verify: (jobContent) => !/^\s*continue-on-error:\s*true\b/m.test(jobContent),
+  },
+  {
     description: 'build-and-test checkout step must use actions/checkout@v4',
     requiredJob: 'build-and-test',
     pattern: /- name:\s*Checkout repository\s*\n\s*uses:\s*actions\/checkout@v4/,
@@ -223,6 +228,11 @@ export const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
     description: 'lint job must target ubuntu-latest',
     requiredJob: 'lint',
     pattern: /lint:\s*\n\s*runs-on:\s*ubuntu-latest/,
+  },
+  {
+    description: 'lint job must not enable continue-on-error',
+    requiredJob: 'lint',
+    verify: (jobContent) => !/^\s*continue-on-error:\s*true\b/m.test(jobContent),
   },
   {
     description: 'lint checkout step must use actions/checkout@v4',
