@@ -42,6 +42,9 @@ jobs:
       - name: Run widget API e2e smoke
         run: pnpm run test:demo:widget-api
 
+      - name: Run full demo app e2e suite
+        run: pnpm run test:demo:e2e
+
       - name: Run runner-focused CLI tests
         run: pnpm run test:runner
 

@@ -267,8 +267,8 @@ describe('runner workflow coverage verifier', () => {
     });
 
     expect(result).toEqual({
-      requiredScriptCount: 5,
-      requiredStepCount: 10,
+      requiredScriptCount: 6,
+      requiredStepCount: 11,
     });
   });
 
@@ -304,6 +304,23 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('is missing required step "Run widget API e2e smoke"');
+  });
+
+  test('fails when full demo e2e workflow step is renamed away', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '- name: Run full demo app e2e suite',
+      '- name: Run full demo browser tests',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('is missing required step "Run full demo app e2e suite"');
   });
 
   test('fails when Playwright Chromium install step command is rewired', () => {
@@ -382,6 +399,21 @@ describe('runner workflow coverage verifier', () => {
         workflowPath: WORKFLOW_PATH,
       }),
     ).toThrow('Missing required package scripts: setup:demo:playwright');
+  });
+
+  test('fails when full demo e2e package script is missing', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const parsedPackage = JSON.parse(packageJsonContent);
+    delete parsedPackage.scripts['test:demo:e2e'];
+    const mutatedPackageJson = JSON.stringify(parsedPackage, null, 2);
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent: mutatedPackageJson,
+        workflowContent,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('Missing required package scripts: test:demo:e2e');
   });
 
   test('fails when Playwright setup package script command is rewired', () => {
@@ -655,7 +687,7 @@ describe('runner workflow coverage verifier', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[verify-runner-workflow-coverage] Verified runner checks in package scripts and CI workflow');
-    expect(result.stdout).toContain('(5 scripts, 10 steps).');
+    expect(result.stdout).toContain('(6 scripts, 11 steps).');
   });
 
   test('workflow verifier CLI entrypoint reports prefixed error on invalid workflow', () => {
