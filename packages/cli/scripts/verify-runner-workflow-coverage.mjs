@@ -170,6 +170,14 @@ export const REQUIRED_WORKFLOW_STEPS = [
 
 const REQUIRED_WORKFLOW_CONTENT_PATTERNS = [
   {
+    description: 'build-and-test job must target ubuntu-latest',
+    pattern: /build-and-test:\s*\n\s*runs-on:\s*ubuntu-latest/,
+  },
+  {
+    description: 'lint job must target ubuntu-latest',
+    pattern: /lint:\s*\n\s*runs-on:\s*ubuntu-latest/,
+  },
+  {
     description: 'push trigger branches must include main and develop',
     pattern: /push:\s*\n\s*branches:\s*\[\s*main\s*,\s*develop\s*\]/,
   },

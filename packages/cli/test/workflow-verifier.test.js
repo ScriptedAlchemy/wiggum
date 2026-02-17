@@ -308,6 +308,40 @@ describe('runner workflow coverage verifier', () => {
     ).toThrow('missing required content: push trigger branches must include main and develop');
   });
 
+  test('fails when lint job no longer targets ubuntu-latest', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '  lint:\n    runs-on: ubuntu-latest',
+      '  lint:\n    runs-on: ubuntu-22.04',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: lint job must target ubuntu-latest');
+  });
+
+  test('fails when build-and-test job no longer targets ubuntu-latest', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const mutatedWorkflow = replaceOrThrow(
+      workflowContent,
+      '  build-and-test:\n    runs-on: ubuntu-latest',
+      '  build-and-test:\n    runs-on: ubuntu-22.04',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: mutatedWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).toThrow('missing required content: build-and-test job must target ubuntu-latest');
+  });
+
   test('fails when build-and-test node matrix drifts from 20.x', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
