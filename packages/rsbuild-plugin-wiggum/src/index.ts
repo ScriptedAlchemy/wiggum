@@ -137,7 +137,6 @@ export const pluginChatWidget = (options: ChatWidgetOptions = {}): RsbuildPlugin
           opencodeClose = () => serverInstance.close();
         }
       } catch (e) {
-        // eslint-disable-next-line no-console
         if (isErrnoException(e) && e.code === 'ENOENT') {
           backendDisabledForRuntime = true;
           console.warn('[chat-widget] OpenCode binary not found; continuing without backend server.');

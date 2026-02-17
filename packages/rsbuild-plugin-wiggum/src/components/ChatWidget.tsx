@@ -521,8 +521,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     if (!onStateChange) return;
     const snapshot: WidgetState = { isOpen, messages, inputValue, pendingContext };
     try { onStateChange(snapshot); } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, messages, inputValue, pendingContext]);
+  }, [isOpen, messages, inputValue, pendingContext, onStateChange]);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
