@@ -2066,6 +2066,59 @@ describe('Wiggum runner workspace graph', () => {
     });
   });
 
+  test('resolveRunnerWorkspace ignores workspace/npm alias targets that look like protocol fragments', async () => {
+    const root = makeTempWorkspace();
+    writeJson(path.join(root, 'wiggum.config.json'), {
+      projects: ['packages/*'],
+    });
+    writeJson(path.join(root, 'packages/shared/package.json'), {
+      name: '@scope/shared',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/invalid-link-fragment/package.json'), {
+      name: 'link:target',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/invalid-portal-fragment/package.json'), {
+      name: 'portal:target',
+      version: '1.0.0',
+    });
+    writeJson(path.join(root, 'packages/app/package.json'), {
+      name: '@scope/app',
+      version: '1.0.0',
+      dependencies: {
+        'valid-shared-alias': 'npm:@scope/shared@workspace:*',
+        'protocol-fragment-workspace': 'workspace:link:target',
+      },
+      optionalDependencies: {
+        'protocol-fragment-npm': 'npm:portal:target@1.0.0',
+      },
+    });
+
+    const workspace = await resolveWorkspaceDirect({
+      rootDir: root,
+      configPath: path.join(root, 'wiggum.config.json'),
+    });
+    const appProject = workspace.projects.find((project) => project.name === '@scope/app');
+    expect(appProject).toBeDefined();
+    expect(appProject.dependencies).toEqual(['@scope/shared']);
+    expect(workspace.graph.edges).toContainEqual({
+      from: '@scope/shared',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).not.toContainEqual({
+      from: 'link:target',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+    expect(workspace.graph.edges).not.toContainEqual({
+      from: 'portal:target',
+      to: '@scope/app',
+      reason: 'manifest',
+    });
+  });
+
   test('resolveRunnerWorkspace resolves local links from file/link/portal/workspace path dependency specifiers', async () => {
     const root = makeTempWorkspace();
     writeJson(path.join(root, 'wiggum.config.json'), {

@@ -104,6 +104,7 @@ const IMPORT_RE =
     `(?:import\\s+(?:[^'"]+from\\s*)?|import\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|export\\s+[^'"]*from\\s*|require(?:\\.resolve)?\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*|import\\.meta\\.resolve\\(\\s*(?:${IMPORT_ARGUMENT_COMMENT_RE})*)['"]([^'"]+)['"]\\s*\\)?`,
     'g',
   );
+const PACKAGE_NAME_RE = /^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9._-]*)$/;
 
 function parseInferImportMaxFiles(
   rawValue = process.env.WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES,
@@ -365,7 +366,7 @@ function parseAliasTargetPackageName(aliasBody: string): string | undefined {
       : normalizedAliasBody.slice(0, versionSeparatorIndex);
   }
 
-  if (!/^(?:@[^/\s]+\/[^/\s]+|[^@/\s][^/\s]*)$/.test(candidatePackageName)) {
+  if (!PACKAGE_NAME_RE.test(candidatePackageName)) {
     return undefined;
   }
 
