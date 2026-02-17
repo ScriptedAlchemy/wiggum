@@ -93,7 +93,7 @@ test.describe('Chat Widget', () => {
     await expect(userMessage).toContainText('Test message');
   });
 
-  test('should show typing indicator when waiting for response', async ({ page }) => {
+  test('should render bot response content after sending a message', async ({ page }) => {
     const toggleButton = page.locator('.chat-widget__toggle');
     await toggleButton.click();
     
@@ -102,9 +102,9 @@ test.describe('Chat Widget', () => {
     
     await input.fill('Test message');
     await sendButton.click();
-    
-    const typingIndicator = page.locator('.chat-widget__typing');
-    await expect(typingIndicator).toBeVisible();
+
+    const botMessage = page.locator('.chat-widget__message--bot').last();
+    await expect(botMessage).toContainText('Thanks! I will look into that.');
   });
 
   test('should apply custom primary color', async ({ page }) => {
