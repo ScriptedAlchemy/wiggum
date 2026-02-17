@@ -71,6 +71,22 @@ Notes:
 - When `apiEndpoint` is omitted, the plugin builds a merged OpenCode config using `@wiggum/agent`, spawns an ephemeral local server, and proxies it at `/__opencode__` during dev.
 - In production builds the plugin only injects the widget asset; you should provide your own service endpoint if you want a live chat experience.
 
+## Browser API
+
+When loaded, the widget exposes a small API on `window.WiggumChatWidget`:
+
+```ts
+window.WiggumChatWidget?.init(config?);
+window.WiggumChatWidget?.open();
+window.WiggumChatWidget?.close();
+window.WiggumChatWidget?.isOpen(); // boolean
+window.WiggumChatWidget?.destroy();
+```
+
+- `open()` and `close()` toggle the current widget UI state.
+- `isOpen()` reports whether the chat panel is currently expanded in the DOM.
+- `init()` is idempotent; repeated calls do not create duplicate widgets.
+
 ## Demo
 
 See `packages/demo-app` for a working example using this plugin together with `@wiggum/cli`.
