@@ -853,6 +853,31 @@ describe('runner workflow coverage verifier', () => {
     ).not.toThrow();
   });
 
+  test('accepts valid required step ordering when CI jobs are reordered', () => {
+    const { packageJsonContent, workflowContent } = readCurrentInputs();
+    const swappedJobsWorkflow = replaceOrThrow(
+      replaceOrThrow(
+        replaceOrThrow(
+          workflowContent,
+          '  build-and-test:',
+          '  __temp_build_and_test_job__:',
+        ),
+        '  lint:',
+        '  build-and-test:',
+      ),
+      '  __temp_build_and_test_job__:',
+      '  lint:',
+    );
+
+    expect(() =>
+      verifyRunnerWorkflowCoverage({
+        packageJsonContent,
+        workflowContent: swappedJobsWorkflow,
+        workflowPath: WORKFLOW_PATH,
+      }),
+    ).not.toThrow();
+  });
+
   test('accepts required step names with inline comments', () => {
     const { packageJsonContent, workflowContent } = readCurrentInputs();
     const mutatedWorkflow = replaceOrThrow(
