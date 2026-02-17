@@ -288,7 +288,7 @@ async function resolveCommandInvocation(
   const executablePackage =
     packageInfo.packages.find((pkg) => pkg.includes('cli')) || packageInfo.packages[0];
   const dlxArgs = [executablePackage, ...originalArgs];
-  const execCommand = getExecuteCommand(packageManager as any, dlxArgs);
+  const execCommand = getExecuteCommand(packageManager, dlxArgs);
   if (!execCommand) {
     throw new Error('Could not resolve package manager execute command');
   }

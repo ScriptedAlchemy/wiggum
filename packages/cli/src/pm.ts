@@ -7,6 +7,23 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 let cachedPackageManager: string | null = null
+const SUPPORTED_PACKAGE_MANAGERS = [
+  'npm',
+  'yarn',
+  'yarn@berry',
+  'pnpm',
+  'pnpm@6',
+  'bun',
+  'deno',
+] as const
+type SupportedPackageManager = typeof SUPPORTED_PACKAGE_MANAGERS[number]
+
+function toSupportedPackageManager(packageManager: string): SupportedPackageManager {
+  if ((SUPPORTED_PACKAGE_MANAGERS as readonly string[]).includes(packageManager)) {
+    return packageManager as SupportedPackageManager
+  }
+  return 'npm'
+}
 
 export async function getPackageManager(): Promise<string> {
   if (cachedPackageManager) return cachedPackageManager
@@ -41,7 +58,7 @@ export async function installPackageDev(packageName: string, packageManager?: st
   const pm = packageManager || (await getPackageManager())
   try {
     // Prefer -D for cross-PM compatibility
-    const resolved = resolveCommand(pm as any, 'add', [packageName, '-D'])
+    const resolved = resolveCommand(toSupportedPackageManager(pm), 'add', [packageName, '-D'])
     if (!resolved) throw new Error('Could not resolve package manager command')
     const { command, args } = resolved
     await execa(command, args, { stdio: 'pipe' })
@@ -54,7 +71,7 @@ export async function installPackageDev(packageName: string, packageManager?: st
 }
 
 export function getExecuteCommand(packageManager: string, dlxArgs: string[]) {
-  return resolveCommand(packageManager as any, 'execute', dlxArgs)
+  return resolveCommand(toSupportedPackageManager(packageManager), 'execute', dlxArgs)
 }
 
 export async function installGlobalPackage(packageName: string, packageManager?: string): Promise<boolean> {
