@@ -9,6 +9,7 @@ export default defineConfig({
         entry: {
           cli: './src/cli.ts',
           runner: './src/runner.ts',
+          'runner-metadata': './src/runner-metadata.ts',
         },
       },
       output: {

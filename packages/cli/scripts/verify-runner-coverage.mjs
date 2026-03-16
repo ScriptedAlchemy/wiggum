@@ -5,6 +5,12 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveRunnerWorkspace } from '../dist/runner.js';
 import {
+  DEFAULT_RUNNER_CONFIG_FILE,
+  SUPPORTED_RUNNER_CONFIG_FILES,
+  UNSUPPORTED_RUNNER_CONFIG_FILES,
+  formatSupportedRunnerConfigFiles,
+} from '../dist/runner-metadata.js';
+import {
   ensureEnvObject,
   ensureNonEmptyRootPath,
   readEnvPathOverride,
@@ -13,22 +19,10 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DEFAULT_ROOT = path.resolve(__dirname, '../../..');
-const SUPPORTED_RUNNER_CONFIG_FILES = [
-  'wiggum.config.mjs',
-  'wiggum.config.js',
-  'wiggum.config.cjs',
-  'wiggum.config.json',
-];
-const DEFAULT_RUNNER_CONFIG_FILE = 'wiggum.config.json';
-const UNSUPPORTED_RUNNER_CONFIG_FILES = [
-  'wiggum.config.ts',
-  'wiggum.config.mts',
-  'wiggum.config.cts',
-];
 
 function unsupportedRunnerConfigError(filePath) {
   return new Error(
-    `Unsupported runner config file "${path.basename(filePath)}". Use one of: ${SUPPORTED_RUNNER_CONFIG_FILES.join(', ')}`,
+    `Unsupported runner config file "${path.basename(filePath)}". Use one of: ${formatSupportedRunnerConfigFiles()}`,
   );
 }
 
