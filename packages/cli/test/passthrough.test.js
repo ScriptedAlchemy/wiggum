@@ -1,58 +1,20 @@
 import { expect, test, describe, afterEach } from '@rstest/core';
-import { execSync } from 'child_process';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import stripAnsi from 'strip-ansi';
+import {
+  createTempDirManager,
+  runCliCommand as runCLI,
+} from './helpers/cli-test-helpers.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Path to the CLI script
-const CLI_PATH = path.join(__dirname, '../bin/cli.js');
 const SEMVER_OR_RSPACK_VERSION = /^(?:\d+\.\d+\.\d+|rspack\/\d+\.\d+\.\d+(?:\s+.+)?)$/;
-const tempDirs = [];
-
-// Helper function to run CLI commands
-function runCLI(args, options = {}) {
-  try {
-    const result = execSync(`"${process.execPath}" "${CLI_PATH}" ${args}`, {
-      encoding: 'utf8',
-      timeout: 30000, // 30 second timeout
-      env: {
-        ...process.env,
-        NO_COLOR: '1',
-        FORCE_COLOR: '0',
-        CLICOLOR: '0',
-        CLICOLOR_FORCE: '0'
-      },
-      ...options
-    });
-    return { stdout: stripAnsi(result), stderr: '', exitCode: 0 };
-  } catch (error) {
-    return {
-      stdout: stripAnsi(error.stdout || ''),
-      stderr: stripAnsi(error.stderr || ''),
-      exitCode: error.status || 1
-    };
-  }
-}
+const tempDirManager = createTempDirManager('wiggum-cli-test-');
 
 function makeTempDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wiggum-cli-test-'));
-  tempDirs.push(dir);
-  return dir;
+  return tempDirManager.makeTempDir();
 }
 
 afterEach(() => {
-  while (tempDirs.length > 0) {
-    const dir = tempDirs.pop();
-    if (dir) {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  }
+  tempDirManager.cleanup();
 });
 
 describe('Wiggum CLI Passthrough Tests', () => {

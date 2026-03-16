@@ -80,7 +80,7 @@ Add a `wiggum.config.json` at your repo root to declare projects:
 }
 ```
 
-Supported runner config filenames are `wiggum.config.json`, `wiggum.config.mjs`, `wiggum.config.js`, and `wiggum.config.cjs`.
+Supported runner config filenames are `wiggum.config.mjs`, `wiggum.config.js`, `wiggum.config.cjs`, and `wiggum.config.json`.
 TypeScript runner config variants (`wiggum.config.ts` / `.mts` / `.cts`) are not currently supported.
 Runner projects must keep `package.json` names unique across distinct project entries so local dependency/import graph mapping remains deterministic.
 

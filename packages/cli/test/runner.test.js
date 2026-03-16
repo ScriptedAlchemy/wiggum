@@ -1,49 +1,19 @@
 import { expect, test, describe, afterEach } from '@rstest/core';
-import { spawnSync } from 'child_process';
 import fs from 'fs';
-import os from 'os';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-import stripAnsi from 'strip-ansi';
+import {
+  createTempDirManager,
+  runCliSpawn,
+  writeJson,
+} from './helpers/cli-test-helpers.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const CLI_PATH = path.join(__dirname, '../bin/cli.js');
-
-const tempDirs = [];
+const tempDirManager = createTempDirManager('wiggum-runner-');
 
 function makeTempWorkspace() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wiggum-runner-'));
-  tempDirs.push(root);
-  return root;
+  return tempDirManager.makeTempDir();
 }
 
-function writeJson(filePath, value) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
-}
-
-function runCLI(args, cwd, envOverrides = {}) {
-  const result = spawnSync('node', [CLI_PATH, ...args], {
-    cwd,
-    encoding: 'utf8',
-    timeout: 30000,
-    env: {
-      ...process.env,
-      ...envOverrides,
-      NO_COLOR: '1',
-      FORCE_COLOR: '0',
-      CLICOLOR: '0',
-      CLICOLOR_FORCE: '0',
-    },
-  });
-  return {
-    exitCode: result.status ?? 1,
-    stdout: stripAnsi(result.stdout || ''),
-    stderr: stripAnsi(result.stderr || ''),
-  };
-}
+const runCLI = runCliSpawn;
 
 async function resolveWorkspaceDirect(options) {
   const { resolveRunnerWorkspace } = await import('../dist/runner.js');
@@ -51,12 +21,7 @@ async function resolveWorkspaceDirect(options) {
 }
 
 afterEach(() => {
-  while (tempDirs.length > 0) {
-    const dir = tempDirs.pop();
-    if (dir) {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  }
+  tempDirManager.cleanup();
 });
 
 describe('Wiggum runner workspace graph', () => {
@@ -67,12 +32,12 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', '--help'], root);
+    const result = runCliSpawn(['projects', '--help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
     expect(result.stdout).toContain('--project <pattern>');
     expect(result.stdout).toContain('-p <pattern>');
-    expect(result.stdout).toContain('Supported runner config files: wiggum.config.json');
+    expect(result.stdout).toContain('Supported runner config files: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json.');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
     expect(result.stdout).toContain('default: 400');
     expect(result.stdout).toContain('ignored when --no-infer-imports is enabled');
@@ -85,7 +50,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['--autofix', 'projects', '--help'], root);
+    const result = runCliSpawn(['--autofix', 'projects', '--help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
   });
@@ -97,10 +62,10 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', 'list', '--help'], root);
+    const result = runCliSpawn(['projects', 'list', '--help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
-    expect(result.stdout).toContain('Supported runner config files: wiggum.config.json');
+    expect(result.stdout).toContain('Supported runner config files: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json.');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
     expect(result.stdout).toContain('default: 400');
     expect(result.stdout).toContain('ignored when --no-infer-imports is enabled');
@@ -113,10 +78,10 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', 'graph', '--help'], root);
+    const result = runCliSpawn(['projects', 'graph', '--help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
-    expect(result.stdout).toContain('Supported runner config files: wiggum.config.json');
+    expect(result.stdout).toContain('Supported runner config files: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json.');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
     expect(result.stdout).toContain('default: 400');
     expect(result.stdout).toContain('ignored when --no-infer-imports is enabled');
@@ -129,7 +94,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', '--json', 'help'], root);
+    const result = runCliSpawn(['projects', '--json', 'help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum projects [list|graph] [runner options]');
   });
@@ -141,7 +106,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', 'unknown-subcommand'], root);
+    const result = runCliSpawn(['projects', 'unknown-subcommand'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Unknown projects subcommand: unknown-subcommand');
   });
@@ -153,7 +118,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', '--json', 'list', 'graph'], root);
+    const result = runCliSpawn(['projects', '--json', 'list', 'graph'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Conflicting projects subcommands: list and graph');
   });
@@ -165,7 +130,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', '--json', 'deploy', 'list'], root);
+    const result = runCliSpawn(['projects', '--json', 'deploy', 'list'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Unknown projects subcommand: deploy');
   });
@@ -177,7 +142,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', '--json', 'deploy'], root);
+    const result = runCliSpawn(['projects', '--json', 'deploy'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Unknown projects subcommand: deploy');
   });
@@ -189,7 +154,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', 'deploy', 'help'], root);
+    const result = runCliSpawn(['projects', 'deploy', 'help'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Unknown projects subcommand: deploy');
   });
@@ -201,7 +166,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', '--json', 'deploy', 'help'], root);
+    const result = runCliSpawn(['projects', '--json', 'deploy', 'help'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Unknown projects subcommand: deploy');
   });
@@ -213,7 +178,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', '--json', 'graph', 'graph'], root);
+    const result = runCliSpawn(['projects', '--json', 'graph', 'graph'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Duplicate projects subcommand token: graph');
   });
@@ -225,7 +190,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', 'list', '--project', '-h'], root);
+    const result = runCliSpawn(['projects', 'list', '--project', '-h'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Missing value for --project');
   });
@@ -237,7 +202,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['projects', 'list', '--config', '-h'], root);
+    const result = runCliSpawn(['projects', 'list', '--config', '-h'], root);
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain('Missing value for --config');
   });
@@ -252,7 +217,7 @@ describe('Wiggum runner workspace graph', () => {
       version: '1.0.0',
     });
 
-    const result = runCLI(
+    const result = runCliSpawn(
       ['projects', 'list', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--', '--help'],
       root,
     );
@@ -268,7 +233,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['run', '--help'], root);
+    const result = runCliSpawn(['run', '--help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
     expect(result.stdout).toContain('Supported tasks:');
@@ -276,7 +241,7 @@ describe('Wiggum runner workspace graph', () => {
     expect(result.stdout).toContain('--autofix');
     expect(result.stdout).toContain('-p <pattern>');
     expect(result.stdout).toContain('cannot be combined with --dry-run');
-    expect(result.stdout).toContain('Supported runner config files: wiggum.config.json');
+    expect(result.stdout).toContain('Supported runner config files: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json.');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
     expect(result.stdout).toContain('default: 400');
     expect(result.stdout).toContain('ignored when --no-infer-imports is enabled');
@@ -289,7 +254,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['--autofix', 'run', '--help'], root);
+    const result = runCliSpawn(['--autofix', 'run', '--help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
   });
@@ -301,11 +266,11 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['run', 'build', '--help'], root);
+    const result = runCliSpawn(['run', 'build', '--help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
     expect(result.stdout).toContain('--parallel <count>');
-    expect(result.stdout).toContain('Supported runner config files: wiggum.config.json');
+    expect(result.stdout).toContain('Supported runner config files: wiggum.config.mjs, wiggum.config.js, wiggum.config.cjs, wiggum.config.json.');
     expect(result.stdout).toContain('WIGGUM_RUNNER_INFER_IMPORT_MAX_FILES');
   });
 
@@ -316,7 +281,7 @@ describe('Wiggum runner workspace graph', () => {
       private: true,
     });
 
-    const result = runCLI(['run', '--dry-run', 'help'], root);
+    const result = runCliSpawn(['run', '--dry-run', 'help'], root);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: wiggum run <task> [runner options] [-- task args]');
   });
@@ -331,7 +296,7 @@ describe('Wiggum runner workspace graph', () => {
       version: '1.0.0',
     });
 
-    const result = runCLI(
+    const result = runCliSpawn(
       ['run', '--root', root, '--config', path.join(root, 'wiggum.config.json'), '--dry-run', '--json', 'build'],
       root,
     );
