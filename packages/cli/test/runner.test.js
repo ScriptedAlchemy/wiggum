@@ -20,6 +20,66 @@ async function resolveWorkspaceDirect(options) {
   return resolveRunnerWorkspace(options);
 }
 
+function writeRunnerWorkspaceConfig(root) {
+  writeJson(path.join(root, 'wiggum.config.json'), {
+    projects: ['packages/*'],
+  });
+}
+
+function writeRunnerPackage(root, directoryName, packageName) {
+  writeJson(path.join(root, `packages/${directoryName}/package.json`), {
+    name: packageName,
+    version: '1.0.0',
+  });
+}
+
+function assertInferredImportRunCase({
+  dependencyDirectoryName,
+  dependencyPackageName,
+  consumerDirectoryName,
+  consumerPackageName,
+  projectFilter,
+  sourceRelativePath,
+  sourceContent,
+  expectedProjects,
+}) {
+  const root = makeTempWorkspace();
+  writeRunnerWorkspaceConfig(root);
+  writeRunnerPackage(root, dependencyDirectoryName, dependencyPackageName);
+  writeRunnerPackage(root, consumerDirectoryName, consumerPackageName);
+  fs.mkdirSync(path.join(root, `packages/${consumerDirectoryName}`, path.dirname(sourceRelativePath)), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    path.join(root, `packages/${consumerDirectoryName}`, sourceRelativePath),
+    sourceContent,
+  );
+
+  const result = runCLI(
+    [
+      'run',
+      'build',
+      '--root',
+      root,
+      '--config',
+      path.join(root, 'wiggum.config.json'),
+      '--project',
+      projectFilter,
+      '--dry-run',
+      '--json',
+    ],
+    root,
+  );
+  expect(result.exitCode).toBe(0);
+  const payload = JSON.parse(result.stdout);
+  expect(payload.projects.map((project) => project.name)).toEqual(expectedProjects);
+  expect(payload.graph.edges).toContainEqual({
+    from: dependencyPackageName,
+    to: consumerPackageName,
+    reason: 'inferred-import',
+  });
+}
+
 afterEach(() => {
   tempDirManager.cleanup();
 });
@@ -3104,17 +3164,9 @@ describe('Wiggum runner workspace graph', () => {
 
   test('includes inferred import dependencies for filtered runs', () => {
     const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
+    writeRunnerWorkspaceConfig(root);
+    writeRunnerPackage(root, 'b', '@scope/b');
+    writeRunnerPackage(root, 'a', '@scope/a');
     fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
     fs.writeFileSync(
       path.join(root, 'packages/a/src/index.ts'),
@@ -3142,885 +3194,242 @@ describe('Wiggum runner workspace graph', () => {
     expect(payload.graph.edges.some((edge) => edge.reason === 'inferred-import')).toBe(true);
   });
 
-  test('includes inferred dependencies from dynamic import specifiers', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "export async function load() {\n  return import('@scope/b/runtime');\n}\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from dynamic import specifiers with inline comments', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "export async function load() {\n  return import(/* chunk: \"b\" */ '@scope/b/runtime');\n}\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from dynamic import specifiers with line comments', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "export async function load() {\n  return import(\n    // chunk: b\n    '@scope/b/runtime'\n  );\n}\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from require specifiers', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtime = require('@scope/b/runtime');\nexport default runtime;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from require specifiers with inline comments', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtime = require(/* chunk: \"b\" */ '@scope/b/runtime');\nexport default runtime;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from require specifiers with line comments', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtime = require(\n  // chunk: b\n  '@scope/b/runtime'\n);\nexport default runtime;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from require.resolve specifiers', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtimePath = require.resolve('@scope/b/runtime');\nexport default runtimePath;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from require.resolve specifiers with inline comments', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtimePath = require.resolve(/* chunk: \"b\" */ '@scope/b/runtime');\nexport default runtimePath;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from require.resolve specifiers with line comments', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtimePath = require.resolve(\n  // chunk: b\n  '@scope/b/runtime'\n);\nexport default runtimePath;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from import.meta.resolve specifiers', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtimePath = import.meta.resolve('@scope/b/runtime');\nexport default runtimePath;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from import.meta.resolve specifiers with inline comments', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtimePath = import.meta.resolve(/* chunk: \"b\" */ '@scope/b/runtime');\nexport default runtimePath;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from import.meta.resolve specifiers with line comments', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/b/package.json'), {
-      name: '@scope/b',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/a/package.json'), {
-      name: '@scope/a',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/a/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/a/src/index.ts'),
-      "const runtimePath = import.meta.resolve(\n  // chunk: b\n  '@scope/b/runtime'\n);\nexport default runtimePath;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/a',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/a', '@scope/b']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/b',
-      to: '@scope/a',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies for unscoped package subpath specifiers', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/shared/package.json'), {
-      name: 'shared',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/app/package.json'), {
-      name: 'app',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/app/src/index.ts'),
-      "import 'shared/runtime';\nexport const value = 1;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        'app',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['app', 'shared']);
-    expect(payload.graph.edges).toContainEqual({
-      from: 'shared',
-      to: 'app',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from export-from specifiers', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/shared/package.json'), {
-      name: '@scope/shared',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/app/package.json'), {
-      name: '@scope/app',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/app/src/index.ts'),
-      "export { runtime } from '@scope/shared/runtime';\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/app',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/shared',
-      to: '@scope/app',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from .mts source files', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/shared/package.json'), {
-      name: '@scope/shared',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/app/package.json'), {
-      name: '@scope/app',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/app/src/index.mts'),
-      "import '@scope/shared/runtime';\nexport const value = 1;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/app',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/shared',
-      to: '@scope/app',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from .cts source files', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/shared/package.json'), {
-      name: '@scope/shared',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/app/package.json'), {
-      name: '@scope/app',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/app/src'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/app/src/index.cts'),
-      "const runtime = require('@scope/shared/runtime');\nmodule.exports = runtime;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/app',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/shared',
-      to: '@scope/app',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from __tests__ source files', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/shared/package.json'), {
-      name: '@scope/shared',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/app/package.json'), {
-      name: '@scope/app',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/app/__tests__'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/app/__tests__/graph.test.ts'),
-      "import '@scope/shared/runtime';\nexport const value = 1;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/app',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/shared',
-      to: '@scope/app',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from tests source files', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/shared/package.json'), {
-      name: '@scope/shared',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/app/package.json'), {
-      name: '@scope/app',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/app/tests'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/app/tests/graph.test.ts'),
-      "import '@scope/shared/runtime';\nexport const value = 1;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/app',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/shared',
-      to: '@scope/app',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from spec source files', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/shared/package.json'), {
-      name: '@scope/shared',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/app/package.json'), {
-      name: '@scope/app',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/app/spec'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/app/spec/graph.spec.ts'),
-      "import '@scope/shared/runtime';\nexport const value = 1;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/app',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/shared',
-      to: '@scope/app',
-      reason: 'inferred-import',
-    });
-  });
-
-  test('includes inferred dependencies from specs source files', () => {
-    const root = makeTempWorkspace();
-    writeJson(path.join(root, 'wiggum.config.json'), {
-      projects: ['packages/*'],
-    });
-    writeJson(path.join(root, 'packages/shared/package.json'), {
-      name: '@scope/shared',
-      version: '1.0.0',
-    });
-    writeJson(path.join(root, 'packages/app/package.json'), {
-      name: '@scope/app',
-      version: '1.0.0',
-    });
-    fs.mkdirSync(path.join(root, 'packages/app/specs'), { recursive: true });
-    fs.writeFileSync(
-      path.join(root, 'packages/app/specs/graph.spec.ts'),
-      "import '@scope/shared/runtime';\nexport const value = 1;\n",
-    );
-
-    const result = runCLI(
-      [
-        'run',
-        'build',
-        '--root',
-        root,
-        '--config',
-        path.join(root, 'wiggum.config.json'),
-        '--project',
-        '@scope/app',
-        '--dry-run',
-        '--json',
-      ],
-      root,
-    );
-    expect(result.exitCode).toBe(0);
-    const payload = JSON.parse(result.stdout);
-    expect(payload.projects.map((project) => project.name)).toEqual(['@scope/app', '@scope/shared']);
-    expect(payload.graph.edges).toContainEqual({
-      from: '@scope/shared',
-      to: '@scope/app',
-      reason: 'inferred-import',
-    });
-  });
+  for (const inferredImportCase of [
+    {
+      name: 'includes inferred dependencies from dynamic import specifiers',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent: "export async function load() {\n  return import('@scope/b/runtime');\n}\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from dynamic import specifiers with inline comments',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "export async function load() {\n  return import(/* chunk: \"b\" */ '@scope/b/runtime');\n}\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from dynamic import specifiers with line comments',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "export async function load() {\n  return import(\n    // chunk: b\n    '@scope/b/runtime'\n  );\n}\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from require specifiers',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent: "const runtime = require('@scope/b/runtime');\nexport default runtime;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from require specifiers with inline comments',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "const runtime = require(/* chunk: \"b\" */ '@scope/b/runtime');\nexport default runtime;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from require specifiers with line comments',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "const runtime = require(\n  // chunk: b\n  '@scope/b/runtime'\n);\nexport default runtime;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from require.resolve specifiers',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "const runtimePath = require.resolve('@scope/b/runtime');\nexport default runtimePath;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from require.resolve specifiers with inline comments',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "const runtimePath = require.resolve(/* chunk: \"b\" */ '@scope/b/runtime');\nexport default runtimePath;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from require.resolve specifiers with line comments',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "const runtimePath = require.resolve(\n  // chunk: b\n  '@scope/b/runtime'\n);\nexport default runtimePath;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from import.meta.resolve specifiers',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "const runtimePath = import.meta.resolve('@scope/b/runtime');\nexport default runtimePath;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from import.meta.resolve specifiers with inline comments',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "const runtimePath = import.meta.resolve(/* chunk: \"b\" */ '@scope/b/runtime');\nexport default runtimePath;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies from import.meta.resolve specifiers with line comments',
+      dependencyDirectoryName: 'b',
+      dependencyPackageName: '@scope/b',
+      consumerDirectoryName: 'a',
+      consumerPackageName: '@scope/a',
+      projectFilter: '@scope/a',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent:
+        "const runtimePath = import.meta.resolve(\n  // chunk: b\n  '@scope/b/runtime'\n);\nexport default runtimePath;\n",
+      expectedProjects: ['@scope/a', '@scope/b'],
+    },
+    {
+      name: 'includes inferred dependencies for unscoped package subpath specifiers',
+      dependencyDirectoryName: 'shared',
+      dependencyPackageName: 'shared',
+      consumerDirectoryName: 'app',
+      consumerPackageName: 'app',
+      projectFilter: 'app',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent: "import 'shared/runtime';\nexport const value = 1;\n",
+      expectedProjects: ['app', 'shared'],
+    },
+    {
+      name: 'includes inferred dependencies from export-from specifiers',
+      dependencyDirectoryName: 'shared',
+      dependencyPackageName: '@scope/shared',
+      consumerDirectoryName: 'app',
+      consumerPackageName: '@scope/app',
+      projectFilter: '@scope/app',
+      sourceRelativePath: 'src/index.ts',
+      sourceContent: "export { runtime } from '@scope/shared/runtime';\n",
+      expectedProjects: ['@scope/app', '@scope/shared'],
+    },
+    {
+      name: 'includes inferred dependencies from .mts source files',
+      dependencyDirectoryName: 'shared',
+      dependencyPackageName: '@scope/shared',
+      consumerDirectoryName: 'app',
+      consumerPackageName: '@scope/app',
+      projectFilter: '@scope/app',
+      sourceRelativePath: 'src/index.mts',
+      sourceContent: "import '@scope/shared/runtime';\nexport const value = 1;\n",
+      expectedProjects: ['@scope/app', '@scope/shared'],
+    },
+    {
+      name: 'includes inferred dependencies from .cts source files',
+      dependencyDirectoryName: 'shared',
+      dependencyPackageName: '@scope/shared',
+      consumerDirectoryName: 'app',
+      consumerPackageName: '@scope/app',
+      projectFilter: '@scope/app',
+      sourceRelativePath: 'src/index.cts',
+      sourceContent: "const runtime = require('@scope/shared/runtime');\nmodule.exports = runtime;\n",
+      expectedProjects: ['@scope/app', '@scope/shared'],
+    },
+    {
+      name: 'includes inferred dependencies from __tests__ source files',
+      dependencyDirectoryName: 'shared',
+      dependencyPackageName: '@scope/shared',
+      consumerDirectoryName: 'app',
+      consumerPackageName: '@scope/app',
+      projectFilter: '@scope/app',
+      sourceRelativePath: '__tests__/graph.test.ts',
+      sourceContent: "import '@scope/shared/runtime';\nexport const value = 1;\n",
+      expectedProjects: ['@scope/app', '@scope/shared'],
+    },
+    {
+      name: 'includes inferred dependencies from tests source files',
+      dependencyDirectoryName: 'shared',
+      dependencyPackageName: '@scope/shared',
+      consumerDirectoryName: 'app',
+      consumerPackageName: '@scope/app',
+      projectFilter: '@scope/app',
+      sourceRelativePath: 'tests/graph.test.ts',
+      sourceContent: "import '@scope/shared/runtime';\nexport const value = 1;\n",
+      expectedProjects: ['@scope/app', '@scope/shared'],
+    },
+    {
+      name: 'includes inferred dependencies from spec source files',
+      dependencyDirectoryName: 'shared',
+      dependencyPackageName: '@scope/shared',
+      consumerDirectoryName: 'app',
+      consumerPackageName: '@scope/app',
+      projectFilter: '@scope/app',
+      sourceRelativePath: 'spec/graph.spec.ts',
+      sourceContent: "import '@scope/shared/runtime';\nexport const value = 1;\n",
+      expectedProjects: ['@scope/app', '@scope/shared'],
+    },
+    {
+      name: 'includes inferred dependencies from specs source files',
+      dependencyDirectoryName: 'shared',
+      dependencyPackageName: '@scope/shared',
+      consumerDirectoryName: 'app',
+      consumerPackageName: '@scope/app',
+      projectFilter: '@scope/app',
+      sourceRelativePath: 'specs/graph.spec.ts',
+      sourceContent: "import '@scope/shared/runtime';\nexport const value = 1;\n",
+      expectedProjects: ['@scope/app', '@scope/shared'],
+    },
+  ]) {
+    test(inferredImportCase.name, () => {
+      assertInferredImportRunCase(inferredImportCase);
+    });
+  }
 
   test('deduplicates inferred dependencies across multiple source files', () => {
     const root = makeTempWorkspace();
