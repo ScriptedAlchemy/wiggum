@@ -28,7 +28,7 @@
     "start": "node bin/cli.js",
     "dev": "rslib build --watch",
     "build": "rslib build",
-    "prebuild": "npm run clean",
+    "prebuild": "pnpm --filter @wiggum/agent build && npm run clean",
     "test": "npm run build && rstest",
     "clean": "rm -rf dist",
     "list:providers": "tsx list-opencode-providers.ts",
